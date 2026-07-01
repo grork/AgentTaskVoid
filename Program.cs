@@ -48,14 +48,20 @@ static int Create(string[] args)
     string title = args[0];
     string subtitle = args.Length > 1 ? args[1] : "";
 
-    var task = AppTaskInfo.Create(title, subtitle, null, null, null);
+    // Both deepLink and iconUri cannot be null — the native implementation dereferences them
+    // unconditionally in ResolveIconPath and CreateJsonObject respectively.
+    var iconUri = new Uri("ms-appx:///Assets/Square44x44Logo.png");
+    var deepLink = new Uri("https://example.com");
+    var content = AppTaskContent.CreateSequenceOfSteps([], subtitle.Length > 0 ? subtitle : title);
+
+    var task = AppTaskInfo.Create(title, subtitle, deepLink, iconUri, content);
     Console.WriteLine($"Created task: {task.Id}");
     return 0;
 }
 
 static int List()
 {
-    var tasks = AppTaskInfo.FindAll();
+    var tasks = AppTaskInfo.FindAll() ?? [];
     if (tasks.Length == 0)
     {
         Console.WriteLine("No tasks.");
@@ -75,7 +81,7 @@ static int List()
 
 static int Clear()
 {
-    var tasks = AppTaskInfo.FindAll();
+    var tasks = AppTaskInfo.FindAll() ?? [];
     foreach (var task in tasks)
         task.Remove();
     Console.WriteLine($"Cleared {tasks.Length} task(s).");

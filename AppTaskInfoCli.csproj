@@ -21,4 +21,11 @@
     <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ms-appx:/// resolves relative to the external location (bin dir), so copy assets there -->
+    <Content Include="identity\Assets\*" CopyToOutputDirectory="PreserveNewest">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
 </Project>
