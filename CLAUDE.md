@@ -12,9 +12,15 @@ No test project exists. There are no lint steps.
 
 ## What this project is
 
-A minimal C# CLI tool that wraps the experimental `Windows.UI.Shell.Tasks.AppTaskInfo` WinRT API, which drives persistent task entries in the Windows 11 Taskbar jump list (right-click on a pinned app).
+A minimal C# CLI tool that wraps the experimental `Windows.UI.Shell.Tasks.AppTaskInfo` WinRT API, which drives persistent task entries shown as their own separate icons on the Windows 11 taskbar — grouped independently of, and not requiring, any running app window.
+
+**This is not jump lists.** Jump lists are per-app right-click menus on a pinned icon; app tasks are distinct taskbar icons in their own group, created via a completely different API. If you catch yourself reasoning about this feature in terms of jump lists, stop — the mental model is wrong.
 
 Commands: `create <title> [subtitle]`, `list`, `clear`
+
+## API reference
+
+Before calling the `microsoft-learn` MCP tools for `Windows.UI.Shell.Tasks` types, check [`docs/windows-ui-shell-tasks/`](docs/windows-ui-shell-tasks/README.md) — a local, token-cheap reference for every class/member in the namespace, cross-checked against the generated CsWinRT projection and annotated with gotchas found by experimentation. Update it if you learn something new about the API's runtime behavior.
 
 ## Key constraints and non-obvious decisions
 
