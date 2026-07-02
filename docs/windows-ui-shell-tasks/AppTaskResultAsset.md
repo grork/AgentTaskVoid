@@ -15,4 +15,4 @@ AppTaskResultAsset(string name, string context, Uri iconUri, Uri assetUri)
 | `iconUri` | Icon representing the asset. Supports `ms-appx:///`, `ms-appdata:///`, absolute paths — see [README](README.md#uri-formats-accepted-by-iconasset-parameters). |
 | `assetUri` | URI of the actual generated asset (e.g. a file path). |
 
-No other members — no properties, no additional methods. It's a plain, immutable value carrier constructed and then handed straight to `AppTaskContent.CreateGeneratedAssetsResult`.
+No other members — no properties, no methods. An immutable value carrier passed straight to `AppTaskContent.CreateGeneratedAssetsResult`.

@@ -10,16 +10,16 @@ Tasks are **persisted** across app sessions and reboots — they remain visible 
 
 | Member | Signature | Description |
 |---|---|---|
-| `IsSupported()` | `static bool IsSupported()` | Whether app tasks are supported on this device. Call before any other API, and at startup alongside `FindAll()`. Can throw `COMException(CLASS_E_CLASSNOTAVAILABLE)` instead of returning `false` — wrap in try/catch. If it returns `false`, `FindAll()` returns an empty collection. |
+| `IsSupported()` | `static bool IsSupported()` | Whether app tasks are supported on this device. Call before any other API, and at startup alongside `FindAll()`. Can return `CLASS_E_CLASSNOTAVAILABLE` instead of `false` on some builds — see `CLAUDE.md` for the consuming code's handling of this. If it returns `false`, `FindAll()` returns an empty collection. |
 | `FindAll()` | `static AppTaskInfo[] FindAll()` | All non-removed tasks created by this app, including ones the user has hidden from the taskbar. Empty array if unsupported. Call at startup to recover tasks that outlived a previous app session. |
-| `Create(title, subtitle, deepLink, iconUri, content)` | `static AppTaskInfo Create(string title, string subtitle, Uri deepLink, Uri iconUri, AppTaskContent content)` | Creates and persists a new task. `title` is required — throws if missing/empty. `subtitle` optional, `""` is fine. `deepLink`/`iconUri` must both be non-null `Uri`s (see [README local gotchas](README.md#local-gotchas-learned-by-experimentation-not-documented-by-ms) — the native side dereferences them unconditionally). `content` comes from one of the `AppTaskContent` factory methods. |
+| `Create(title, subtitle, deepLink, iconUri, content)` | `static AppTaskInfo Create(string title, string subtitle, Uri deepLink, Uri iconUri, AppTaskContent content)` | Creates and persists a new task. `title` is required — throws if missing/empty. `subtitle` optional, `""` is fine. `deepLink`/`iconUri` must both be non-null `Uri`s (see [README local gotchas](README.md#local-gotchas) — the native side dereferences them unconditionally). `content` comes from one of the `AppTaskContent` factory methods. |
 
 ## Instance properties (all get-only)
 
 | Property | Type | Contract | Notes |
 |---|---|---|---|
 | `Id` | `string` | v2.0 | Auto-generated unique id. |
-| `Title` | `string` | v1.0 | Groups related tasks; sometimes shown appended with `Subtitle` (e.g. "Researcher - Trends in smart appliances"). Set via `Create`/`UpdateTitles`. |
+| `Title` | `string` | v1.0 | Sometimes shown appended with `Subtitle` (e.g. "Researcher - Trends in smart appliances"). Set via `Create`/`UpdateTitles`. MS docs claim "tasks are grouped based on the title"; this is false — taskbar-icon grouping is keyed by `IconUri`, not `Title`. See [README grouping mechanics](README.md#taskbar-grouping-mechanics). |
 | `Subtitle` | `string` | v1.0 | Optional additional context. Set via `Create`/`UpdateTitles`. |
 | `State` | `AppTaskState` | v1.0 | Set via `Update`/`UpdateState`. See [AppTaskState.md](AppTaskState.md). |
 | `StartTime` | `DateTimeOffset` | v1.0 | When the task was created. |
@@ -33,8 +33,8 @@ Tasks are **persisted** across app sessions and reboots — they remain visible 
 | Method | Signature | Description |
 |---|---|---|
 | `Remove()` | `void Remove()` | Removes the Shell representation without changing task state. Idempotent — calling it more than once is harmless. |
-| `Update(state, content)` | `void Update(AppTaskState state, AppTaskContent content)` | Sets state and content together. Use as the task progresses, errors, or completes. |
-| `UpdateState(state)` | `void UpdateState(AppTaskState state)` | Sets state only; content unchanged. |
+| `Update(state, content)` | `void Update(AppTaskState state, AppTaskContent content)` | Sets state and content together. Use as the task progresses, errors, or completes. Returns `E_INVALIDARG` ("Content is not valid for the new state") if `content` isn't compatible with `state`; the task's state is left unchanged. See [state-content-compatibility.md](state-content-compatibility.md) for the compatibility rule and matrix. |
+| `UpdateState(state)` | `void UpdateState(AppTaskState state)` | Sets state only; content unchanged. Validates the new `state` against the task's *current* content the same way `Update` does. |
 | `UpdateTitles(title, subtitle)` | `void UpdateTitles(string title, string subtitle)` | Sets title/subtitle only. |
 | `UpdateDeepLink(deepLink)` | `void UpdateDeepLink(Uri deepLink)` | Sets deep link only. **Contract v2.0.** |
 | `GetCompletedSteps()` | `string[] GetCompletedSteps()` | Steps already completed, in order — pairs with content created by `AppTaskContent.CreateSequenceOfSteps`. |

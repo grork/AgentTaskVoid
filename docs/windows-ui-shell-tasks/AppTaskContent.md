@@ -13,11 +13,13 @@
 
 ## Mutators — layer "needs attention" UI on top of any content
 
+`SetQuestion` is a requirement for `AppTaskState.NeedsAttention`: `AppTaskInfo.Update(NeedsAttention, content)` returns `E_INVALIDARG` unless `content` has had `SetQuestion` called on it (any factory shape). `AddButton`/`SetTextInput` are optional additions on top of a question — neither one alone (without `SetQuestion`) satisfies the `NeedsAttention` requirement. All three mutators are valid under every other state, with no `SetQuestion` requirement there. Full matrix: [state-content-compatibility.md](state-content-compatibility.md).
+
 | Method | Signature | Notes |
 |---|---|---|
-| `SetQuestion(question)` | `void SetQuestion(string question)` | Question text shown to the user. Combine with `AddButton` and/or `SetTextInput` when the task needs a decision. Typically paired with `AppTaskState.NeedsAttention`. |
-| `AddButton(text, actionUri)` | `void AddButton(string text, Uri actionUri)` | Adds a clickable action button; `actionUri` is launched on click. Max count is `MaxButtons`. |
-| `SetTextInput(placeholderText, actionUriTemplate)` | `void SetTextInput(string placeholderText, string actionUriTemplate)` | Free-form text input field. `actionUriTemplate` must contain the literal token `{userTextInput}`, which is replaced with the user's URL-encoded input on submit. Example: template `my-app:task/?response={userTextInput}` + input `scope only` → `my-app:task/?response=scope%20only`. |
+| `SetQuestion(question)` | `void SetQuestion(string question)` | Question text shown to the user. **Required for `AppTaskState.NeedsAttention`** (see above) — combine with `AddButton` and/or `SetTextInput` when the task needs a decision. |
+| `AddButton(text, actionUri)` | `void AddButton(string text, Uri actionUri)` | Adds a clickable action button; `actionUri` is launched on click. Max count is `MaxButtons`. On its own it doesn't satisfy the `NeedsAttention` requirement (see above). |
+| `SetTextInput(placeholderText, actionUriTemplate)` | `void SetTextInput(string placeholderText, string actionUriTemplate)` | Free-form text input field. `actionUriTemplate` must contain the literal token `{userTextInput}`, which is replaced with the user's URL-encoded input on submit. Example: template `my-app:task/?response={userTextInput}` + input `scope only` → `my-app:task/?response=scope%20only`. On its own it doesn't satisfy the `NeedsAttention` requirement (see above). |
 
 ## Statics (property)
 

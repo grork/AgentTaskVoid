@@ -1,5 +1,5 @@
 # Register the identity package for AppTaskInfoCli (dev/sideload, no signing required)
-$appDir = (Resolve-Path ".\bin\Debug\net9.0-windows10.0.26100.0").Path
+$appDir = (Resolve-Path ".\bin\Debug\net10.0-windows10.0.26100.0").Path
 $manifest = (Resolve-Path ".\identity\AppxManifest.xml").Path
 
 Write-Host "Registering identity package..."
