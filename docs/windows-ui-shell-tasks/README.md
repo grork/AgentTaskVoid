@@ -25,6 +25,10 @@ Local reference for the experimental `Windows.UI.Shell.Tasks` WinRT namespace, f
 - The taskbar runs inside `explorer.exe`, which watches that folder for changes and picks up updates live. There is no IPC from the app to the taskbar — the file is the interface.
 - Hence tasks persist across reboots and don't need the app running: the taskbar reads state from disk, not from a live connection to the app.
 
+## Concurrency: writes are not serialized across processes
+
+Empirically (Windows 11 26100, 2026-07-02), `OSClient.API.dll` does **not** serialize writes to `tasks.json` across processes. Each `Create`/`Update`/`Remove` reads the whole file, mutates, and rewrites it, with no cross-process lock — so concurrent writers **clobber each other (last-writer-wins on the whole file)**. A stress test of 4 processes each creating 100 tasks against one identity kept only **37 of 400** — ~91% silent lost writes (every call returned success). The file is **not corrupted** (it stays valid JSON); writes are simply lost. Because the contention is the whole file, even writes to *different* tasks collide. Any tool brokering multiple concurrent callers must wrap every write in its own cross-process lock — a system-wide named mutex scoped to the package identity fixes it (the same test then kept 400/400).
+
 ## Taskbar grouping mechanics
 
 Undocumented Shell behavior for this build — not a contract, and it may change. Covers how multiple `AppTaskInfo` entries render together on the taskbar.
