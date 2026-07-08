@@ -33,11 +33,15 @@ Decision detail (2026-07-03):
   per-handle `lastUpdate` polling. Registry rejected: breaks the "beside tasks.json,
   inspectable, file-as-interface" property and enumerates clumsily. Build detail:
   handles are caller-supplied strings (ERGO-6, "The identifier a caller holds"), so
-  the filename needs a safe encoding (hash / percent-encode), not the raw string.
+  the filename needs a REVERSIBLE percent-encoding, not the raw string and not a
+  one-way hash [ratified 2026-07-07: `list` and expiry-time recycle-bin records must
+  recover the handle from an entry].
 - Location: package app-data (`ApplicationData.Current.LocalFolder`), beside
   tasks.json and the FAIL-3 ("Diagnosability") log.
-- Reconciliation rules (run each invocation, under the INFRA-6 mutex -- it is a
-  read-modify-write across both stores):
+- Reconciliation rules (under the INFRA-6 mutex -- a read-modify-write across both
+  stores) [SCOPED 2026-07-07: the full pass runs on `start`/`remove`/`clear` and
+  watchdog ticks; update-class verbs resolve only their own handle -- no `FindAll()`,
+  no sweep, per ERGO-19]:
   - entry present, API knows `id`, not hidden -> keep;
   - entry present, API no longer knows `id` -> drop entry (our stale mapping);
   - API `id` is `HiddenByUser` -> `Remove()` + drop entry (the ERGO-2 sweep);

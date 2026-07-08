@@ -5,6 +5,10 @@ step into `completedSteps` and sets the new executing step -- the caller never
 manages the array. `completedSteps` is a FIFO capped at 10 (oldest drops off).
 The CLI owns the read-modify-write (RMW = read-modify-write), run against the
 live API (`GetCompletedSteps()`/`GetExecutingStep()` -> advance -> `Update()`).
+[AMENDED 2026-07-07: `step` PRESERVES the card's current state -- the RMW re-sends
+the state it read with the advanced content; combinations outside the ERGO-10 safe
+set (NeedsAttention without a question) are refused by the validator. State changes
+belong to the dedicated verbs, which drop the question when leaving NeedsAttention.]
 **Parent:** ERGO-1
 
 The API replaces content wholesale on `Update` (e.g. `CreateSequenceOfSteps`

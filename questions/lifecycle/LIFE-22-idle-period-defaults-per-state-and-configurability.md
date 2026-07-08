@@ -30,5 +30,6 @@ moderate) rather than one number.
 Note (2026-07-05, from LIFE-21, "What expiry does"): the recycle bin handles EVENT-DRIVEN
 resurrection only. Nothing resurrects a NeedsAttention card (a returning user is not a CLI
 event, and v1 has no answer round-trip), so the per-state visible-idle periods here still
-stand -- NeedsAttention keeps its very-long/never period so the live card stays up for the away
-user. The recycle bin is complementary, not a replacement.
+stand -- NeedsAttention keeps its longer-than-Running period (~4h per the decision above; it
+DOES expire at that threshold -- the stale "very-long/never" phrasing was corrected 2026-07-07)
+so the live card stays up for the away user. The recycle bin is complementary, not a replacement.
