@@ -1,0 +1,58 @@
+# Interop surface for the D2D/DWrite/WIC software glyph->PNG rendering path
+# (ERGO-22). Kept minimal and hand-picked (not a whole-namespace pull) so the
+# generated surface is easy to audit.
+
+# COM startup + lifetime
+CoInitializeEx
+CoUninitialize
+CoCreateInstance
+
+# WIC: the software bitmap that stands in for a D3D swapchain (zero-GPU).
+IWICImagingFactory
+CLSID_WICImagingFactory
+IWICBitmap
+IWICBitmapLock
+GUID_WICPixelFormat32bppPBGRA
+WICBitmapCreateCacheOption
+WICBitmapLockFlags
+
+# Direct2D: SOFTWARE render target bound to the WIC bitmap above, plus the
+# solid-color brush and glyph/shape drawing calls GlyphRenderer/ShapeRenderer
+# need. D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT on the base ID2D1RenderTarget
+# is what lets ONE path (no ID2D1DeviceContext, no D3D device) draw both
+# monochrome Segoe glyphs and color emoji.
+D2D1CreateFactory
+ID2D1Factory
+ID2D1RenderTarget
+ID2D1SolidColorBrush
+D2D1_FACTORY_TYPE
+D2D1_RENDER_TARGET_TYPE
+D2D1_RENDER_TARGET_PROPERTIES
+D2D1_RENDER_TARGET_USAGE
+D2D1_FEATURE_LEVEL
+D2D1_ALPHA_MODE
+D2D1_PIXEL_FORMAT
+D2D1_COLOR_F
+D2D_RECT_F
+D2D_POINT_2F
+D2D1_BRUSH_PROPERTIES
+D2D1_DRAW_TEXT_OPTIONS
+D2D1_ELLIPSE
+DXGI_FORMAT
+
+# DirectWrite: text format for a single glyph, centered, and the font-face
+# lookup GlyphProbe needs for a presence check that never throws.
+DWriteCreateFactory
+IDWriteFactory
+IDWriteTextFormat
+IDWriteFontCollection
+IDWriteFontFamily
+IDWriteFont
+IDWriteFontFace
+DWRITE_FACTORY_TYPE
+DWRITE_TEXT_ALIGNMENT
+DWRITE_PARAGRAPH_ALIGNMENT
+DWRITE_FONT_WEIGHT
+DWRITE_FONT_STYLE
+DWRITE_FONT_STRETCH
+DWRITE_MEASURING_MODE

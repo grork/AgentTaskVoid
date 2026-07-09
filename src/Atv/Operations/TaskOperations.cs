@@ -1,3 +1,4 @@
+using Atv.Icons;
 using Atv.Persistence;
 using Atv.Store;
 
@@ -74,6 +75,7 @@ public sealed class TaskOperations
     private readonly WriteGate _writeGate;
     private readonly TimeSpan _recycleBinTtl;
     private readonly Action<string> _log;
+    private readonly IconService? _icons;
 
     public TaskOperations(
         IAppTaskStore store,
@@ -81,7 +83,8 @@ public sealed class TaskOperations
         RecycleBin recycleBin,
         WriteGate writeGate,
         TimeSpan recycleBinTtl,
-        Action<string>? log = null)
+        Action<string>? log = null,
+        IconService? icons = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _sidecar = sidecar ?? throw new ArgumentNullException(nameof(sidecar));
@@ -89,6 +92,7 @@ public sealed class TaskOperations
         _writeGate = writeGate ?? throw new ArgumentNullException(nameof(writeGate));
         _recycleBinTtl = recycleBinTtl;
         _log = log ?? (_ => { });
+        _icons = icons;
     }
 
     // ---- start (ERGO-25 upsert; LIFE-15/21 resurrection) -------------------
@@ -128,7 +132,7 @@ public sealed class TaskOperations
         DateTimeOffset now, bool reset, bool unsafeBypass)
     {
         // Full pass (phase-04 scoping: start/remove use ReconcileAll, never per-handle ResolveHandle).
-        Reconciler.ReconcileAll(_store, _sidecar);
+        ReapDroppedIcons(Reconciler.ReconcileAll(_store, _sidecar));
         var entry = _sidecar.Read(handle);
 
         if (entry is not null)
@@ -156,6 +160,11 @@ public sealed class TaskOperations
         if (record is not null)
         {
             _recycleBin.Remove(handle);
+            // Start always carries its own fully-resolved icon (ERGO-25) --
+            // the recycled copy, if any, is now definitively orphaned (never
+            // moved back), so reap it here rather than leaving it for the
+            // backstop sweep.
+            _icons?.ReapRecycledIcon(handle);
             string reason = "Resurrected from the recycle bin; re-created using the fields this start carried.";
             Log($"{handle}: {reason} (tombstoned {record.WhenTombstoned:O}; new id {created.Id})");
             return new OperationOutcome(OutcomeKind.Resurrected, handle, reason, created);
@@ -276,7 +285,7 @@ public sealed class TaskOperations
     private OperationOutcome RemoveCore(string handle)
     {
         // Full pass (phase-04 scoping: start/remove use ReconcileAll).
-        Reconciler.ReconcileAll(_store, _sidecar);
+        ReapDroppedIcons(Reconciler.ReconcileAll(_store, _sidecar));
         var entry = _sidecar.Read(handle);
         if (entry is null)
         {
@@ -287,8 +296,25 @@ public sealed class TaskOperations
 
         _store.Remove(entry.Id);
         _sidecar.Delete(handle);
+        _icons?.ReapLiveIcon(handle);
         Log($"{handle}: removed (id {entry.Id}).");
         return new OperationOutcome(OutcomeKind.Removed, handle, "Removed.");
+    }
+
+    /// <summary>
+    /// Reaps the live per-handle icon for every entry a full
+    /// <see cref="Reconciler.ReconcileAll"/> pass dropped (rule 2, our own
+    /// stale mapping) or swept (rule 3, the ERGO-2 hidden sweep) -- the
+    /// "entry-drop/reconciliation reap" wiring point ERGO-23 calls for.
+    /// <see cref="Reconciler"/> itself stays icon-unaware (its own contract
+    /// is unchanged from phase 04): this reacts to the summary it already
+    /// returns rather than threading an icons collaborator through it.
+    /// </summary>
+    private void ReapDroppedIcons(ReconcileSummary summary)
+    {
+        if (_icons is null) return;
+        foreach (var r in summary.DroppedStaleEntries) _icons.ReapLiveIcon(r.Handle);
+        foreach (var r in summary.SweptHidden) _icons.ReapLiveIcon(r.Handle);
     }
 
     // ---- shared update-class pipeline (step/state/done/fail/attention) -----
@@ -347,6 +373,9 @@ public sealed class TaskOperations
         }
 
         // resolve.Outcome is Unknown or Dropped -- miss path: consult the recycle bin (read ONLY here).
+        if (resolve.Outcome == ResolveOutcome.Dropped)
+            _icons?.ReapLiveIcon(handle); // rule 2's entry-drop reap (the per-handle-resolve counterpart to ReapDroppedIcons above)
+
         var record = _recycleBin.TryResurrect(handle, now, _recycleBinTtl);
         if (record is null)
         {
@@ -367,7 +396,7 @@ public sealed class TaskOperations
         // parameter) -- "steps/state restart fresh" (LIFE-21). The verb's real target is then
         // layered on with a follow-up Update, itself already validated above.
         var baseline = new AppTaskContentDto.SequenceOfSteps([], "");
-        var recreated = Resurrection.RecreateFromRecord(_store, record, baseline);
+        var recreated = Resurrection.RecreateFromRecord(_store, record, baseline, _icons);
         _store.Update(recreated.Id, freshState, freshContent);
         var finalView = _store.Find(recreated.Id)!;
 

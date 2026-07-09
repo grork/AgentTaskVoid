@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      ERGO-22 ("Icon glyph -> PNG rendering"): a DISCRETE project quarantining
+      the D2D/DWrite/WIC interop, referenced P2P from src/Atv. Windows-only
+      (same TFM as the main project: this is Win32 COM interop, not WinRT,
+      but still needs the Windows-flavored TFM for the Windows SDK contracts
+      CsWin32 projects against).
+    -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <RootNamespace>Atv.IconRendering</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!--
+      NativeAOT compatibility (ERGO-22, INFRA-3): CsWin32 emits
+      GeneratedComInterface/LibraryImport-based interop (source-generated,
+      trim/AOT-safe) instead of classic ComImport/Marshal-based interop only
+      when these are set; see NativeMethods.json's "allowMarshaling": false
+      for the other half of this switch. PublishAot itself is a no-op for a
+      class library (only the exe publishes AOT), but CsWin32 keys its code
+      generation off these flags being present regardless of project type, so
+      they're set here too rather than only on src/Atv.
+    -->
+    <PublishAot>true</PublishAot>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.298" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

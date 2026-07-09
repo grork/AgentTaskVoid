@@ -26,7 +26,7 @@ a phase that fails review **twice** halts the whole run for operator attention.
 | 04 | Persistence: write mutex, sidecar store, recycle bin | ✅ | 1 | PASS (1st) |
 | 05 | Task operations: validator, advance model, upsert | ✅ | 1 | PASS (1st) |
 | 06 | Config, output contract, durable log | ✅ | 1 | PASS (1st) |
-| 07 | Icon pipeline: rendering project + icon management | ⬜ | 0 | — |
+| 07 | Icon pipeline: rendering project + icon management | ✅ | 1 | PASS (1st) |
 | 08 | CLI framework + lifecycle verbs | ⬜ | 0 | — |
 | 09 | Watchdog | ⬜ | 0 | — |
 | 10 | Utility verbs: `list`, `clear`, `doctor` | ⬜ | 0 | — |
@@ -72,5 +72,12 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - **Result:** 206/206 logic tests green (74 new); build 0/0; AOT clean. Precedence flag>env>file>default (STJ source-gen, flat string→string map); brand-derived env names; non-disruptive posture (exit0 + always-logged failure) w/ `--strict` exit vocab 1/2/3/4 + `--json` `{ok,reason}`; durable log w/ size+age rotation, swallows write failures; INFRA-13 capability→exit(2/3) mapping folded into `Posture`.
 - **Review:** PASS. AC1–AC5 met; invariants #1/#2/#4 upheld; scope held (no doctor/watchdog/run wiring). Deviations all ACCEPTABLE: `--json`+`--strict`→strict exit wins; some JSON contexts folded into DTO files; `MutexWaitBudget`=`WriteGate.DefaultTimeout`.
 - **Notes for phase 08 (composition root):** (a) wire `SettingsLoader`'s `Warnings` seam into `FailureLog` at startup (loader deliberately has no Diagnostics dep); (b) add a `--json`+`--strict` combination test (currently untested, non-blocking).
+
+### Phase 07 — Icon pipeline ✅ (signed off 1st attempt; lean mode)
+- **Files:** created `src/Atv.IconRendering/*` (discrete project: `GlyphRenderer`/`GlyphProbe`/`ShapeRenderer`/`SoftwareCanvas`/`PngEncoder` + CsWin32 `NativeMethods.txt`/`.json`); `src/Atv/Icons/{IconTokens,IconService}.cs`; tests `tests/Atv.IconRendering.Tests/*`, `tests/Atv.LogicTests/Icons/*`, `.../Operations/TaskOperationsIconTests.cs`. Made icon-aware (extension points): `src/Atv/Operations/{TaskOperations,Resurrection}.cs` (optional `IconService?` collaborator — reap on remove/reconcile-drop/per-handle-drop, real resurrection move-back). `Reconciler.cs`/`RecycleBin.cs` untouched (react to their return values). `Atv.csproj` P2P ref + `.slnx`.
+- **Tech:** zero-GPU D2D/DWrite/WIC software render target; CsWin32-generated source-gen COM interop (build-time only, `PrivateAssets=all`, `allowMarshaling:false`); hand-rolled PNG encoder (avoids IStream interop); one fixed 64px PNG per glyph (no scale-150 — `IconUri` takes plain file paths, no OS scale-selection); raw file-path escape hatch shipped. Separate-by-session per-handle copies; single-owner move model (live XOR recycle).
+- **Result:** build 0/0; LogicTests 236/236 (206 prior + 30), IconRendering.Tests 11/11; AOT clean, **exe delta = 0 bytes** (2,922,496). Deviations (CsWin32, hand-rolled PNG) reviewer-ACCEPTABLE.
+- **Residuals (non-blocking):** AC4 default→drawn-shape tier untested end-to-end (no seam exists by ERGO-22 design; shape renderer directly tested; indirect coverage adequate). AC6 real-taskbar visual unautomatable (render-to-PNG validated + eyeballed). *Candidate future tech-debt: add a GlyphProbe seam to IconService if full fallback-chain coverage is ever wanted.*
+- **Forward:** phase 08 wires `start --icon` + default; phase 09 calls the `MoveToRecycle` ops; phase 10 wires `clear` bulk icon purge.
 
 _(Further per-phase notes appended below as phases execute.)_

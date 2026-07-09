@@ -30,6 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ERGO-22: the quarantined glyph->PNG rendering project. -->
+    <ProjectReference Include="..\Atv.IconRendering\Atv.IconRendering.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- ms-appx:/// resolves relative to the package root at runtime, which is also
          where the AppxManifest's VisualElements logos live: one folder serves both. -->
     <Content Include="Package\Assets\*.png" CopyToOutputDirectory="PreserveNewest">
