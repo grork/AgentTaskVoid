@@ -12,6 +12,7 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - Only advance to the next phase after sign-off.
 - **Commit convention:** phases 01–04 committed together as `f706cf4` (they were built as one intermingled snapshot). From phase 05 onward, **one commit per phase, made immediately after reviewer sign-off** (message `Phase NN: <title>`, Co-Authored-By trailer). Branch `plan-execution`; no pushing unless asked.
 - **Subagent thinking level:** phases 01–03 ran at max (ultrathink). From **phase 04 onward: Sonnet + xhigh** (operator request 2026-07-08, to keep token usage on track).
+- **Lean mode is the DEFAULT** (operator, 2026-07-08): terse subagent reports (verdict + files + test counts + deviations, not essays), suppress git CRLF noise (`git add -A 2>/dev/null`), do all build/verify in subagents (their tool I/O stays out of the main context), never inline. Same verification rigor — only report verbosity shrinks. Reserve verbose for contentious/high-stakes phases, or request expansion on one finding on demand.
 
 **Status legend:** ⬜ pending · 🔄 executing · 🔍 in review · ✅ signed off · ❌ halted (2 failures)
 
