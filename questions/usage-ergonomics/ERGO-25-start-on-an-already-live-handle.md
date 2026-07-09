@@ -22,10 +22,15 @@ Detail (2026-07-05):
   continuity holds.
 - Validator (ERGO-10, "Guarding unsupported combinations"): `start`-on-a-live-handle is VALID,
   not an unsupported combination.
-- Recycle-bin caveat (clarified 2026-07-05): "preserves step history" applies to the LIVE-handle
-  path only. A recycle-binned handle has no stored steps (LIFE-21 stores nothing mutable), so a
-  resurrecting `start` yields the restored core info (title, subtitle, icon, deepLink -- per the
-  2026-07-05 LIFE-21 record amendment) with a fresh step sequence.
+- Recycle-bin caveat (clarified 2026-07-05; amended 2026-07-08): "preserves step history" applies
+  to the LIVE-handle path only. A recycle-binned handle has no stored steps (LIFE-21 stores nothing
+  mutable), so a resurrecting `start` yields a fresh step sequence. It applies the fields `start`
+  itself carries (title, subtitle, icon, deepLink -- always fully resolved by the CLI's default
+  layer, ERGO-12/20/24), NOT the tombstone's stored values, consistent with how a live-handle
+  `start` re-applies the caller's fields over the existing card. (The tombstone's stored core info
+  is what the other five update-class verbs -- `step`/`state`/`done`/`fail`/`attention` -- resurrect
+  from, since they carry no create fields of their own. Also note: a `start` on a genuinely
+  never-seen handle simply creates -- it never no-ops, ERGO-27 create-or-adopt.)
 
 Nothing decides what `start <handle>` does when the handle is already live -- and it will
 happen routinely: Copilot CLI and Codex session ids SURVIVE resume (LIFE-13, "GitHub

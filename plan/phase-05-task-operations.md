@@ -76,10 +76,18 @@ unit-tested against the fake.
     co-located icon's move-back into this path), apply the update.
     Steps/state restart fresh (nothing mutable was stored). This is a SCOPED upsert:
     only previously-live tombstoned handles resurrect.
-  - Not found (past TTL / after reboot / never seen) → clean unknown-handle no-op
-    (log; `--strict` exit nonzero; `--json` `{"ok":false,"reason":…}`).
-- A resurrecting `start` yields restored core info + whatever `start` carries, fresh
-  step sequence (ERGO-25 recycle-bin caveat).
+  - Not found (past TTL / after reboot / never seen) → for the FIVE update-class
+    verbs (`step`/`state`/`done`/`fail`/`attention`), a clean unknown-handle no-op
+    (log; `--strict` exit nonzero; `--json` `{"ok":false,"reason":…}`). `start` is
+    the exception: it always carries fully-resolved create fields, so a total miss is
+    just its ordinary create path — `start` never no-ops (ERGO-25/ERGO-27
+    create-or-adopt). Ratified 2026-07-08.
+- A resurrecting `start` uses the fields `start` itself carries (title, subtitle,
+  icon, deepLink — always fully resolved by the CLI's default layer), with a fresh
+  step sequence, consistent with the live-handle adopt path that re-applies the
+  caller's fields. It does NOT read the tombstone's stored core info (that is what
+  the five update-class verbs resurrect from, since they carry no create fields).
+  ERGO-25 recycle-bin caveat, clarified 2026-07-08.
 
 ## Files affected
 
@@ -107,10 +115,12 @@ tests/Atv.LogicTests/Operations/*             # see below
 5. Upsert: `start` on live handle preserves steps and re-applies fields; `--reset`
    clears; different icon token → Remove+Create observed through the fake (new Id,
    steps gone).
-6. Resurrection: tombstoned-handle update within TTL re-creates with stored core
+6. Resurrection: a within-TTL tombstoned-handle update re-creates with stored core
    info (including subtitle + deepLink), moves the entry live, applies the update;
-   past TTL → clean no-op; never-seen handle → clean no-op. Recycle bin is only read
-   on the miss path.
+   past TTL → clean no-op; never-seen handle → clean no-op FOR THE FIVE update-class
+   verbs (`step`/`state`/`done`/`fail`/`attention`). `start` instead CREATES on a
+   never-seen handle (ERGO-25/ERGO-27 create-or-adopt; ratified 2026-07-08). Recycle
+   bin is only read on the miss path.
 7. Every operation acquires `WriteGate` exactly once around its full RMW (assert via
    the fake's interleave hook: concurrent ops through operations code never lose
    writes).
