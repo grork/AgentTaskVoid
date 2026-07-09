@@ -32,3 +32,4 @@ identifying and updating tasks, cleanup, input modeling, grouping, and wrapping.
 - [`ERGO-25`: `start` on an already-live handle (re-entrancy semantics)](./ERGO-25-start-on-an-already-live-handle.md) -- DECIDED
 - [`ERGO-26`: Config file location and format](./ERGO-26-config-file-location-and-format.md) -- DECIDED
 - [`ERGO-27`: The consolidated v1 command surface](./ERGO-27-consolidated-v1-command-surface.md) -- DECIDED
+- [`ERGO-28`: Theme-awareness of the icon provided to the platform](./ERGO-28-theme-awareness-of-the-provided-icon.md) -- OPEN
