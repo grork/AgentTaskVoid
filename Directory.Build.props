@@ -1,0 +1,55 @@
+<Project>
+
+  <!--
+    Repo-wide MSBuild properties (phase 01, "Foundation"). Applies to every project
+    under this tree; currently only src/Atv/Atv.csproj, but written generically so
+    a future test project (phase 02/03) inherits the same brand/version/AOT baseline
+    without re-deriving it.
+  -->
+
+  <PropertyGroup>
+    <!--
+      Brand parameterization (ERGO-18, plan/README.md standing invariant #2): the
+      brand/command strings are NOT re-literaled here. They are extracted from
+      src/Atv/Branding.cs (the one checked-in source of truth) via regex, so
+      renaming Branding.cs's constants is the only edit a rebrand ever needs.
+      $(AtvBrandName)/$(AtvCommandName) feed AssemblyName (Atv.csproj) and the
+      AppxManifest Identity Name stamp (build/Atv.Package.targets, DIST-7).
+    -->
+    <_AtvBrandingFile>$(MSBuildThisFileDirectory)src\Atv\Branding.cs</_AtvBrandingFile>
+    <_AtvBrandingText Condition="Exists('$(_AtvBrandingFile)')">$([System.IO.File]::ReadAllText('$(_AtvBrandingFile)'))</_AtvBrandingText>
+    <AtvBrandName Condition="'$(_AtvBrandingText)' != ''">$([System.Text.RegularExpressions.Regex]::Match($(_AtvBrandingText), 'public\s+const\s+string\s+Name\s*=\s*"([^"]*)"').Groups[1].Value)</AtvBrandName>
+    <AtvCommandName Condition="'$(_AtvBrandingText)' != ''">$([System.Text.RegularExpressions.Regex]::Match($(_AtvBrandingText), 'public\s+const\s+string\s+Command\s*=\s*"([^"]*)"').Groups[1].Value)</AtvCommandName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Repo-wide: no warning is allowed to slide by silently. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      NativeAOT size levers (INFRA-2, INFRA-3): the "free" ones banked repo-wide.
+      Only take effect on AOT/trimmed publish; harmless no-ops for a normal Debug
+      build. Sub-1 MB is explicitly not a goal (INFRA-2); no extraordinary
+      measures beyond these.
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StackTraceSupport>false</StackTraceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Don't ship the .pdb (INFRA-2). -->
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NBGV: version.json at repo root; $(BuildVersion) feeds the AppxManifest stamp. -->
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.10.85" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
