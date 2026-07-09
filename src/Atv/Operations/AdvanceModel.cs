@@ -1,0 +1,47 @@
+using Atv.Store;
+
+namespace Atv.Operations;
+
+/// <summary>
+/// ERGO-8's "advance" model: the caller never manages the
+/// <c>completedSteps</c> array directly. <see cref="Advance"/> archives the
+/// previous executing step into it and sets the new executing step, capping
+/// the array at <see cref="MaxCompletedSteps"/> (oldest drops first, a FIFO).
+///
+/// The read half of the RMW (fetching the current steps to pass in here)
+/// always comes from the live store (<see cref="TaskOperations"/>'s job),
+/// never a cache -- this type is pure and stateless, taking exactly the
+/// values the caller read.
+/// </summary>
+public static class AdvanceModel
+{
+    /// <summary>The FIFO cap on <c>completedSteps</c> (ERGO-8) -- keeps a long session's card from growing unbounded.</summary>
+    public const int MaxCompletedSteps = 10;
+
+    /// <summary>
+    /// Archives <paramref name="currentExecutingStep"/> onto the end of
+    /// <paramref name="currentCompletedSteps"/> (dropping the oldest entry if
+    /// that would exceed <see cref="MaxCompletedSteps"/>), then sets
+    /// <paramref name="newExecutingStep"/> as the new executing step. A blank
+    /// current executing step (a freshly-created or just-resurrected card
+    /// that has never had a step set) is NOT archived -- there is nothing
+    /// meaningful to record.
+    /// </summary>
+    public static AppTaskContentDto.SequenceOfSteps Advance(
+        IReadOnlyList<string> currentCompletedSteps, string currentExecutingStep, string newExecutingStep)
+    {
+        ArgumentNullException.ThrowIfNull(currentCompletedSteps);
+        ArgumentNullException.ThrowIfNull(currentExecutingStep);
+        ArgumentNullException.ThrowIfNull(newExecutingStep);
+
+        var next = new List<string>(currentCompletedSteps);
+        if (!string.IsNullOrEmpty(currentExecutingStep))
+        {
+            next.Add(currentExecutingStep);
+            if (next.Count > MaxCompletedSteps)
+                next.RemoveAt(0);
+        }
+
+        return new AppTaskContentDto.SequenceOfSteps(next, newExecutingStep);
+    }
+}

@@ -10,6 +10,7 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - Branch: `plan-execution`
 - Started: 2026-07-07
 - Only advance to the next phase after sign-off.
+- **Commit convention:** phases 01–04 committed together as `f706cf4` (they were built as one intermingled snapshot). From phase 05 onward, **one commit per phase, made immediately after reviewer sign-off** (message `Phase NN: <title>`, Co-Authored-By trailer). Branch `plan-execution`; no pushing unless asked.
 - **Subagent thinking level:** phases 01–03 ran at max (ultrathink). From **phase 04 onward: Sonnet + xhigh** (operator request 2026-07-08, to keep token usage on track).
 
 **Status legend:** ⬜ pending · 🔄 executing · 🔍 in review · ✅ signed off · ❌ halted (2 failures)
@@ -22,7 +23,7 @@ a phase that fails review **twice** halts the whole run for operator attention.
 | 02 | Core seam: `IAppTaskStore`, adapter, fake, logic suite | ✅ | 1 | PASS (1st) |
 | 03 | Real-API adapter test harness + per-worktree identity | ✅ | 1 | PASS (1st) |
 | 04 | Persistence: write mutex, sidecar store, recycle bin | ✅ | 1 | PASS (1st) |
-| 05 | Task operations: validator, advance model, upsert | ⬜ | 0 | — |
+| 05 | Task operations: validator, advance model, upsert | ✅ | 1 | PASS (1st) |
 | 06 | Config, output contract, durable log | ⬜ | 0 | — |
 | 07 | Icon pipeline: rendering project + icon management | ⬜ | 0 | — |
 | 08 | CLI framework + lifecycle verbs | ⬜ | 0 | — |
@@ -58,5 +59,11 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - **Result:** solution builds 0 warn/0 err; logic suite 69/69 green (incl. phase-02's 16); src AOT publish clean (~2.92 MB). WriteGate takes a raw `System.Threading.Mutex` (no abstraction), holds it across the whole critical section, handles AbandonedMutex; sidecar = reversible percent-encoded per-handle files, atomic temp+rename, wall-clock `lastUpdate` every write; reconciler 4 rules + structural no-FindAll/no-sweep proof via `CountingAppTaskStore`; recycle bin TTL round-trip + scavenge + hot-path-never-enumerates proof.
 - **Review:** PASS. AC1–AC5 met; invariants #2/#3/#5/#6 verified by grep + code read; SidecarStore retry fix assessed sound.
 - **Note for phases 05/09:** `RecycleBin.Tombstone` uses temp+rename WITHOUT the SidecarStore retry — OK under its current "all members run inside WriteGate" contract, but if a lock-free recycle-bin reader is ever added, guard it the same way.
+
+### Phase 05 — Task operations ✅ (signed off 1st attempt)
+- **Files:** created `src/Atv/Operations/{SafeCombinationMatrix,Validator,AdvanceModel,Resurrection,TaskOperations}.cs`; `tests/Atv.LogicTests/Operations/*` (11 files: harness + matrix/validator/advance + per-verb start/step/state/done-fail-attention/resurrection/concurrency/remove).
+- **Result:** 132/132 logic tests green (63 new + 69 prior); build 0/0; AOT clean. Matrix = 7 safe cells as data in `SafeCombinationMatrix.cs` (independently cross-checked vs `state-content-compatibility.md`). Each verb: WriteGate(once) → reconcile → miss-path recycle check → validate → store write → sidecar stamp. FIFO cap 10; step preserves+re-sends read state; resurrection within TTL restores core info + fresh steps.
+- **Review:** PASS. AC1–AC7 met; invariants #1/#4/#5/#6/#8 upheld; no scope creep (returns structured outcomes, no arg-parse/exit-code/icon-render).
+- **⚠️ Deviation pending operator ratification:** `start` on a *never-seen* handle **creates** (not a no-op), departing from AC6's literal enumeration. Reviewer adjudicated ACCEPTABLE (ERGO-25 "never errors" + ERGO-27 "create-or-adopt"; literal no-op would make first-task creation impossible). Also noted: ERGO-25's wording on whether a resurrecting `start` uses tombstone vs caller fields is ambiguous (executor chose caller fields, reviewer OK) — candidate for a one-line doc clarification. Surfaced to operator 2026-07-08.
 
 _(Further per-phase notes appended below as phases execute.)_
