@@ -24,7 +24,7 @@ a phase that fails review **twice** halts the whole run for operator attention.
 | 03 | Real-API adapter test harness + per-worktree identity | ✅ | 1 | PASS (1st) |
 | 04 | Persistence: write mutex, sidecar store, recycle bin | ✅ | 1 | PASS (1st) |
 | 05 | Task operations: validator, advance model, upsert | ✅ | 1 | PASS (1st) |
-| 06 | Config, output contract, durable log | ⬜ | 0 | — |
+| 06 | Config, output contract, durable log | ✅ | 1 | PASS (1st) |
 | 07 | Icon pipeline: rendering project + icon management | ⬜ | 0 | — |
 | 08 | CLI framework + lifecycle verbs | ⬜ | 0 | — |
 | 09 | Watchdog | ⬜ | 0 | — |
@@ -65,5 +65,11 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - **Result:** 132/132 logic tests green (63 new + 69 prior); build 0/0; AOT clean. Matrix = 7 safe cells as data in `SafeCombinationMatrix.cs` (independently cross-checked vs `state-content-compatibility.md`). Each verb: WriteGate(once) → reconcile → miss-path recycle check → validate → store write → sidecar stamp. FIFO cap 10; step preserves+re-sends read state; resurrection within TTL restores core info + fresh steps.
 - **Review:** PASS. AC1–AC7 met; invariants #1/#4/#5/#6/#8 upheld; no scope creep (returns structured outcomes, no arg-parse/exit-code/icon-render).
 - **Deviation RATIFIED by operator (2026-07-08):** `start` on a *never-seen* handle **creates** (not a no-op). Operator chose "ratify + tidy docs" → amended `plan/phase-05-task-operations.md` (resurrection bullet + AC6) and `questions/usage-ergonomics/ERGO-25-*.md` (recycle-bin caveat) so the records match the shipped code: (a) never-seen no-op applies only to the five update-class verbs; `start` creates; (b) a resurrecting `start` uses the caller's fields (not the tombstone's), fresh steps. Included in the phase-05 doc-tidy commit.
+
+### Phase 06 — Config, output contract, durable log ✅ (signed off 1st attempt; lean mode)
+- **Files:** created `src/Atv/Config/{Settings,SettingsLoader,SettingsJsonContext}.cs`, `src/Atv/Diagnostics/{FailureLog,Posture,Output}.cs`; tests `tests/Atv.LogicTests/{Config,Diagnostics}/*` (6 files).
+- **Result:** 206/206 logic tests green (74 new); build 0/0; AOT clean. Precedence flag>env>file>default (STJ source-gen, flat string→string map); brand-derived env names; non-disruptive posture (exit0 + always-logged failure) w/ `--strict` exit vocab 1/2/3/4 + `--json` `{ok,reason}`; durable log w/ size+age rotation, swallows write failures; INFRA-13 capability→exit(2/3) mapping folded into `Posture`.
+- **Review:** PASS. AC1–AC5 met; invariants #1/#2/#4 upheld; scope held (no doctor/watchdog/run wiring). Deviations all ACCEPTABLE: `--json`+`--strict`→strict exit wins; some JSON contexts folded into DTO files; `MutexWaitBudget`=`WriteGate.DefaultTimeout`.
+- **Notes for phase 08 (composition root):** (a) wire `SettingsLoader`'s `Warnings` seam into `FailureLog` at startup (loader deliberately has no Diagnostics dep); (b) add a `--json`+`--strict` combination test (currently untested, non-blocking).
 
 _(Further per-phase notes appended below as phases execute.)_
