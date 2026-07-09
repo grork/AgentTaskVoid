@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Atv": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "WATCHDOG_MODE": "off"
+      }
+    }
+  }
+}

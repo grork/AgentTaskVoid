@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Small out-of-process helper that performs the actual WinRT PackageManager calls
+    build/Atv.TestIdentity.targets needs (register / unregister / sweep). MSBuild's
+    built-in tasks cannot await a WinRT IAsyncOperationWithProgress, so this exists as
+    a tiny standalone exe, invoked as a SEPARATE PROCESS by the .targets file.
+
+    This separateness is load-bearing, not incidental (INFRA-16, "Test-time identity
+    provisioning and deep isolation"):
+      - Registration must happen OUTSIDE the test run (a process that isn't the test
+        exe), so `dotnet test` on tests/Atv.AdapterTests can be single-pass without the
+        in-test gate ever registering in-proc.
+      - Cleanup (unregister/sweep) must run from a process that does NOT hold the
+        identity being removed; unregistering out from under the running
+        identity-holding process kills it mid-run.
+    One tool serves both call sites; which process invokes it is what satisfies the
+    "external, non-identity step" requirement, not anything intrinsic to the tool.
+
+    Windows.Management.Deployment (PackageManager, RegisterPackageOptions,
+    DeploymentResult) is a MAINSTREAM, non-experimental WinRT namespace, already
+    covered by the default Windows SDK projection for this TFM. Unlike src/Atv.csproj,
+    this project needs none of the CsWinRTInputs/CsWinRTIncludes machinery that
+    Windows.UI.Shell.Tasks (experimental) requires.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <RootNamespace>Atv.TestIdentityTool</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

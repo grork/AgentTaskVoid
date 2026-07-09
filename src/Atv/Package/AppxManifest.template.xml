@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppxManifest TEMPLATE for Agentaskvoid (atv).
+  See build/Atv.Package.targets and questions/distribution/DIST-7-release-full-package-manifest.md.
+
+  Only the Identity element's Name and Version attributes below are stamped at build
+  time (per-worktree/output-path hash + NBGV's 4-part $(BuildVersion)), via a plain
+  token substitution, so this comment deliberately avoids spelling out those two
+  token strings verbatim (build/Atv.Package.targets' replace is a blunt whole-file
+  substitution and would rewrite them here too). Every other field below is static,
+  hand-authored to match the ERGO-18 ("The shipped command name") brand decision:
+  rename the brand there and update the literal strings here to match; DIST-7
+  explicitly settled that build-time-parameterizing every field is unneeded
+  complexity.
+
+  This one template serves BOTH the dev loose-layout (`winapp run`, via the
+  RID-unqualified obj/ copy) and the release pack (`winapp package`, via the
+  RID-qualified obj/ copy, phase 12).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap5 desktop rescap">
+
+  <Identity
+    Name="{IdentityName}"
+    Publisher="CN=AppTaskInfoCli"
+    Version="{Version}" />
+
+  <Properties>
+    <DisplayName>Agentaskvoid</DisplayName>
+    <PublisherDisplayName>AppTaskInfoCli</PublisherDisplayName>
+    <Logo>Assets\Square44x44Logo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.26100.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="Agentaskvoid"
+      Executable="atv.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Agentaskvoid"
+        Description="Agentaskvoid: agent task presence on the Windows 11 taskbar"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <!--
+          Required for Windows.UI.Shell.Tasks.AppTaskInfo to function at all (not an
+          identity-model detail; orthogonal to sparse vs full-package). PublicFolder
+          must exist in the package layout; see Package/Public/.gitkeep.
+        -->
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension
+            Name="com.microsoft.apptaskprovider"
+            PublicFolder="Public"
+            Id="Agentaskvoid.AppTaskProvider"
+            DisplayName="AppTaskProvider for Agentaskvoid" />
+        </uap3:Extension>
+        <!-- Puts `atv` on PATH (ERGO-18, DIST-7). -->
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="atv.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+        <!--
+          Declared but DISABLED boot-recovery startup item (LIFE-20, "Logoff/reboot
+          recovery"). The watchdog (phase 09) enables/disables this at runtime via
+          Windows.ApplicationModel.StartupTask as it gains/clears live work; a no-op
+          declaration until then.
+        -->
+        <desktop:Extension
+          Category="windows.startupTask"
+          Executable="atv.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask
+            TaskId="AgentaskvoidBootRecovery"
+            Enabled="false"
+            DisplayName="Agentaskvoid boot recovery" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

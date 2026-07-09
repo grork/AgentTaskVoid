@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="AppTaskInfoCli.csproj" />
+  <Project Path="src/Atv/Atv.csproj" />
+  <Project Path="tests/Atv.LogicTests/Atv.LogicTests.csproj" />
+  <Project Path="tests/Atv.AdapterTests/Atv.AdapterTests.csproj" />
+  <Project Path="tools/Atv.TestIdentityTool/Atv.TestIdentityTool.csproj" />
 </Solution>

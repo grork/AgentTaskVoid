@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Atv.TestIdentity.targets
+
+  Phase 03 (INFRA-16, "Test-time identity provisioning and deep isolation"): gives
+  tests/Atv.AdapterTests its own per-worktree package identity, registered OUTSIDE the
+  test run, and makes `dotnet test`'s normal exe launch actually carry that identity.
+
+  ===================================================================================
+  WHY THIS FILE IS NOT JUST A SECOND CONSUMER OF build/Atv.Package.targets
+  ===================================================================================
+  DIST-7 ("The release full-package manifest") settled, as a rule not to relitigate,
+  that the src/release manifest template stamps exactly two fields: Identity Name and
+  Version. The test pool needs a THIRD build-varying field - a per-worktree-unique
+  AppExecutionAlias name - because, unlike the single dev-interactive pool, multiple
+  worktrees' test pools must be able to register and run concurrently (INFRA-16's "two
+  branches on one dev box run their real-API tests concurrently"): if every worktree's
+  test manifest declared the same static alias, only the most-recently-registered
+  worktree would actually own that alias's reparse-point stub, silently breaking every
+  other worktree's suite. So this file stamps its OWN sibling template
+  (tests/Atv.AdapterTests/Package/AppxManifest.template.xml) rather than importing
+  Atv.Package.targets, keeping the src/release stamping rule fully untouched.
+
+  ===================================================================================
+  THE ONE OPEN MECHANIC (empirically settled 2026-07-08 on this machine, ARM64,
+  Windows 11 26100, Developer Mode on) - direct launch does NOT carry identity;
+  the AppExecutionAlias fallback DOES, via a filesystem-level trick:
+  ===================================================================================
+  Spike: with the existing dev-pool package already registered (loose layout,
+  IsDevelopmentMode=True), directly launching its exe by full path
+  (bin\...\AppX\atv.exe) returned NO package identity (Package.Current throws
+  Arg_InvalidOperationException) - even though that exact file IS the manifest's
+  declared Application/Executable, sitting inside the registered InstallLocation. But
+  launching the SAME package's AppExecutionAlias stub
+  (%LOCALAPPDATA%\Microsoft\WindowsApps\atv.exe, a reparse-point file the OS creates at
+  registration time) DID carry identity - both via PATH and via its full path, and
+  both via an inherited console (PowerShell `&`) and via System.Diagnostics.Process
+  with RedirectStandardOutput/RedirectStandardError (i.e. exactly how
+  Microsoft.Testing.Platform.MSBuild's InvokeTestingPlatformTask launches a test exe).
+  So: identity comes specifically from CreateProcess-ing the ALIAS reparse-point file,
+  not from merely residing inside (or being the declared Executable of) a registered
+  package layout.
+
+  A Windows hard link to that alias stub, created at an arbitrary OTHER path (proven:
+  a repo-root file, a totally unrelated location), carries the SAME reparse tag -
+  hard links share the underlying MFT record/reparse data - so launching a hard link
+  to the alias stub ALSO carries identity, from anywhere. AtvEnsureTestIdentity below
+  puts that hard link at the EXACT path $(TargetPath) normally occupies (the compiled
+  apphost `dotnet test` launches) - not a side path it then has to redirect anything
+  to. It first COPIES the freshly-built apphost from $(TargetPath) to a second,
+  differently-named file (the name the AppxManifest's Application/Executable declares
+  - see AtvStampTestManifest's stamped content), then deletes $(TargetPath) and
+  re-creates it as the hard link. A plain copy of a .NET apphost works as a launcher
+  for the same managed dll regardless of the copy's own filename or location -
+  apphosts locate their managed entry-point assembly by a name baked into the binary
+  at build time, not by their own current path - so the copy is a fully functional,
+  independent launcher, while the original $(TargetPath) name becomes purely an
+  identity-granting redirector.
+
+  This is a pure filesystem trick, not a property-timing one, because empirically
+  (2026-07-08) this repo's global.json ("test": {"runner": "Microsoft.Testing.Platform"})
+  opt-in routes `dotnet test` through a DIFFERENT SDK-defined target,
+  `_MTPBuild` (see Microsoft.Common.targets/ImportAfter/Microsoft.TestPlatform.ImportAfter.targets:
+  `<Target Name="_MTPBuild"><MSBuild Projects="$(MSBuildProjectFullPath)" Condition="'$(IsTestingPlatformApplication)'=='true'" /></Target>`),
+  never through Microsoft.Testing.Platform.MSBuild's own `_TestRunStart`/
+  `InvokeTestingPlatform` targets at all - confirmed by their complete absence from a
+  `dotnet test -v normal` log. `_MTPBuild` triggers a NESTED `<MSBuild>` build of the
+  same project, then the `dotnet test` CLI itself launches the result, entirely outside
+  any further MSBuild target - there is no guarantee it re-reads $(TargetPath) from the
+  SAME evaluated project instance this file's targets could mutate, so a property
+  reassignment (which is what would normally follow from "InvokeTestingPlatformTask
+  reads $(TargetPath) as a task-parameter attribute right after `_TestRunStart`
+  returns", the mechanism that DOES work for that older flow) cannot be relied on here.
+  Swapping which FILE sits at the fixed, well-known $(TargetPath) has no such
+  timing/re-evaluation hazard: whichever flow, and whenever `dotnet test` (or a human,
+  or VS Test Explorer) ends up launching that path, it gets whatever is on disk there
+  at that moment. Both `_TestRunStart` and `_MTPBuild` are therefore wired as hooks onto
+  the SAME AtvEnsureTestIdentity target below, covering either execution model.
+
+  This keeps the in-test gate (IdentityGate.cs) honest to INFRA-16's letter: it still
+  ONLY asserts (checks GetCurrentPackageFullName) and SKIPS on absence - by the time
+  Main() runs, the process already has identity or it doesn't, entirely as a
+  consequence of what got CreateProcess-ed before the managed code ever started. The
+  gate never registers, and never relaunches, in-proc.
+
+  ===================================================================================
+  TARGETS IN THIS FILE
+  ===================================================================================
+  AtvStampTestManifest    - stamps Package/AppxManifest.template.xml with this
+                             worktree's Identity Name / Version / Alias, writes the
+                             result straight into $(TargetDir) (this pool has no
+                             release-pack reuse concern, so unlike DIST-7's obj/ copy
+                             there is no separate "stamp to obj, consume out-of-process"
+                             step - the stamped manifest just needs to sit next to the
+                             exe/assets it describes so the whole folder is one
+                             self-consistent loose-layout package root).
+  AtvBuildTestIdentityTool - builds tools/Atv.TestIdentityTool and resolves its exe
+                             path, for every target below that shells out to it.
+  AtvEnsureTestIdentity    - the register-or-assert hook, wired onto BOTH
+                             `_TestRunStart` and `_MTPBuild` (see above): register +
+                             copy-the-apphost-aside + hard-link $(TargetPath) to the
+                             alias stub, all OUTSIDE the test process itself. Runs on
+                             every `dotnet test` invocation - never on a plain
+                             `dotnet run`/`dotnet build` of this project (neither hook
+                             target is ever invoked by those), which is exactly why a
+                             direct exe launch in a fresh worktree (neither hook has
+                             ever fired) still gets the documented SKIP
+                             (IdentityGate.cs) rather than identity it was never
+                             granted.
+  AtvTestRegister          - explicit, standalone "Register" (same register step,
+                             invokable without running tests: `dotnet build
+                             tests\Atv.AdapterTests\Atv.AdapterTests.csproj
+                             -t:AtvTestRegister`).
+  AtvTestUnregister        - explicit "Unregister": removes THIS worktree's test
+                             identity. Never invoked automatically (INFRA-16:
+                             unregistering out from under the running identity-holding
+                             process kills it mid-run; registration persists between
+                             runs by design).
+  AtvTestSweepOrphans      - explicit "SweepOrphans": removes every registered
+                             `<brand>.Test.*` identity (any worktree, not just this
+                             one) whose InstallLocation no longer exists on disk -
+                             crashed runs, deleted worktrees. Spares this worktree's
+                             own live registration even though its Name also matches
+                             the prefix.
+  All four Exec-based targets shell out to tools/Atv.TestIdentityTool, a tiny separate
+  console exe, because MSBuild has no built-in way to await a WinRT
+  IAsyncOperationWithProgress - see that project's own file-header comment for the
+  fuller rationale (also: it must run as a SEPARATE PROCESS from the test host anyway,
+  per INFRA-16's "outside the test run" / "external, non-identity step" rules).
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <_AtvTestManifestTemplate>$(MSBuildProjectDirectory)\Package\AppxManifest.template.xml</_AtvTestManifestTemplate>
+
+    <!--
+      Worktree-derived identifiers. Deliberately evaluation-time (not inside a
+      target): none of these depend on NBGV's $(BuildVersion) or on
+      $(IntermediateOutputPath)'s RID segment the way DIST-7's stamp does, so there is
+      no equivalent hazard to the one Atv.Package.targets guards against.
+
+      Same hash mechanism as Atv.Package.targets ($(MSBuildProjectDirectory) of the
+      IMPORTING project, i.e. tests/Atv.AdapterTests here) - so two worktrees
+      necessarily hash differently (AC3's isolation property), and this pool's own
+      project directory differs from src/Atv's, so even within one worktree the test
+      pool and the dev pool never collide.
+    -->
+    <_AtvTestPathHash>$([MSBuild]::StableStringHash('$(MSBuildProjectDirectory)').ToString("x8"))</_AtvTestPathHash>
+    <!-- "<brand>.Test.<hash>" - recognizable by the AtvTestSweepOrphans prefix check (AC5) as belonging to the test pool, not the dev/release pools ("<brand>-<hash>", a different separator, from Atv.Package.targets). -->
+    <_AtvTestIdentityName>$(AtvBrandName).Test.$(_AtvTestPathHash)</_AtvTestIdentityName>
+    <!-- Alias attribute values must be a bare file name ending ".exe"; derived from the command constant, not re-literaled (standing invariant #2/#3). -->
+    <_AtvTestAlias>$(AtvCommandName)-test-$(_AtvTestPathHash).exe</_AtvTestAlias>
+
+    <_AtvTestIdentityToolProject>$(MSBuildThisFileDirectory)..\tools\Atv.TestIdentityTool\Atv.TestIdentityTool.csproj</_AtvTestIdentityToolProject>
+  </PropertyGroup>
+
+  <!-- Every action target below depends (transitively) on this - $(AtvBrandName)/$(AtvCommandName) feed the worktree-derived identifiers computed in the PropertyGroup above. -->
+  <Target Name="AtvValidateTestIdentityInputs">
+    <Error Condition="'$(AtvBrandName)' == ''"
+           Text="[Atv.TestIdentity] AtvBrandName is empty - brand extraction from src/Atv/Branding.cs (Directory.Build.props) failed." />
+    <Error Condition="'$(AtvCommandName)' == ''"
+           Text="[Atv.TestIdentity] AtvCommandName is empty - brand extraction from src/Atv/Branding.cs (Directory.Build.props) failed." />
+  </Target>
+
+  <Target Name="AtvStampTestManifest" DependsOnTargets="AtvValidateTestIdentityInputs;Build;GetBuildVersion">
+    <Error Condition="!Exists('$(_AtvTestManifestTemplate)')"
+           Text="[Atv.TestIdentity] AppxManifest template not found at '$(_AtvTestManifestTemplate)'." />
+
+    <PropertyGroup>
+      <!--
+        Straight into $(TargetDir) (bin\, not obj\): this manifest's only consumer is
+        the register step below, which needs one self-consistent folder containing the
+        manifest AND the exe/assets it describes - there is no RID-qualified
+        release-pack reuse of this particular template (that is what DIST-7's own
+        src template still handles for phase 12).
+      -->
+      <_AtvTestStampedManifestPath>$(TargetDir)AppxManifest.xml</_AtvTestStampedManifestPath>
+      <_AtvTestTemplateContent>$([System.IO.File]::ReadAllText('$(_AtvTestManifestTemplate)'))</_AtvTestTemplateContent>
+      <_AtvTestStampedContent>$(_AtvTestTemplateContent.Replace('{IdentityName}', '$(_AtvTestIdentityName)').Replace('{Version}', '$(BuildVersion)').Replace('{Alias}', '$(_AtvTestAlias)'))</_AtvTestStampedContent>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(TargetDir)" Condition="!Exists('$(TargetDir)')" />
+
+    <WriteLinesToFile
+        File="$(_AtvTestStampedManifestPath)"
+        Lines="$(_AtvTestStampedContent)"
+        Overwrite="true"
+        WriteOnlyWhenDifferent="true" />
+
+    <Message Importance="high"
+             Text="[Atv.TestIdentity] Stamped manifest: $(_AtvTestStampedManifestPath) (Identity Name=$(_AtvTestIdentityName), Alias=$(_AtvTestAlias), Version=$(BuildVersion))" />
+  </Target>
+
+  <Target Name="AtvBuildTestIdentityTool" DependsOnTargets="AtvValidateTestIdentityInputs">
+    <MSBuild Projects="$(_AtvTestIdentityToolProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <!-- GetTargetPath returns the managed .dll (the actual "target" of a build), never
+         the native apphost .exe - CreateProcess-ing a bare .dll directly doesn't run
+         it as a program, it fails to resolve the runtime. ChangeExtension to get the
+         apphost this tool is invoked as. -->
+    <MSBuild Projects="$(_AtvTestIdentityToolProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" PropertyName="_AtvTestIdentityToolDll" />
+    </MSBuild>
+    <PropertyGroup>
+      <_AtvTestIdentityToolExe>$([System.IO.Path]::ChangeExtension('$(_AtvTestIdentityToolDll)', '.exe'))</_AtvTestIdentityToolExe>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    The register-or-assert hook. Two BeforeTargets/AfterTargets hooks point at the SAME
+    target because two different `dotnet test` execution models exist across SDK
+    versions/configurations, and this file has no reliable way to know which one a
+    given invocation will use:
+      - `_TestRunStart` (Microsoft.Testing.Platform.MSBuild's own extension point,
+        called from its InvokeTestingPlatform target) - fires when TestingPlatformDotnetTestSupport-style
+        VSTest-shim integration is in play.
+      - `_MTPBuild` (a plain SDK-defined target - see
+        $(MSBuildExtensionsPath)\..\Current\Microsoft.Common.targets\ImportAfter\Microsoft.TestPlatform.ImportAfter.targets -
+        `<Target Name="_MTPBuild"><MSBuild Projects="$(MSBuildProjectFullPath)" Condition="'$(IsTestingPlatformApplication)'=='true'" /></Target>`)
+        is what this repo's global.json `"test": {"runner": "Microsoft.Testing.Platform"}`
+        opt-in actually drives `dotnet test` through (verified empirically 2026-07-08: with
+        that global.json setting, `_TestRunStart` never fires at all - `_MTPBuild` does a
+        NESTED Build and the `dotnet test` CLI launches the exe itself afterward, entirely
+        outside any further MSBuild target). Crucially, `_MTPBuild` is ONLY ever invoked by
+        `dotnet test`'s own orchestration, never by a plain `dotnet build`/`dotnet run` of
+        this project - so AfterTargets="_MTPBuild" is just as much a "fires on run, not
+        build" signal as `_TestRunStart` was meant to be.
+
+    Given that uncertainty, this hook does NOT rely on reassigning the MSBuild
+    $(TargetPath) property (the approach that works for the `_TestRunStart` flow, since
+    InvokeTestingPlatformTask reads it as a task-parameter attribute in the SAME target
+    execution right after) - there is no guarantee the native `dotnet test` CLI re-reads
+    $(TargetPath) from the SAME evaluated project instance this target mutated; it may
+    re-evaluate the project fresh to decide what to launch, in which case a property
+    mutation here would silently never be seen.
+
+    Instead this is a pure FILESYSTEM trick, robust regardless of when/how many times
+    $(TargetPath) gets re-read: after Build, the compiled apphost (NOT $(TargetPath)
+    itself - that is always the managed .dll, even for a UseAppHost=true Exe project;
+    the apphost sits alongside it at the same name with a ".exe" extension, see
+    AtvEnsureTestIdentity's own remarks) is COPIED to a second, differently-named file
+    ($(_AtvTestRealExePath), e.g. ...\Atv.AdapterTests.real.exe - the name the
+    manifest's Application/Executable declares) - a plain byte-for-byte copy works as a
+    launcher for the same managed dll because a .NET apphost locates its managed
+    entry-point dll by a name baked into the apphost binary itself at publish time, not by
+    the apphost file's own current name (proven empirically: renaming/copying an apphost
+    exe to an arbitrary name and running it from the AppExecutionAlias hardlink already
+    relies on exactly this property). The apphost's ORIGINAL path is then DELETED and
+    re-created as a hard link to the freshly-registered AppExecutionAlias stub. Whatever
+    later launches that fixed apphost path - from this same execution or a completely
+    fresh one - gets the SAME path either way; only the FILE sitting there changed, so
+    there is no property-visibility race to worry about.
+
+    This keeps the in-test gate (IdentityGate.cs) honest to INFRA-16's letter: it still
+    ONLY asserts (checks GetCurrentPackageFullName) and SKIPS on absence - by the time
+    Main() runs, the process already has identity or it doesn't, entirely as a
+    consequence of what got CreateProcess-ed before the managed code ever started. The
+    gate never registers, and never relaunches, in-proc.
+  -->
+  <Target Name="AtvEnsureTestIdentity" BeforeTargets="_TestRunStart" AfterTargets="_MTPBuild" DependsOnTargets="AtvStampTestManifest;AtvBuildTestIdentityTool">
+    <Exec Command="&quot;$(_AtvTestIdentityToolExe)&quot; register &quot;$(_AtvTestStampedManifestPath)&quot; &quot;$(_AtvTestIdentityName)&quot;" />
+
+    <PropertyGroup>
+      <_AtvTestAliasStubPath>$(LOCALAPPDATA)\Microsoft\WindowsApps\$(_AtvTestAlias)</_AtvTestAliasStubPath>
+      <!--
+        $(TargetPath) is the MANAGED assembly (the .dll - true for every SDK-style
+        project, Exe-typed or not; confirmed empirically via AtvBuildTestIdentityTool's
+        own GetTargetPath call needing the same ChangeExtension). The native apphost
+        .exe this project's own Build already produces (UseAppHost defaults true for a
+        Windows Exe project) sits alongside it at the same name with a ".exe"
+        extension - THAT is the file that must become the hard link (identity is
+        granted to the launched PROCESS, and dotnet test launches the apphost, not the
+        managed dll directly). Hard-linking $(TargetPath) itself the first time this
+        was tried replaced the .dll with the (non-loadable) alias-stub reparse point
+        and broke every subsequent run with a FileLoadException - do not repeat that.
+      -->
+      <_AtvTestApphostPath>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.exe'))</_AtvTestApphostPath>
+      <!-- Must match the AppxManifest template's static Application/Executable value. -->
+      <_AtvTestRealExePath>$(TargetDir)Atv.AdapterTests.real.exe</_AtvTestRealExePath>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(_AtvTestAliasStubPath)')"
+           Text="[Atv.TestIdentity] Register reported success but the AppExecutionAlias stub was not found at '$(_AtvTestAliasStubPath)'. Is Developer Mode on (Settings > Privacy &amp; security > For developers)?" />
+    <Error Condition="!Exists('$(_AtvTestApphostPath)')"
+           Text="[Atv.TestIdentity] Expected the compiled apphost at '$(_AtvTestApphostPath)' - is UseAppHost disabled for this project?" />
+
+    <!-- Idempotent every time: Build may have just rewritten the apphost with fresh compiled output, so both the copy and the hard link are redone unconditionally on every AtvEnsureTestIdentity run. -->
+    <Copy SourceFiles="$(_AtvTestApphostPath)" DestinationFiles="$(_AtvTestRealExePath)" />
+    <Delete Files="$(_AtvTestApphostPath)" />
+    <Exec Command="cmd.exe /c mklink /H &quot;$(_AtvTestApphostPath)&quot; &quot;$(_AtvTestAliasStubPath)&quot;" />
+  </Target>
+
+  <!-- Explicit "Register": the exact same register + copy + hard-link steps, standalone-invokable, never required for tests to pass (AC5). -->
+  <Target Name="AtvTestRegister" DependsOnTargets="AtvEnsureTestIdentity" />
+
+  <!--
+    Explicit "Unregister": removes this worktree's own test identity. External,
+    non-identity step - never wired to any automatic hook.
+
+    Also restores $(TargetPath)'s apphost from the AtvEnsureTestIdentity-saved copy,
+    if the two have diverged (i.e. $(TargetPath) is currently the hard link, not a
+    real apphost) - otherwise a direct exe launch right after an explicit unregister
+    finds a now-DANGLING hard link (its target, the alias stub, was just removed) and
+    fails to start at all ("the file cannot be accessed by the system"), instead of
+    IdentityGate's clean, documented SKIP (AC2's actual concern: a launch with no
+    identity should skip gracefully, never crash). The very next `dotnet test` repairs
+    this regardless (AtvEnsureTestIdentity always redoes the copy+link unconditionally,
+    which is what AC5 relies on), but restoring it here too keeps this target's own
+    side effects self-contained.
+  -->
+  <Target Name="AtvTestUnregister" DependsOnTargets="AtvBuildTestIdentityTool">
+    <Exec Command="&quot;$(_AtvTestIdentityToolExe)&quot; unregister &quot;$(_AtvTestIdentityName)&quot;" />
+
+    <PropertyGroup>
+      <_AtvTestApphostPath>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.exe'))</_AtvTestApphostPath>
+      <_AtvTestRealExePath>$(TargetDir)Atv.AdapterTests.real.exe</_AtvTestRealExePath>
+    </PropertyGroup>
+    <Delete Files="$(_AtvTestApphostPath)" Condition="Exists('$(_AtvTestRealExePath)') And Exists('$(_AtvTestApphostPath)')" />
+    <Copy SourceFiles="$(_AtvTestRealExePath)" DestinationFiles="$(_AtvTestApphostPath)"
+          Condition="Exists('$(_AtvTestRealExePath)') And !Exists('$(_AtvTestApphostPath)')" />
+  </Target>
+
+  <!-- Explicit "SweepOrphans": reaps orphaned "<brand>.Test.*" registrations (any worktree) whose install location no longer exists. Spares this worktree's own live one. -->
+  <Target Name="AtvTestSweepOrphans" DependsOnTargets="AtvBuildTestIdentityTool">
+    <PropertyGroup>
+      <_AtvTestBrandTestPrefix>$(AtvBrandName).Test</_AtvTestBrandTestPrefix>
+    </PropertyGroup>
+    <Exec Command="&quot;$(_AtvTestIdentityToolExe)&quot; sweep &quot;$(_AtvTestBrandTestPrefix)&quot; &quot;$(TargetDir)&quot;" />
+  </Target>
+
+</Project>

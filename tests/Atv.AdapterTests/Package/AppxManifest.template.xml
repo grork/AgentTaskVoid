@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppxManifest TEMPLATE for the real-API adapter test suite's per-worktree TEST
+  identity pool (phase 03, INFRA-16 "Test-time identity provisioning and deep
+  isolation"). Sibling to src/Atv/Package/AppxManifest.template.xml, not an import of
+  it: DIST-7 ("The release full-package manifest") settled that the SRC/RELEASE
+  template stamps only Identity Name and Version, and that rule is not being
+  relitigated here. The test pool has one more build-varying field DIST-7 never needed
+  - a per-worktree-unique AppExecutionAlias name - because, unlike the single
+  dev-interactive pool, MULTIPLE test pools (one per worktree) must be able to register
+  and run their real-adapter suites concurrently on one machine without fighting over
+  one shared alias name (see build/Atv.TestIdentity.targets remarks on the hardlink
+  launch mechanism this alias makes possible).
+
+  Stamped tokens: {IdentityName}, {Version}, {Alias}. Everything else below is static,
+  hand-authored, same philosophy as the src template.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap5 desktop rescap">
+
+  <Identity
+    Name="{IdentityName}"
+    Publisher="CN=AppTaskInfoCli"
+    Version="{Version}" />
+
+  <Properties>
+    <DisplayName>Agentaskvoid Adapter Tests</DisplayName>
+    <PublisherDisplayName>AppTaskInfoCli</PublisherDisplayName>
+    <Logo>Assets\Square44x44Logo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.26100.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="AgentaskvoidAdapterTests"
+      Executable="Atv.AdapterTests.real.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Agentaskvoid Adapter Tests"
+        Description="Per-worktree real-API adapter test identity for Agentaskvoid (phase 03)"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <!--
+          Required for Windows.UI.Shell.Tasks.AppTaskInfo to function at all - same
+          requirement as the src manifest; see its copy of this comment.
+        -->
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension
+            Name="com.microsoft.apptaskprovider"
+            PublicFolder="Public"
+            Id="AgentaskvoidTest.AppTaskProvider"
+            DisplayName="AppTaskProvider for Agentaskvoid Adapter Tests" />
+        </uap3:Extension>
+        <!--
+          The per-worktree-unique alias: not a user-facing PATH convenience like the
+          src manifest's (that one is a static "atv"). This one exists purely as a
+          LAUNCH MECHANISM - see build/Atv.TestIdentity.targets for why a direct exe
+          launch from a registered loose layout does not carry package identity on
+          this platform, and how a hardlink to this alias's stub file is used to make
+          the MTP test host's normal launch path carry it anyway.
+        -->
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="{Alias}" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

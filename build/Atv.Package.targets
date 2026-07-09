@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Atv.Package.targets
+
+  DIST-7 ("The release full-package manifest"): stamps the AppxManifest template's two
+  build-varying fields into a RID-qualified obj/ copy:
+    - Identity/@Name  = $(AtvBrandName) + a stable hash of the project directory (gives
+      INFRA-16's per-worktree isolation for free: different checkouts hash differently,
+      so they never collide on package identity, even unsigned/dev-cert).
+    - Identity/@Version = NBGV's $(BuildVersion) (4-part numeric). $(Version) carries a
+      semver+githash suffix that makeappx rejects against Identity/@Version: do not
+      substitute it here.
+  Every other manifest field is static, hand-authored in the template itself.
+
+  Consumption is out-of-process winapp, never an MSBuild import of the manifest:
+    - Dev loop: Atv.csproj sets $(WinAppManifestPath) (evaluation-time, matching this
+      target's execution-time-computed $(IntermediateOutputPath) for the no-RID case) so
+      `winapp run` (via Microsoft.Windows.SDK.BuildTools.WinApp's dotnet-run interception)
+      reads this obj/ copy directly.
+    - Release packaging (phase 12) Execs `winapp package` with an explicit manifest
+      flag pointed at this obj/ copy, against the RID-qualified copy produced by
+      `dotnet publish -r <rid>`.
+
+  Deliberately NOT gated by target-level Inputs/Outputs. NBGV's $(BuildVersion) can
+  change build-to-build (git height) even though AppxManifest.template.xml itself never
+  changes, so skipping this target based on the template's timestamp alone would let a
+  stale Version survive indefinitely. Recomputing the (cheap) string replace on every
+  Build/Publish and relying solely on WriteLinesToFile's WriteOnlyWhenDifferent to
+  suppress no-op writes is what phase-01 AC3 actually tests: content-conditional, not
+  timestamp-conditional.
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <AtvManifestTemplate>$(MSBuildProjectDirectory)\Package\AppxManifest.template.xml</AtvManifestTemplate>
+  </PropertyGroup>
+
+  <Target Name="AtvStampAppxManifest"
+          BeforeTargets="Build"
+          DependsOnTargets="GetBuildVersion">
+
+    <Error Condition="!Exists('$(AtvManifestTemplate)')"
+           Text="[Atv.Package] AppxManifest template not found at '$(AtvManifestTemplate)'." />
+    <Error Condition="'$(AtvBrandName)' == ''"
+           Text="[Atv.Package] AtvBrandName is empty -- brand extraction from src/Atv/Branding.cs (Directory.Build.props) failed." />
+
+    <PropertyGroup>
+      <!--
+        Execution-time only (DIST-7 implementation rule): $(BuildVersion) is an OUTPUT
+        of NBGV's GetBuildVersionCore target, not known at file-evaluation time. And
+        $(IntermediateOutputPath)'s RID segment (e.g. win-x64) is not finalized until
+        the SDK's own RID-inference targets have already run; both are only safe to
+        read here, inside this target's own execution-time PropertyGroup, never in a
+        file-body (outside-target) PropertyGroup, where both would silently evaluate
+        empty/unfinalized.
+      -->
+      <_AtvPathHash>$([MSBuild]::StableStringHash('$(MSBuildProjectDirectory)').ToString("x8"))</_AtvPathHash>
+      <_AtvIdentityName>$(AtvBrandName)-$(_AtvPathHash)</_AtvIdentityName>
+      <_AtvStampedManifestPath>$(IntermediateOutputPath)AppxManifest.xml</_AtvStampedManifestPath>
+      <_AtvTemplateContent>$([System.IO.File]::ReadAllText('$(AtvManifestTemplate)'))</_AtvTemplateContent>
+      <_AtvStampedContent>$(_AtvTemplateContent.Replace('{IdentityName}', '$(_AtvIdentityName)').Replace('{Version}', '$(BuildVersion)'))</_AtvStampedContent>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(IntermediateOutputPath)" Condition="!Exists('$(IntermediateOutputPath)')" />
+
+    <WriteLinesToFile
+        File="$(_AtvStampedManifestPath)"
+        Lines="$(_AtvStampedContent)"
+        Overwrite="true"
+        WriteOnlyWhenDifferent="true" />
+
+    <Message Importance="high"
+             Text="[Atv.Package] Stamped manifest: $(_AtvStampedManifestPath) (Identity Name=$(_AtvIdentityName), Version=$(BuildVersion))" />
+  </Target>
+
+</Project>

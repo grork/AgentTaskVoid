@@ -1,0 +1,17 @@
+using System.Text.Json.Serialization;
+
+namespace Atv.Persistence;
+
+/// <summary>
+/// Source-generated (trim/AOT-safe, ERGO-26's "System.Text.Json,
+/// source-generated" decision) JSON metadata for every type this namespace
+/// persists to disk. Both the sidecar (<see cref="SidecarEntry"/>) and the
+/// recycle bin (<see cref="RecycleRecord"/>) share one context -- no
+/// runtime-reflection fallback anywhere in the NativeAOT-published binary
+/// (INFRA-2/INFRA-3).
+/// </summary>
+[JsonSerializable(typeof(SidecarEntry))]
+[JsonSerializable(typeof(RecycleRecord))]
+internal partial class PersistenceJsonContext : JsonSerializerContext
+{
+}

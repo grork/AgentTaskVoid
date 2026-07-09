@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Same TFM as src/Atv.csproj (needed for the ProjectReference below, and for
+      Windows.ApplicationModel.Package / Windows.Management.Deployment types used by
+      IdentityGate.cs and build/Atv.TestIdentity.targets' helper tool). Not an AOT
+      target: dev/test-time only.
+    -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <RootNamespace>Atv.AdapterTests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+
+    <!--
+      MTP (Microsoft.Testing.Platform), matching tests/Atv.LogicTests (phase 02). This
+      suite MUST be MTP for a stronger reason than consistency: it needs to BE the
+      identity-carrying process itself (phase-03 INFRA-16), which a classic VSTest
+      testhost process can never be (it isn't our exe, so it can't be granted our
+      package identity).
+    -->
+    <OutputType>Exe</OutputType>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+
+    <!--
+      INFRA-11/INFRA-16 acceptance criterion 6 ("on an API-absent machine, the suite
+      reports skipped, exit success"): MTP's default policy (this repo currently
+      resolves Microsoft.Testing.Platform 2.0.2, older than the 2.3.0 that defaults to
+      allow-skipped) is otherwise STRICT - a run where every test lands Inconclusive
+      (IdentityGate/API-absent skip, or the periodic test's own env-var gate) exits 8,
+      "the test session ran zero tests to completion." That is exactly the legitimate
+      skip case this suite needs to succeed, not fail - ignoring exit code 8 (and only
+      8; a real assertion failure still exits 2 and correctly fails the build).
+    -->
+    <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --ignore-exit-code 8</TestingPlatformCommandLineArguments>
+
+    <!--
+      Deliberately NOT AssemblyName=atv. The AppxManifest's declared Application
+      Executable for this pool is this project's own natural output name
+      (Atv.AdapterTests.exe, see Package/AppxManifest.template.xml) - reusing "atv"
+      here would collide at the file-name level with the "atv.dll" that the
+      ProjectReference below copies in as a dependency (src/Atv.csproj's own
+      AssemblyName), corrupting whichever one the build writes last. No brand
+      constraint requires this exe share the shipped command's name; only the real
+      "atv" pool (src/Atv.csproj) does (ERGO-18).
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      IAppTaskStore / AppTaskView / AppTaskContentDto / AppTaskState / AppTaskStore
+      live here. This suite is the one place in the whole repo, besides AppTaskStore.cs
+      itself, that actually calls AppTaskStore's real (non-fake) members against the
+      live platform - that's the entire point of phase 03 (INFRA-9's "small,
+      data-driven, serial real-API adapter suite").
+    -->
+    <ProjectReference Include="..\..\src\Atv\Atv.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Same package-layout requirement as src/Atv.csproj (ms-appx:/// logos +
+      the AppExtension's required Public\ folder) - sourced from src's own files
+      rather than duplicated, since asset content never differs between pools.
+    -->
+    <Content Include="..\..\src\Atv\Package\Assets\*.png" CopyToOutputDirectory="PreserveNewest">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="..\..\src\Atv\Package\Public\.gitkeep" CopyToOutputDirectory="PreserveNewest">
+      <Link>Public\.gitkeep</Link>
+    </Content>
+  </ItemGroup>
+
+  <Import Project="..\..\build\Atv.TestIdentity.targets" />
+
+</Project>

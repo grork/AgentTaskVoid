@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <RootNamespace>Atv</RootNamespace>
+    <AssemblyName>$(AtvCommandName)</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>CS8305</NoWarn>
+    <CsWinRTGenerateProjection>true</CsWinRTGenerateProjection>
+    <CsWinRTIncludes>Windows.UI.Shell.Tasks</CsWinRTIncludes>
+
+    <!-- NativeAOT release configuration (INFRA-2, INFRA-3). Only takes effect on
+         `dotnet publish`; no-op for `dotnet build` / `dotnet run`. -->
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Experimental types aren't found by cswinrt's default SDK version lookup;
+         must point explicitly at the SDK UnionMetadata WinMD. -->
+    <CsWinRTInputs Include="$(MSBuildProgramFiles32)\Windows Kits\10\UnionMetadata\$(TargetPlatformVersion)\Windows.winmd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+    <!-- Build-time-only: enables `dotnet run`/F5 to carry full-package identity via
+         `winapp run` with zero manual pre-steps (INFRA-17). No runtime dependency. -->
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.4.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ms-appx:/// resolves relative to the package root at runtime, which is also
+         where the AppxManifest's VisualElements logos live: one folder serves both. -->
+    <Content Include="Package\Assets\*.png" CopyToOutputDirectory="PreserveNewest">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </Content>
+    <!-- Empty placeholder so the package layout has the Public\ folder the manifest's
+         com.microsoft.apptaskprovider AppExtension declares via PublicFolder="Public"
+         (required for AppTaskInfo to function; see AppxManifest.template.xml). -->
+    <Content Include="Package\Public\.gitkeep" CopyToOutputDirectory="PreserveNewest">
+      <Link>Public\.gitkeep</Link>
+    </Content>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!--
+      Statically point winapp's dev-run manifest lookup at the same location
+      build/Atv.Package.targets' AtvStampAppxManifest target writes to. This MUST be
+      resolvable at file-evaluation time: Microsoft.Windows.SDK.BuildTools.WinApp's own
+      run-support gate (_WinAppRunSupportActive) is a top-level, evaluation-time
+      PropertyGroup that checks Exists($(WinAppManifestPath)) before any target,
+      including ours, has run. So this is built from $(Configuration)/$(TargetFramework)
+      literally (both known immediately after $(TargetFramework) above), matching
+      $(IntermediateOutputPath)'s eventual value for the no-RID dev-loop case, rather
+      than referencing $(IntermediateOutputPath) itself, whose RID segment is not
+      finalized until target-execution time (see build/Atv.Package.targets).
+
+      Consequence: the manifest must exist on disk from a PRIOR build for a given
+      `dotnet run` invocation to pick it up (winapp's gate can't see a file this same
+      build's targets haven't written yet at evaluation time), i.e. `dotnet build`
+      once, then `dotnet run` carries identity from then on. Not a manual pre-step in
+      the INFRA-17 sense (no bespoke script, no documented ritual), just the ordinary
+      fact that `dotnet run` builds before it runs.
+    -->
+    <WinAppManifestPath>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\AppxManifest.xml</WinAppManifestPath>
+    <!-- Console app: keep stdin/stdout/stderr in the caller's terminal instead of
+         AUMID-activating detached. -->
+    <WinAppRunUseExecutionAlias>true</WinAppRunUseExecutionAlias>
+  </PropertyGroup>
+
+  <Import Project="..\..\build\Atv.Package.targets" />
+
+</Project>
