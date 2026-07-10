@@ -3,10 +3,12 @@ using Atv.Config;
 using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.LogicTests.Persistence;
+using Atv.LogicTests.Run;
 using Atv.LogicTests.Store;
 using Atv.LogicTests.Watchdog;
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Run;
 using Atv.Watchdog;
 
 namespace Atv.LogicTests.Cli;
@@ -66,6 +68,38 @@ internal sealed class DispatcherHarness : IDisposable
     /// <summary>Backing field for <c>doctor</c>'s watchdog-liveness probe.</summary>
     public bool DoctorWatchdogRunning { get; set; }
 
+    /// <summary>Phase-11 `run` tunables, deliberately fast (not the ~2s/5min production defaults) so a Dispatcher-level `run` test doesn't sit through a real debounce/keepalive interval.</summary>
+    public Settings Settings { get; set; } = Settings.Default with
+    {
+        RunUpdateDebounce = TimeSpan.FromMilliseconds(20),
+        RunKeepAliveInterval = TimeSpan.FromMilliseconds(100),
+    };
+
+    /// <summary>Mutable fake wall clock for `run`'s step-publisher loop -- <see cref="Now"/> by default, advance explicitly for keepalive-timing tests.</summary>
+    public DateTimeOffset ClockNow { get; set; } = Now;
+
+    /// <summary>The last <see cref="FakeChildProcess"/> the harness's default <c>SpawnChild</c> factory created -- the AC2 seam a test grabs to script output/exit.</summary>
+    public FakeChildProcess? LastSpawnedChild { get; private set; }
+
+    /// <summary>
+    /// Optional synchronous scripting hook invoked immediately on a freshly
+    /// created <see cref="FakeChildProcess"/>, BEFORE it is handed back to
+    /// <c>RunVerb.Run</c> -- lets a test call <c>Exit(...)</c> up front
+    /// (Dispatcher's own thread is the one that will block on
+    /// <c>WaitForExit</c>) so a full `run` dispatch through
+    /// <see cref="Run(Dispatcher, string[])"/> stays single-threaded and
+    /// deterministic instead of racing a background "script the child" step
+    /// against the blocking wait.
+    /// </summary>
+    public Action<FakeChildProcess>? ScriptChild { get; set; }
+
+    /// <summary>The exact child argv the `run` verb resolved (everything after `--`, verbatim) on the last spawn.</summary>
+    public IReadOnlyList<string>? LastSpawnArgs { get; private set; }
+
+    /// <summary>Raw byte sinks `run` mirrors the fake child's stdout/stderr to -- a test reads these back to assert byte-for-byte transparency.</summary>
+    public MemoryStream StdoutMirror { get; } = new();
+    public MemoryStream StderrMirror { get; } = new();
+
     public DispatcherHarness()
     {
         Sidecar = new SidecarStore(_sidecarDir.Path);
@@ -101,7 +135,20 @@ internal sealed class DispatcherHarness : IDisposable
             hasIdentity: () => HasIdentity,
             isSupported: () => Store.IsSupported(),
             ensureWatchdog: ensureWatchdog,
-            doctorContext: doctorContext);
+            doctorContext: doctorContext,
+            settings: Settings,
+            clock: () => ClockNow,
+            sleep: _ => Thread.Sleep(1),
+            spawnChild: args =>
+            {
+                LastSpawnArgs = args;
+                var child = new FakeChildProcess();
+                LastSpawnedChild = child;
+                ScriptChild?.Invoke(child);
+                return child;
+            },
+            stdoutMirror: StdoutMirror,
+            stderrMirror: StderrMirror);
     }
 
     public int Run(Dispatcher dispatcher, params string[] args) => dispatcher.Run(CommandLine.Parse(args), Now);

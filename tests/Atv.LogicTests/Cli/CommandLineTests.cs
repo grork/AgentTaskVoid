@@ -256,4 +256,64 @@ public sealed class CommandLineTests
         Assert.AreEqual("frobnicate", result.Verb);
         Assert.IsNull(result.Error);
     }
+
+    // ---- phase 11: run's "--" child-command separator -----------------------------
+
+    [TestMethod]
+    public void Parse_Run_DoubleDashSeparatesChildArgs()
+    {
+        var result = CommandLine.Parse(["run", "--title", "Build", "--", "dotnet", "build"]);
+
+        Assert.AreEqual("run", result.Verb);
+        Assert.AreEqual("Build", result.Flags["title"]);
+        CollectionAssert.AreEqual(new[] { "dotnet", "build" }, result.ChildArgs.ToArray());
+        Assert.IsEmpty(result.Positionals);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_Run_ChildArgsWithFlagLikeTokens_NotInterpretedAsAtvFlags()
+    {
+        // A child's own --verbose/--json must never be swallowed as atv's own global flag.
+        var result = CommandLine.Parse(["run", "--", "npm", "test", "--verbose", "--json"]);
+
+        CollectionAssert.AreEqual(new[] { "npm", "test", "--verbose", "--json" }, result.ChildArgs.ToArray());
+        Assert.IsFalse(result.Global.Verbose);
+        Assert.IsFalse(result.Global.Json);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_Run_NoDoubleDash_EmptyChildArgs()
+    {
+        var result = CommandLine.Parse(["run", "--title", "Build"]);
+        Assert.IsEmpty(result.ChildArgs);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_Run_DoubleDashWithNoChildTokens_EmptyChildArgs()
+    {
+        var result = CommandLine.Parse(["run", "--title", "Build", "--"]);
+        Assert.IsEmpty(result.ChildArgs);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_DoubleDash_BeforeVerb_StillErrors()
+    {
+        // "--" only becomes the child-args separator once a verb is set.
+        var result = CommandLine.Parse(["--", "run"]);
+        Assert.IsNotNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_Run_GlobalFlagsBeforeDoubleDash_StillRecognized()
+    {
+        var result = CommandLine.Parse(["--strict", "run", "--title", "T", "--", "cmd", "/c", "echo", "hi"]);
+
+        Assert.IsTrue(result.Global.Strict);
+        Assert.AreEqual("T", result.Flags["title"]);
+        CollectionAssert.AreEqual(new[] { "cmd", "/c", "echo", "hi" }, result.ChildArgs.ToArray());
+    }
 }

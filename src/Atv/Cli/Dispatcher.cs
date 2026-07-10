@@ -3,6 +3,7 @@ using Atv.Config;
 using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.Operations;
+using Atv.Run;
 using Atv.Store;
 
 namespace Atv.Cli;
@@ -44,6 +45,12 @@ public sealed class Dispatcher
     private readonly Func<bool> _isSupported;
     private readonly Action _ensureWatchdog;
     private readonly DoctorContext _doctorContext;
+    private readonly Settings _settings;
+    private readonly Func<DateTimeOffset> _clock;
+    private readonly Action<TimeSpan> _sleep;
+    private readonly Func<IReadOnlyList<string>, IChildProcess> _spawnChild;
+    private readonly Stream _stdoutMirror;
+    private readonly Stream _stderrMirror;
 
     public Dispatcher(
         TaskOperations ops,
@@ -54,7 +61,13 @@ public sealed class Dispatcher
         Func<bool> hasIdentity,
         Func<bool> isSupported,
         Action ensureWatchdog,
-        DoctorContext doctorContext)
+        DoctorContext doctorContext,
+        Settings settings,
+        Func<DateTimeOffset> clock,
+        Action<TimeSpan> sleep,
+        Func<IReadOnlyList<string>, IChildProcess> spawnChild,
+        Stream stdoutMirror,
+        Stream stderrMirror)
     {
         _ops = ops ?? throw new ArgumentNullException(nameof(ops));
         _posture = posture ?? throw new ArgumentNullException(nameof(posture));
@@ -65,6 +78,12 @@ public sealed class Dispatcher
         _isSupported = isSupported ?? throw new ArgumentNullException(nameof(isSupported));
         _ensureWatchdog = ensureWatchdog ?? throw new ArgumentNullException(nameof(ensureWatchdog));
         _doctorContext = doctorContext ?? throw new ArgumentNullException(nameof(doctorContext));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _sleep = sleep ?? throw new ArgumentNullException(nameof(sleep));
+        _spawnChild = spawnChild ?? throw new ArgumentNullException(nameof(spawnChild));
+        _stdoutMirror = stdoutMirror ?? throw new ArgumentNullException(nameof(stdoutMirror));
+        _stderrMirror = stderrMirror ?? throw new ArgumentNullException(nameof(stderrMirror));
     }
 
     /// <summary>Dispatches one lifecycle-verb invocation. Callers must have already handled <see cref="ParseResult.ShowHelp"/>/<see cref="ParseResult.ShowVersion"/>/a bare (no-verb) invocation -- those never reach here (Program.cs's job, needs no identity/platform/Posture at all).</summary>
@@ -89,6 +108,7 @@ public sealed class Dispatcher
             "list" => ListVerb.Run(_output, _posture, _hasIdentity, _isSupported, _ops, now),
             "clear" => ClearVerb.Run(_posture, _hasIdentity, _isSupported, _ensureWatchdog, _ops, parsed.IncludeRecycleBin, now),
             "doctor" => DoctorVerb.Run(_output, _posture, _doctorContext, now),
+            "run" => RunVerb.Run(BuildRunDeps(), parsed, now),
             null => throw new ArgumentException("A bare (no-verb) invocation must be handled by the caller before reaching Dispatcher.Run.", nameof(parsed)),
             _ => _posture.Run(parsed.Verb, null, () => VerbResult.Failure(FailureKind.InvalidArguments, $"Unknown verb '{parsed.Verb}'."), now),
         };
@@ -203,6 +223,12 @@ public sealed class Dispatcher
 
         return MapOutcome(_ops.Remove(handle, now));
     }
+
+    // ---- run (phase 11) ---------------------------------------------------------
+
+    private RunDeps BuildRunDeps() => new(
+        _ops, _icons, _posture, _hasIdentity, _isSupported, _ensureWatchdog, _defaultDeepLink,
+        _settings, _clock, _sleep, _spawnChild, _stdoutMirror, _stderrMirror);
 
     // ---- shared argument-shape validation -----------------------------------------------
 

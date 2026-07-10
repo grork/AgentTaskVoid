@@ -3,6 +3,7 @@ using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Run;
 using Atv.Store;
 using Atv.Watchdog;
 using Microsoft.Win32;
@@ -82,7 +83,13 @@ public static class CompositionRoot
             hasIdentity: HasPackageIdentity,
             isSupported: b.Store.IsSupported,
             ensureWatchdog: ensureWatchdog,
-            doctorContext: doctorContext);
+            doctorContext: doctorContext,
+            settings: b.Settings,
+            clock: () => DateTimeOffset.Now,
+            sleep: Thread.Sleep,
+            spawnChild: ChildProcess.Start,
+            stdoutMirror: Console.OpenStandardOutput(),
+            stderrMirror: Console.OpenStandardError());
 
         return new RootContext(dispatcher, b.Settings, b.Warnings);
     }

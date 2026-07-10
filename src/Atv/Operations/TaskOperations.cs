@@ -404,6 +404,82 @@ public sealed class TaskOperations
         return new ClearSummary(GateAcquired: true, live.Count, recycleRemoved);
     }
 
+    // ---- run wrapper support (phase 11) --------------------------------------
+
+    /// <summary>
+    /// The `run` wrapper's step-stream write: replaces the WHOLE step list
+    /// with <paramref name="lines"/> wholesale (last line -&gt; executingStep,
+    /// everything before it -&gt; completedSteps) -- NOT the ERGO-8 "advance"
+    /// model <see cref="Step"/> uses. The wrapper owns its rolling buffer
+    /// exclusively (ERGO-5: "no read-back"), so there is nothing to archive;
+    /// each call is a full, idempotent snapshot of "the last N lines as of
+    /// now". Reuses the same resolve -&gt; validate -&gt; write -&gt; sidecar-stamp
+    /// pipeline every other update-class verb uses (<see cref="RunUpdateClassVerb"/>),
+    /// including its miss-path recycle-bin consultation -- defensive only,
+    /// since the wrapper's minted handle is never expected to collide with a
+    /// recycle-bin record in practice. Always <see cref="AppTaskState.Running"/>
+    /// (the card is Running for the wrapper's whole lifetime; <c>Done</c>/<c>Fail</c>
+    /// are separate, explicit terminal calls) -- (SequenceOfSteps, Running) is
+    /// an unconditionally-safe cell (<see cref="SafeCombinationMatrix"/>), so
+    /// <paramref name="unsafeBypass"/> is exposed only for uniformity/defensiveness.
+    /// </summary>
+    public OperationOutcome ReplaceSteps(string handle, IReadOnlyList<string> lines, DateTimeOffset now, bool unsafeBypass = false)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        return RunUpdateClassVerb(handle, now, unsafeBypass,
+            onLive: _ => (BuildStepContent(lines), AppTaskState.Running),
+            onResurrect: () => (BuildStepContent(lines), AppTaskState.Running));
+    }
+
+    /// <summary>
+    /// The `run` wrapper's LIFE-22 silent-child keepalive: refreshes the
+    /// handle's sidecar <c>lastUpdate</c> WITHOUT touching store content --
+    /// no <see cref="IAppTaskStore.Update"/> call at all, only
+    /// <see cref="SidecarStore.Write"/>'s own unconditional timestamp stamp.
+    /// So the watchdog never reaps an alive-but-quiet child between output
+    /// bursts. A clean no-op (no write at all) if the handle isn't currently
+    /// live -- there is nothing to keep alive.
+    /// </summary>
+    public OperationOutcome TouchKeepAlive(string handle, DateTimeOffset now)
+    {
+        ValidateHandle(handle);
+        OperationOutcome? outcome = null;
+        bool ran = _writeGate.TryRun(() => outcome = TouchKeepAliveCore(handle, now));
+        return ran ? outcome! : GateUnavailable(handle);
+    }
+
+    private OperationOutcome TouchKeepAliveCore(string handle, DateTimeOffset now)
+    {
+        var resolve = Reconciler.ResolveHandle(_store, _sidecar, handle);
+        if (resolve.Outcome != ResolveOutcome.Kept)
+        {
+            string reason = "Handle is not live -- nothing to keep alive.";
+            Log($"{handle}: {reason}");
+            return new OperationOutcome(OutcomeKind.UnknownHandleNoOp, handle, reason);
+        }
+
+        _sidecar.Write(handle, resolve.Id!, now);
+        return new OperationOutcome(OutcomeKind.Accepted, handle, "Keepalive: lastUpdate refreshed, no content write.");
+    }
+
+    /// <summary>
+    /// Maps a rolling-buffer snapshot onto <c>SequenceOfSteps</c>: the last
+    /// line is the executing step, everything before it is completedSteps.
+    /// An empty buffer (the wrapper hasn't seen any output line yet) uses
+    /// the same <see cref="AdvanceModel.NoStepsYetPlaceholder"/> baseline
+    /// every other "nothing to archive yet" path in this file uses -- the
+    /// real platform throws E_INVALIDARG for an empty executingStep
+    /// (phase-08 discovery).
+    /// </summary>
+    private static AppTaskContentDto.SequenceOfSteps BuildStepContent(IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+            return new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder);
+
+        List<string> completed = lines.Count > 1 ? [.. lines.Take(lines.Count - 1)] : [];
+        return new AppTaskContentDto.SequenceOfSteps(completed, lines[^1]);
+    }
+
     // ---- shared update-class pipeline (step/state/done/fail/attention) -----
 
     /// <summary>

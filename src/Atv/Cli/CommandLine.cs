@@ -14,10 +14,12 @@ public sealed record GlobalOptions(
 /// token (lowercased, or <see langword="null"/> for a bare invocation),
 /// positional arguments in order, per-verb value flags keyed by their bare
 /// name (e.g. <c>"title"</c>, not <c>"--title"</c>), the <c>--reset</c>
-/// boolean, <c>clear</c>'s <c>--include-recycle-bin</c> boolean, the
-/// resolved <see cref="GlobalOptions"/>, and a non-null <see cref="Error"/>
-/// for anything <see cref="CommandLine.Parse"/> itself couldn't make sense
-/// of (an unknown option, or a value-flag missing its value) -- verb-NAME
+/// boolean, <c>clear</c>'s <c>--include-recycle-bin</c> boolean,
+/// <c>run</c>'s <see cref="ChildArgs"/> (everything after a bare <c>--</c>,
+/// verbatim -- empty when no <c>--</c> was present), the resolved
+/// <see cref="GlobalOptions"/>, and a non-null <see cref="Error"/> for
+/// anything <see cref="CommandLine.Parse"/> itself couldn't make sense of
+/// (an unknown option, or a value-flag missing its value) -- verb-NAME
 /// validity (e.g. a typo'd verb) is deliberately NOT an <see cref="Error"/>
 /// here; that is <c>Dispatcher</c>'s job, so it can route even an
 /// unrecognized verb through the same non-disruptive posture pipeline as
@@ -31,6 +33,7 @@ public sealed record ParseResult(
     IReadOnlyDictionary<string, string> Flags,
     bool Reset,
     bool IncludeRecycleBin,
+    IReadOnlyList<string> ChildArgs,
     GlobalOptions Global,
     string? Error);
 
@@ -41,7 +44,12 @@ public sealed record ParseResult(
 /// are only collected once a verb token has been consumed (ERGO-27 C6,
 /// "global-flag placement") -- a <c>--flag</c>-shaped token seen BEFORE any
 /// verb is therefore always an <see cref="ParseResult.Error"/> (there is no
-/// verb yet for it to belong to).
+/// verb yet for it to belong to). A bare <c>--</c> AFTER the verb (ERGO-27's
+/// <c>run --title T -- &lt;command...&gt;</c>) stops all further
+/// flag/global-option recognition and captures every remaining token
+/// verbatim into <see cref="ParseResult.ChildArgs"/> -- checked BEFORE the
+/// global-option switch below so a child's own <c>--verbose</c>/<c>--json</c>
+/// etc. is never swallowed as atv's own flag.
 /// </summary>
 public static class CommandLine
 {
@@ -61,10 +69,17 @@ public static class CommandLine
         string? error = null;
         var positionals = new List<string>();
         var flags = new Dictionary<string, string>(StringComparer.Ordinal);
+        IReadOnlyList<string> childArgs = [];
 
         for (int i = 0; i < args.Count && error is null; i++)
         {
             string tok = args[i];
+
+            if (verb is not null && tok == "--")
+            {
+                childArgs = [.. args.Skip(i + 1)];
+                break;
+            }
 
             switch (tok)
             {
@@ -129,6 +144,6 @@ public static class CommandLine
         }
 
         var global = new GlobalOptions(json, strict, verbose, unsafeBypass, waitForDebugger, watchdogModeRaw);
-        return new ParseResult(showHelp, showVersion, verb, positionals, flags, reset, includeRecycleBin, global, error);
+        return new ParseResult(showHelp, showVersion, verb, positionals, flags, reset, includeRecycleBin, childArgs, global, error);
     }
 }

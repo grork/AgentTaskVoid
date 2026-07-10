@@ -16,6 +16,9 @@ internal sealed class CountingAppTaskStore(IAppTaskStore inner) : IAppTaskStore
     public int FindCallCount { get; private set; }
     public int RemoveCallCount { get; private set; }
 
+    /// <summary>Counts <see cref="Update"/> calls (whole-content writes) -- phase 11 uses this to prove a debounce tick with no new output makes ZERO content writes (only a sidecar keepalive touch), and a tick with new output makes exactly ONE regardless of how many lines arrived since the last tick.</summary>
+    public int UpdateCallCount { get; private set; }
+
     public bool IsSupported() => inner.IsSupported();
 
     public IReadOnlyList<AppTaskView> FindAll()
@@ -33,7 +36,11 @@ internal sealed class CountingAppTaskStore(IAppTaskStore inner) : IAppTaskStore
     public AppTaskView Create(string title, string subtitle, Uri deepLink, Uri iconUri, AppTaskContentDto content)
         => inner.Create(title, subtitle, deepLink, iconUri, content);
 
-    public bool Update(string id, AppTaskState state, AppTaskContentDto content) => inner.Update(id, state, content);
+    public bool Update(string id, AppTaskState state, AppTaskContentDto content)
+    {
+        UpdateCallCount++;
+        return inner.Update(id, state, content);
+    }
 
     public bool UpdateState(string id, AppTaskState state) => inner.UpdateState(id, state);
 

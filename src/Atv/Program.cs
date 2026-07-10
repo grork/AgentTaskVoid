@@ -59,6 +59,7 @@ static void PrintUsage()
     Console.WriteLine();
     Console.WriteLine("Data / utility verbs:");
     Console.WriteLine($"  {Branding.Command} list [--json]");
+    Console.WriteLine($"  {Branding.Command} run [--title T] [--icon TOKEN] -- <command...>");
     Console.WriteLine($"  {Branding.Command} clear [--include-recycle-bin]");
     Console.WriteLine($"  {Branding.Command} doctor [--json] [--verbose]");
     Console.WriteLine();
@@ -67,5 +68,5 @@ static void PrintUsage()
     Console.WriteLine($"{Branding.Command} --version    Print the tool's version.");
     Console.WriteLine($"{Branding.Command} --help       Print this usage text.");
     Console.WriteLine();
-    Console.WriteLine("run lands in a later phase -- for now, remove <handle>/clear are the ways to clean up.");
+    Console.WriteLine($"{Branding.Command} run's exit code is always the wrapped command's exit code (--strict never overrides it).");
 }
