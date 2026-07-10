@@ -1,3 +1,4 @@
+using Atv.Cli.Verbs;
 using Atv.Config;
 using Atv.Diagnostics;
 using Atv.Icons;
@@ -8,47 +9,62 @@ namespace Atv.Cli;
 
 /// <summary>
 /// Dispatches one already-parsed <see cref="ParseResult"/> to the matching
-/// lifecycle-verb body over an injected <see cref="TaskOperations"/> core --
-/// the fake-testable half of the CLI (everything real-only lives in
-/// <see cref="CompositionRoot"/>).
+/// verb body. The seven lifecycle verbs are inline private methods over an
+/// injected <see cref="TaskOperations"/> core -- the fake-testable half of
+/// the CLI (everything real-only lives in <see cref="CompositionRoot"/>).
+/// The three phase-10 utility verbs (`list`/`clear`/`doctor`) are dedicated
+/// static classes in <see cref="Atv.Cli.Verbs"/> that each own their own
+/// <see cref="Posture"/> call instead -- `list`/`doctor` need
+/// <see cref="Posture.RunQuery"/> (their own `--json` shape, ERGO-27 C5),
+/// not the generic mutating-verb wrapper every lifecycle verb (and `clear`)
+/// uses.
 ///
-/// Exactly one <see cref="Posture.Run"/> call per verb invocation wraps: (1)
-/// pure argument-shape validation (handle presence, icon-token/deep-link-URI
-/// parsing, the C7 running|paused restriction) -- runs first and unconditionally,
-/// independent of platform state; (2) <see cref="Capability.Check"/>
-/// (identity, then API support); (3) the LIFE-17/INFRA-19
-/// <see cref="Atv.Watchdog.EnsureWatchdog.Run"/> liveness gate; (4) the phase-05
-/// <see cref="TaskOperations"/> call itself. Every failure mode -- bad args,
-/// platform down, ERGO-10 validator refusal, unknown handle -- therefore goes
-/// through the identical non-disruptive pipe (ERGO-27: "all behavior
-/// identical... only the logged reason and strict exit code differ").
+/// Exactly one <see cref="Posture.Run"/>/<see cref="Posture.RunQuery"/> call
+/// per verb invocation wraps: (1) pure argument-shape validation (handle
+/// presence, icon-token/deep-link-URI parsing, the C7 running|paused
+/// restriction) -- runs first and unconditionally, independent of platform
+/// state; (2) <see cref="Capability.Check"/> (identity, then API support --
+/// skipped entirely by `doctor`, whose whole job is diagnosing exactly that);
+/// (3) the LIFE-17/INFRA-19 <see cref="Atv.Watchdog.EnsureWatchdog.Run"/>
+/// liveness gate on every WRITE-path verb (lifecycle verbs + `clear`, never
+/// `list`/`doctor`); (4) the actual operation. Every failure mode -- bad
+/// args, platform down, ERGO-10 validator refusal, unknown handle --
+/// therefore goes through the identical non-disruptive pipe (ERGO-27: "all
+/// behavior identical... only the logged reason and strict exit code
+/// differ").
 /// </summary>
 public sealed class Dispatcher
 {
     private readonly TaskOperations _ops;
     private readonly Posture _posture;
+    private readonly Output _output;
     private readonly IconService _icons;
     private readonly Uri _defaultDeepLink;
     private readonly Func<bool> _hasIdentity;
     private readonly Func<bool> _isSupported;
     private readonly Action _ensureWatchdog;
+    private readonly DoctorContext _doctorContext;
 
     public Dispatcher(
         TaskOperations ops,
         Posture posture,
+        Output output,
         IconService icons,
         Uri defaultDeepLink,
         Func<bool> hasIdentity,
         Func<bool> isSupported,
-        Action ensureWatchdog)
+        Action ensureWatchdog,
+        DoctorContext doctorContext)
     {
         _ops = ops ?? throw new ArgumentNullException(nameof(ops));
         _posture = posture ?? throw new ArgumentNullException(nameof(posture));
+        _output = output ?? throw new ArgumentNullException(nameof(output));
         _icons = icons ?? throw new ArgumentNullException(nameof(icons));
         _defaultDeepLink = defaultDeepLink ?? throw new ArgumentNullException(nameof(defaultDeepLink));
         _hasIdentity = hasIdentity ?? throw new ArgumentNullException(nameof(hasIdentity));
         _isSupported = isSupported ?? throw new ArgumentNullException(nameof(isSupported));
         _ensureWatchdog = ensureWatchdog ?? throw new ArgumentNullException(nameof(ensureWatchdog));
+        _doctorContext = doctorContext ?? throw new ArgumentNullException(nameof(doctorContext));
     }
 
     /// <summary>Dispatches one lifecycle-verb invocation. Callers must have already handled <see cref="ParseResult.ShowHelp"/>/<see cref="ParseResult.ShowVersion"/>/a bare (no-verb) invocation -- those never reach here (Program.cs's job, needs no identity/platform/Posture at all).</summary>
@@ -70,6 +86,9 @@ public sealed class Dispatcher
             "done" => _posture.Run("done", FirstOrNull(parsed.Positionals), () => DoneBody(parsed, now), now),
             "fail" => _posture.Run("fail", FirstOrNull(parsed.Positionals), () => FailBody(parsed, now), now),
             "remove" => _posture.Run("remove", FirstOrNull(parsed.Positionals), () => RemoveBody(parsed, now), now),
+            "list" => ListVerb.Run(_output, _posture, _hasIdentity, _isSupported, _ops, now),
+            "clear" => ClearVerb.Run(_posture, _hasIdentity, _isSupported, _ensureWatchdog, _ops, parsed.IncludeRecycleBin, now),
+            "doctor" => DoctorVerb.Run(_output, _posture, _doctorContext, now),
             null => throw new ArgumentException("A bare (no-verb) invocation must be handled by the caller before reaching Dispatcher.Run.", nameof(parsed)),
             _ => _posture.Run(parsed.Verb, null, () => VerbResult.Failure(FailureKind.InvalidArguments, $"Unknown verb '{parsed.Verb}'."), now),
         };

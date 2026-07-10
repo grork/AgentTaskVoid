@@ -224,6 +224,54 @@ public sealed class PostureTests
     }
 
     [TestMethod]
+    public void RunQuery_Failure_NeverEmitsTheMutatingResultShape_EvenUnderJson()
+    {
+        // phase 10: list/doctor each print their OWN --json shape inside the
+        // body itself -- RunQuery must never fall back to the generic
+        // {"ok":..,"reason":..} mutating-verb stamp Run() emits.
+        var (posture, stdout, stderr, log, dir) = Build(json: true);
+        using (dir)
+        {
+            int exit = posture.RunQuery("list", null, () => VerbResult.Failure(FailureKind.IdentityNotRegistered, "no identity"), Now);
+
+            Assert.AreEqual(0, exit);
+            Assert.AreEqual("", stdout.ToString(), "RunQuery must not write the body's stdout itself -- and must never add the generic ok/reason stamp.");
+            Assert.HasCount(1, log.ReadAll());
+        }
+    }
+
+    [TestMethod]
+    public void RunQuery_Success_NeverEmitsTheMutatingResultShape_EvenUnderJson()
+    {
+        var (posture, stdout, stderr, log, dir) = Build(json: true);
+        using (dir)
+        {
+            int exit = posture.RunQuery("list", null, () =>
+            {
+                stdout.Write("[]"); // the body writes its own shape
+                return VerbResult.Success("0 task(s).");
+            }, Now);
+
+            Assert.AreEqual(0, exit);
+            Assert.AreEqual("[]", stdout.ToString(), "only the body's own write should appear -- no additional {\"ok\":..} stamp.");
+            Assert.IsEmpty(log.ReadAll());
+        }
+    }
+
+    [TestMethod]
+    public void RunQuery_Strict_StillMapsFailureKindToExitCode_AndWritesStderr()
+    {
+        var (posture, stdout, stderr, log, dir) = Build(strict: true);
+        using (dir)
+        {
+            int exit = posture.RunQuery("doctor", null, () => VerbResult.Failure(FailureKind.ApiUnavailable, "api down"), Now);
+
+            Assert.AreEqual((int)FailureKind.ApiUnavailable, exit);
+            StringAssert.Contains(stderr.ToString(), "api down");
+        }
+    }
+
+    [TestMethod]
     public void Constructor_NullLogOrOutput_Throw()
     {
         var (_, _, _, log, dir) = Build();

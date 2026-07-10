@@ -5,6 +5,7 @@ using Atv.Operations;
 using Atv.Persistence;
 using Atv.Store;
 using Atv.Watchdog;
+using Microsoft.Win32;
 using Windows.ApplicationModel;
 
 namespace Atv.Cli;
@@ -65,14 +66,23 @@ public static class CompositionRoot
         IWatchdogHost inProcHost = new InProcThreadHost(() => BuildWatchdogRunContext(global), watchdogLog);
         Action ensureWatchdog = () => EnsureWatchdog.Run(b.Settings.WatchdogMode, watchdogMutexName, processHost, inProcHost, watchdogLog);
 
+        var doctorProbes = new DoctorProbes(
+            PackageFullName: TryGetPackageFullName,
+            ApiSupported: b.Store.IsSupported,
+            DeveloperModeEnabled: IsDeveloperModeEnabled,
+            WatchdogRunning: () => EnsureWatchdog.IsRunning(watchdogMutexName));
+        var doctorContext = new DoctorContext(doctorProbes, b.Paths.ConfigPath, b.Paths.Root, b.Paths.SidecarDir, b.Paths.LogPath);
+
         var dispatcher = new Dispatcher(
             ops,
             posture,
+            output,
             b.Icons,
             defaultDeepLink: new Uri(b.Paths.Root),
             hasIdentity: HasPackageIdentity,
             isSupported: b.Store.IsSupported,
-            ensureWatchdog: ensureWatchdog);
+            ensureWatchdog: ensureWatchdog,
+            doctorContext: doctorContext);
 
         return new RootContext(dispatcher, b.Settings, b.Warnings);
     }
@@ -184,5 +194,33 @@ public static class CompositionRoot
     {
         try { _ = Package.Current.Id.FullName; return true; }
         catch (Exception) { return false; }
+    }
+
+    /// <summary>`doctor`'s identity probe (<see cref="DoctorProbes.PackageFullName"/>): the PFN when present, <see langword="null"/> otherwise -- the richer sibling of <see cref="HasPackageIdentity"/>, which only needs a bool.</summary>
+    private static string? TryGetPackageFullName()
+    {
+        try { return Package.Current.Id.FullName; }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// `doctor`'s dev-facing Developer Mode probe (INFRA-17): reads the same
+    /// registry value Windows Settings' "Developer Mode" toggle writes
+    /// (<c>HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense</c>,
+    /// DWORD 1 = on). Never throws out (FAIL-1): any registry-access failure
+    /// (permissions, key absent on a locked-down machine, ...) degrades to
+    /// "disabled" -- this is informational only, never gates a write.
+    /// </summary>
+    private static bool IsDeveloperModeEnabled()
+    {
+        try
+        {
+            using RegistryKey? key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock");
+            return key?.GetValue("AllowDevelopmentWithoutDevLicense") is int v && v == 1;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }

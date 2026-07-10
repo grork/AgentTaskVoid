@@ -64,6 +64,24 @@ public sealed class Posture
 
     /// <summary>Runs <paramref name="body"/> for <paramref name="verb"/> (optionally scoped to <paramref name="handle"/>, for the log entry) and returns the process exit code.</summary>
     public int Run(string verb, string? handle, Func<VerbResult> body, DateTimeOffset now)
+        => RunCore(verb, handle, body, now, emitMutatingResult: true);
+
+    /// <summary>
+    /// Same exception backstop, FAIL-3 durable-log-on-failure, `--verbose`
+    /// diagnostic line, and `--strict` exit-vocabulary mapping as
+    /// <see cref="Run"/> -- but WITHOUT the blanket FAIL-2
+    /// {"ok":..,"reason":..} stdout emission. For phase-10's `list`/`doctor`:
+    /// each has its OWN `--json` shape (ERGO-27 C5 -- `list`'s task array,
+    /// `doctor`'s structured report), not the generic mutating-verb shape
+    /// every lifecycle verb (and `clear`, still FAIL-2-shaped) shares.
+    /// <paramref name="body"/> is responsible for writing its own stdout
+    /// (<see cref="Output.Data"/>/<see cref="Output.WriteJson{T}"/>) before
+    /// returning its <see cref="VerbResult"/>.
+    /// </summary>
+    public int RunQuery(string verb, string? handle, Func<VerbResult> body, DateTimeOffset now)
+        => RunCore(verb, handle, body, now, emitMutatingResult: false);
+
+    private int RunCore(string verb, string? handle, Func<VerbResult> body, DateTimeOffset now, bool emitMutatingResult)
     {
         ArgumentException.ThrowIfNullOrEmpty(verb);
         ArgumentNullException.ThrowIfNull(body);
@@ -86,7 +104,8 @@ public sealed class Posture
         else if (_verbose)
             _log.Append(verb, handle, result.Reason.Length > 0 ? result.Reason : "ok", now);
 
-        _output.MutatingResult(result.Ok, result.Reason);
+        if (emitMutatingResult)
+            _output.MutatingResult(result.Ok, result.Reason);
 
         return !result.Ok && _strict ? (int)result.Kind : 0;
     }

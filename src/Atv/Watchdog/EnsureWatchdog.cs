@@ -56,4 +56,32 @@ public static class EnsureWatchdog
             log($"watchdog: failed to start ({mode}): {ex.GetType().Name}: {ex.Message} -- non-disruptive, continuing.");
         }
     }
+
+    /// <summary>
+    /// Cheap, standalone liveness probe: <see langword="true"/> if a
+    /// watchdog currently holds the LIFE-18 mutex named
+    /// <paramref name="mutexName"/>. Phase 10's `doctor` reuses this rather
+    /// than re-deriving <see cref="Run"/>'s own internal
+    /// <see cref="Mutex.OpenExisting(string)"/> pattern -- purely
+    /// informational (doctor never spawns/starts anything), so this never
+    /// falls through to a host.
+    /// </summary>
+    public static bool IsRunning(string mutexName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(mutexName);
+        try
+        {
+            using var existing = Mutex.OpenExisting(mutexName);
+            return true;
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Exists but inaccessible -- treat as live (matches Run's own posture).
+            return true;
+        }
+    }
 }

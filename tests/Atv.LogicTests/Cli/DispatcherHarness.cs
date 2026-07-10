@@ -42,6 +42,9 @@ internal sealed class DispatcherHarness : IDisposable
     public List<string> WatchdogLogs { get; } = [];
     public string AppDataRoot => _appDataDir.Path;
 
+    /// <summary>The canonical icon render-once cache directory (<c>Icons/cache</c>, ERGO-23) -- for asserting `clear` never touches it.</summary>
+    public string IconsCacheDir => Path.Combine(_iconsDir.Path, "cache");
+
     /// <summary>Backing field for the <see cref="Dispatcher"/>'s injected identity check -- flip to simulate AC3's "missing platform" scenarios.</summary>
     public bool HasIdentity { get; set; } = true;
 
@@ -53,6 +56,15 @@ internal sealed class DispatcherHarness : IDisposable
 
     /// <summary>The fake host <see cref="EnsureWatchdog.Run"/> selects for <see cref="Config.WatchdogMode.InProc"/> -- never a real thread in this fake-backed suite.</summary>
     public FakeWatchdogHost InProcHost { get; } = new();
+
+    /// <summary>Backing field for <c>doctor</c>'s identity probe -- independent of <see cref="HasIdentity"/> (which gates lifecycle verbs/list/clear via <see cref="Diagnostics.Capability"/>) so doctor tests can flip identity presence without touching the rest of the pipeline.</summary>
+    public string? DoctorPackageFullName { get; set; } = "Agentaskvoid-test_1.0.0.0_neutral";
+
+    /// <summary>Backing field for <c>doctor</c>'s dev-facing Developer Mode probe.</summary>
+    public bool DoctorDeveloperModeEnabled { get; set; } = true;
+
+    /// <summary>Backing field for <c>doctor</c>'s watchdog-liveness probe.</summary>
+    public bool DoctorWatchdogRunning { get; set; }
 
     public DispatcherHarness()
     {
@@ -69,14 +81,27 @@ internal sealed class DispatcherHarness : IDisposable
         var output = new Output(Stdout, Stderr, json);
         var posture = new Posture(Log, output, strict, verbose);
         Action ensureWatchdog = () => EnsureWatchdog.Run(watchdogMode, WatchdogMutexName, ProcessHost, InProcHost, WatchdogLogs.Add);
+        var doctorProbes = new DoctorProbes(
+            PackageFullName: () => DoctorPackageFullName,
+            ApiSupported: () => Store.IsSupported(),
+            DeveloperModeEnabled: () => DoctorDeveloperModeEnabled,
+            WatchdogRunning: () => DoctorWatchdogRunning);
+        var doctorContext = new DoctorContext(
+            doctorProbes,
+            ConfigPath: Path.Combine(_appDataDir.Path, "atv-config.json"),
+            AppDataFolder: _appDataDir.Path,
+            SidecarDir: _sidecarDir.Path,
+            LogPath: Path.Combine(_appDataDir.Path, "atv.log"));
         return new Dispatcher(
             Ops,
             posture,
+            output,
             Icons,
             defaultDeepLink: new Uri(_appDataDir.Path),
             hasIdentity: () => HasIdentity,
             isSupported: () => Store.IsSupported(),
-            ensureWatchdog: ensureWatchdog);
+            ensureWatchdog: ensureWatchdog,
+            doctorContext: doctorContext);
     }
 
     public int Run(Dispatcher dispatcher, params string[] args) => dispatcher.Run(CommandLine.Parse(args), Now);

@@ -14,13 +14,14 @@ public sealed record GlobalOptions(
 /// token (lowercased, or <see langword="null"/> for a bare invocation),
 /// positional arguments in order, per-verb value flags keyed by their bare
 /// name (e.g. <c>"title"</c>, not <c>"--title"</c>), the <c>--reset</c>
-/// boolean, the resolved <see cref="GlobalOptions"/>, and a non-null
-/// <see cref="Error"/> for anything <see cref="CommandLine.Parse"/> itself
-/// couldn't make sense of (an unknown option, or a value-flag missing its
-/// value) -- verb-NAME validity (e.g. a typo'd verb) is deliberately NOT an
-/// <see cref="Error"/> here; that is <c>Dispatcher</c>'s job, so it can route
-/// even an unrecognized verb through the same non-disruptive posture
-/// pipeline as everything else.
+/// boolean, <c>clear</c>'s <c>--include-recycle-bin</c> boolean, the
+/// resolved <see cref="GlobalOptions"/>, and a non-null <see cref="Error"/>
+/// for anything <see cref="CommandLine.Parse"/> itself couldn't make sense
+/// of (an unknown option, or a value-flag missing its value) -- verb-NAME
+/// validity (e.g. a typo'd verb) is deliberately NOT an <see cref="Error"/>
+/// here; that is <c>Dispatcher</c>'s job, so it can route even an
+/// unrecognized verb through the same non-disruptive posture pipeline as
+/// everything else.
 /// </summary>
 public sealed record ParseResult(
     bool ShowHelp,
@@ -29,6 +30,7 @@ public sealed record ParseResult(
     IReadOnlyList<string> Positionals,
     IReadOnlyDictionary<string, string> Flags,
     bool Reset,
+    bool IncludeRecycleBin,
     GlobalOptions Global,
     string? Error);
 
@@ -53,7 +55,7 @@ public static class CommandLine
         ArgumentNullException.ThrowIfNull(args);
 
         bool json = false, strict = false, verbose = false, unsafeBypass = false, waitForDebugger = false;
-        bool showHelp = false, showVersion = false, reset = false;
+        bool showHelp = false, showVersion = false, reset = false, includeRecycleBin = false;
         string? watchdogModeRaw = null;
         string? verb = null;
         string? error = null;
@@ -108,6 +110,7 @@ public static class CommandLine
 
             // After the verb: per-verb flags, then bare positionals.
             if (tok == "--reset") { reset = true; continue; }
+            if (tok == "--include-recycle-bin") { includeRecycleBin = true; continue; }
 
             if (PerVerbValueFlags.Contains(tok))
             {
@@ -126,6 +129,6 @@ public static class CommandLine
         }
 
         var global = new GlobalOptions(json, strict, verbose, unsafeBypass, waitForDebugger, watchdogModeRaw);
-        return new ParseResult(showHelp, showVersion, verb, positionals, flags, reset, global, error);
+        return new ParseResult(showHelp, showVersion, verb, positionals, flags, reset, includeRecycleBin, global, error);
     }
 }

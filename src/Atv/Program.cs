@@ -57,10 +57,15 @@ static void PrintUsage()
     Console.WriteLine($"  {Branding.Command} fail <handle> [--summary TEXT]");
     Console.WriteLine($"  {Branding.Command} remove <handle>");
     Console.WriteLine();
+    Console.WriteLine("Data / utility verbs:");
+    Console.WriteLine($"  {Branding.Command} list [--json]");
+    Console.WriteLine($"  {Branding.Command} clear [--include-recycle-bin]");
+    Console.WriteLine($"  {Branding.Command} doctor [--json] [--verbose]");
+    Console.WriteLine();
     Console.WriteLine("Global options (accepted anywhere): --json --strict --verbose --watchdog-mode spawn|inproc|off --unsafe --wait-for-debugger");
     Console.WriteLine();
     Console.WriteLine($"{Branding.Command} --version    Print the tool's version.");
     Console.WriteLine($"{Branding.Command} --help       Print this usage text.");
     Console.WriteLine();
-    Console.WriteLine("list/clear/doctor/run land in later phases -- for now, remove <handle> is the way to clean up a single task.");
+    Console.WriteLine("run lands in a later phase -- for now, remove <handle>/clear are the ways to clean up.");
 }

@@ -195,6 +195,59 @@ public sealed class CommandLineTests
         Assert.AreEqual("start", result.Verb);
     }
 
+    // ---- phase 10: list / clear / doctor -----------------------------------------
+
+    [TestMethod]
+    public void Parse_List_NoPositionalsOrFlags()
+    {
+        var result = CommandLine.Parse(["list"]);
+        Assert.AreEqual("list", result.Verb);
+        Assert.IsEmpty(result.Positionals);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_List_Json_GlobalFlagRecognized()
+    {
+        var result = CommandLine.Parse(["list", "--json"]);
+        Assert.AreEqual("list", result.Verb);
+        Assert.IsTrue(result.Global.Json);
+    }
+
+    [TestMethod]
+    public void Parse_Doctor_JsonAndVerbose_GlobalFlagsRecognized()
+    {
+        var result = CommandLine.Parse(["doctor", "--json", "--verbose"]);
+        Assert.AreEqual("doctor", result.Verb);
+        Assert.IsTrue(result.Global.Json);
+        Assert.IsTrue(result.Global.Verbose);
+    }
+
+    [TestMethod]
+    public void Parse_Clear_NoFlags_IncludeRecycleBinDefaultsFalse()
+    {
+        var result = CommandLine.Parse(["clear"]);
+        Assert.AreEqual("clear", result.Verb);
+        Assert.IsFalse(result.IncludeRecycleBin);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_Clear_IncludeRecycleBin_SetsFlag()
+    {
+        var result = CommandLine.Parse(["clear", "--include-recycle-bin"]);
+        Assert.AreEqual("clear", result.Verb);
+        Assert.IsTrue(result.IncludeRecycleBin);
+    }
+
+    [TestMethod]
+    public void Parse_IncludeRecycleBin_BeforeVerb_Errors()
+    {
+        // Per-verb flags (like --reset) are only recognized AFTER the verb.
+        var result = CommandLine.Parse(["--include-recycle-bin", "clear"]);
+        Assert.IsNotNull(result.Error);
+    }
+
     [TestMethod]
     public void Parse_UnknownVerb_NoParseError_LeftForDispatcher()
     {

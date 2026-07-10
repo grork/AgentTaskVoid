@@ -317,6 +317,93 @@ public sealed class TaskOperations
         foreach (var r in summary.SweptHidden) _icons.ReapLiveIcon(r.Handle);
     }
 
+    // ---- list (identity-global enumeration; lock-free, no WriteGate) --------
+
+    /// <summary>
+    /// One row of <see cref="List"/>'s identity-global truth (ERGO-16):
+    /// <see cref="Handle"/>/<see cref="LastUpdate"/> are populated only via a
+    /// matching sidecar entry -- both <see langword="null"/> for an
+    /// ENTRYLESS live task (a task the platform knows about that this
+    /// identity's sidecar never recorded a handle for), which is still
+    /// included rather than filtered out.
+    /// </summary>
+    public sealed record TaskListEntry(string? Handle, string Title, string ExecutingStep, AppTaskState State, DateTimeOffset? LastUpdate);
+
+    /// <summary>
+    /// Every live task for this identity (<see cref="IAppTaskStore.FindAll"/>),
+    /// correlated against the sidecar index. Deliberately lock-free -- no
+    /// <see cref="WriteGate.TryRun{T}"/> acquisition -- matching
+    /// <see cref="SidecarStore.Write"/>'s own remarks that `list`/the
+    /// watchdog read the sidecar OUTSIDE the WriteGate; a snapshot read
+    /// racing a concurrent writer is harmless here (worst case, one row is a
+    /// write stale), and matches ERGO-16's "identity-global truth" -- this
+    /// never sweeps or mutates anything, just reports what is there.
+    /// </summary>
+    public IReadOnlyList<TaskListEntry> List()
+    {
+        var handleById = new Dictionary<string, (string Handle, SidecarEntry Entry)>(StringComparer.Ordinal);
+        foreach (var (handle, entry) in _sidecar.ReadAll())
+            handleById[entry.Id] = (handle, entry);
+
+        return [.. _store.FindAll().Select(t => handleById.TryGetValue(t.Id, out var mapped)
+            ? new TaskListEntry(mapped.Handle, t.Title, t.ExecutingStep, t.State, mapped.Entry.LastUpdate)
+            : new TaskListEntry(null, t.Title, t.ExecutingStep, t.State, null))];
+    }
+
+    // ---- clear (bulk purge; ERGO-27 C4) --------------------------------------
+
+    /// <summary>Result of a <see cref="ClearAll"/> pass. <see cref="GateAcquired"/> is <see langword="false"/> only on a non-strict WriteGate timeout (FAIL-1) -- both counts are then meaningless zeros, nothing was touched.</summary>
+    public sealed record ClearSummary(bool GateAcquired, int TasksRemoved, int RecycleRecordsRemoved);
+
+    /// <summary>
+    /// Purges EVERY active handle for this identity immediately (ERGO-27 C4,
+    /// amending ERGO-16): every live task (<see cref="IAppTaskStore.Remove"/>),
+    /// its sidecar entry, and its per-handle icon -- including ENTRYLESS
+    /// tasks (removed from the store even though there is no handle/icon to
+    /// reap for them, since `clear` is identity-global, not scoped to this
+    /// process's own sidecar-tracked handles). Default scope EXCLUDES the
+    /// recycle bin; <paramref name="includeRecycleBin"/> additionally wipes
+    /// it (tombstone records + their co-located icon copies, via
+    /// <see cref="RecycleBin.WipeAll"/>). One <see cref="WriteGate.TryRun{T}"/>
+    /// call for the whole reconcile-then-act cycle (plan/README.md standing
+    /// invariant #5). The canonical icon render-once cache is NEVER touched
+    /// here -- a pure regenerable accelerator (ERGO-23).
+    /// </summary>
+    public ClearSummary ClearAll(bool includeRecycleBin)
+    {
+        ClearSummary? summary = null;
+        bool ran = _writeGate.TryRun(() => summary = ClearAllCore(includeRecycleBin));
+        if (ran) return summary!;
+
+        Log("clear: could not acquire the write mutex within the bounded wait; skipped non-disruptively.");
+        return new ClearSummary(GateAcquired: false, TasksRemoved: 0, RecycleRecordsRemoved: 0);
+    }
+
+    private ClearSummary ClearAllCore(bool includeRecycleBin)
+    {
+        ReapDroppedIcons(Reconciler.ReconcileAll(_store, _sidecar));
+
+        var handleById = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (handle, entry) in _sidecar.ReadAll())
+            handleById[entry.Id] = handle;
+
+        var live = _store.FindAll();
+        foreach (var task in live)
+        {
+            _store.Remove(task.Id);
+            if (handleById.TryGetValue(task.Id, out string? handle))
+            {
+                _sidecar.Delete(handle);
+                _icons?.ReapLiveIcon(handle);
+            }
+        }
+
+        int recycleRemoved = includeRecycleBin ? _recycleBin.WipeAll() : 0;
+
+        Log($"clear: removed {live.Count} live task(s){(includeRecycleBin ? $"; wiped {recycleRemoved} recycle-bin file(s)" : "")}.");
+        return new ClearSummary(GateAcquired: true, live.Count, recycleRemoved);
+    }
+
     // ---- shared update-class pipeline (step/state/done/fail/attention) -----
 
     /// <summary>
