@@ -42,7 +42,13 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 12 | Release packaging & distribution verification | ⬜ | 0 | — |
 | 13 | Per-host integration artifacts + docs | ⬜ | 0 | — |
 
-## Checkpoint C1 — manual taskbar dogfood (after Phase 10, before Phase 11) ⬜
+## Checkpoint C1 — manual taskbar dogfood (after Phase 10, before Phase 11) ✅ RENDERED
+
+**OUTCOME (2026-07-10): RENDERED ✅.** Operator visually confirmed a real taskbar icon. Orchestrator drove `dotnet run -- -- start dogfood-c1 --title "ATV taskbar dogfood" --subtitle "…" --icon FavoriteStarFill` under dev-interactive identity (`Agentaskvoid-bbbb1168_016qghrny08mj`); `list --json` returned the live card `[{"handle":"dogfood-c1","state":"running",…}]` and the sidecar `dogfood-c1.json` was on disk; the operator eyeballed the taskbar and saw the new standalone star icon ("looks good"); `clear` then emptied it (`list`→`[]`, sidecar dir empty), so the operator also watched it vanish. **This is the first human confirmation that `AppTaskInfo` actually paints on this machine's Win11 taskbar — the product's core premise, previously only programmatic.** Also CLOSES the long-deferred visual items: phase-07 AC6 (drawn Segoe glyph renders on the taskbar), phase-08 AC4, phase-09 AC4 taskbar-empties eyeball, phase-10 AC4. `IsSupported() -> true` on this build; the `CLASS_E_CLASSNOTAVAILABLE` risk did not materialize here. **Dev-run note for future sessions:** the `winapp`-redirected `dotnet run` needs a DOUBLE `--` to pass app args (`dotnet run --project src/Atv -- -- <verb> …`); a single `--` is rejected by winapp ("Unrecognized argument"). The packaged app's stdout DOES pipe back to the console.
+
+(original checkpoint definition, kept for provenance:)
+
+## Checkpoint C1 — manual taskbar dogfood (after Phase 10, before Phase 11) [DEFINITION]
 
 **Not a plan/ phase — an operator-run verification gate the orchestrator must honor before advancing to Phase 11.** Phase 10 is the last of the genuinely dogfoodable work (11 = `run` wrapper, 12 = packaging, 13 = docs), so this is the natural seam to close the single check that has been deferred four phases running.
 
