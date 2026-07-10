@@ -21,7 +21,7 @@ public sealed class TaskOperationsStartTests
         Assert.AreEqual("My Subtitle", outcome.View.Subtitle);
         Assert.AreEqual(AppTaskState.Running, outcome.View.State);
         Assert.IsEmpty(outcome.View.CompletedSteps);
-        Assert.AreEqual("", outcome.View.ExecutingStep);
+        Assert.AreEqual("Not started yet.", outcome.View.ExecutingStep, "the real platform rejects an empty executingStep (E_INVALIDARG) -- a fresh/reset baseline must carry a non-empty placeholder instead of \"\".");
 
         var sidecarEntry = h.Sidecar.Read("h1");
         Assert.IsNotNull(sidecarEntry);
@@ -75,7 +75,7 @@ public sealed class TaskOperationsStartTests
         Assert.AreEqual(OutcomeKind.Accepted, outcome.Kind);
         Assert.AreEqual(beforeId, outcome.View!.Id, "--reset adopts in place (same icon) -- it does not mint a new Id");
         Assert.IsEmpty(outcome.View.CompletedSteps);
-        Assert.AreEqual("", outcome.View.ExecutingStep);
+        Assert.AreEqual("Not started yet.", outcome.View.ExecutingStep, "the real platform rejects an empty executingStep (E_INVALIDARG) -- a fresh/reset baseline must carry a non-empty placeholder instead of \"\".");
     }
 
     [TestMethod]
@@ -93,7 +93,7 @@ public sealed class TaskOperationsStartTests
         Assert.IsTrue(outcome.IconChanged);
         Assert.AreNotEqual(oldId, outcome.View!.Id, "a different icon token forces platform Remove+Create -- new Id");
         Assert.IsEmpty(outcome.View.CompletedSteps, "step history is lost across a forced Remove+Create");
-        Assert.AreEqual("", outcome.View.ExecutingStep);
+        Assert.AreEqual("Not started yet.", outcome.View.ExecutingStep, "the real platform rejects an empty executingStep (E_INVALIDARG) -- a fresh/reset baseline must carry a non-empty placeholder instead of \"\".");
         Assert.AreEqual(OperationsHarness.OtherIconUri, outcome.View.IconUri);
 
         // Old task is actually gone (Remove ran), not just orphaned.

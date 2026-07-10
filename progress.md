@@ -14,6 +14,14 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - **Subagent thinking level:** phases 01–03 ran at max (ultrathink). From **phase 04 onward: Sonnet + xhigh** (operator request 2026-07-08, to keep token usage on track).
 - **Lean mode is the DEFAULT** (operator, 2026-07-08): terse subagent reports (verdict + files + test counts + deviations, not essays), suppress git CRLF noise (`git add -A 2>/dev/null`), do all build/verify in subagents (their tool I/O stays out of the main context), never inline. Same verification rigor — only report verbosity shrinks. Reserve verbose for contentious/high-stakes phases, or request expansion on one finding on demand.
 
+## Resuming in a fresh session (handoff)
+
+To move oversight to a new, cheaper session (this one gets expensive to resume after idle — the context re-reads uncached): do it at a **committed phase boundary**, then start a brand-new session (`/clear`, or a fresh `claude` in this repo — do NOT resume this long one) and paste:
+
+> You're the orchestrator continuing the multi-phase build in `plan/` for this repo. Read `progress.md` first (live state + conventions + per-phase log), then `plan/README.md` (phase list). Check `git status` / `git log`. Continue from the next unfinished phase using the loop in `progress.md`: a Sonnet **executor** subagent (xhigh) implements the phase TDD-style and verifies every acceptance criterion by running real commands; then a SEPARATE Sonnet **reviewer** subagent (xhigh) — given the phase file directly, not the executor's summary — signs off only if all tests pass AND every acceptance criterion is met. On failure, fresh executor + reviewer objections; two failures → halt and surface. Commit each phase after sign-off. Run in **lean** mode. Only advance after sign-off.
+
+(The orchestration protocol is also in auto-loaded memory. If a phase is mid-flight and uncommitted in the working tree, the new session should review that in-tree work rather than re-run the executor.)
+
 **Status legend:** ⬜ pending · 🔄 executing · 🔍 in review · ✅ signed off · ❌ halted (2 failures)
 
 ## Phase status
@@ -27,7 +35,7 @@ a phase that fails review **twice** halts the whole run for operator attention.
 | 05 | Task operations: validator, advance model, upsert | ✅ | 1 | PASS (1st) |
 | 06 | Config, output contract, durable log | ✅ | 1 | PASS (1st) |
 | 07 | Icon pipeline: rendering project + icon management | ✅ | 1 | PASS (1st) |
-| 08 | CLI framework + lifecycle verbs | ⬜ | 0 | — |
+| 08 | CLI framework + lifecycle verbs | ✅ | 1 | PASS (1st) |
 | 09 | Watchdog | ⬜ | 0 | — |
 | 10 | Utility verbs: `list`, `clear`, `doctor` | ⬜ | 0 | — |
 | 11 | `run` wrapper | ⬜ | 0 | — |
@@ -80,5 +88,12 @@ a phase that fails review **twice** halts the whole run for operator attention.
 - **Residuals (non-blocking):** AC4 default→drawn-shape tier untested end-to-end (no seam exists by ERGO-22 design; shape renderer directly tested; indirect coverage adequate). *Candidate future tech-debt: add a GlyphProbe seam to IconService if full fallback-chain coverage is ever wanted.*
 - **⚠️ AC6 STILL OPEN (correction 2026-07-09):** the real-taskbar visual is NOT verified by a human. The executor subagent *claimed* to render + view sample PNGs, but that only checks pipeline output, not the taskbar; neither operator, orchestrator, nor reviewer eyeballed anything. Programmatic evidence (valid PNG bytes/dims, cache/move/reap) is solid; the genuine AC6 taskbar render remains a manual check the operator (or a real end-to-end dogfood) must close. (Earlier "eyeballed" wording in commit f5b801d overstated this.)
 - **Forward:** phase 08 wires `start --icon` + default; phase 09 calls the `MoveToRecycle` ops; phase 10 wires `clear` bulk icon purge.
+
+### Phase 08 — CLI framework + lifecycle verbs ✅ (signed off 1st attempt; lean mode)
+- **Files:** created `src/Atv/Cli/{CommandLine,Dispatcher,CompositionRoot,WatchdogGate}.cs`; tests `tests/Atv.LogicTests/Cli/*` (7 files) + `tests/Atv.AdapterTests/LifecycleVerbsEndToEndTests.cs`. Modified `src/Atv/Program.cs` (POC deleted → thin main), `src/Atv/Persistence/AppPaths.cs` (+watchdog mutex name, LIFE-18), `PostureTests`, `AppPathsTests`.
+- **Result:** hand-rolled AOT-safe parser (globals anywhere, per-verb flags after verb); `CompositionRoot` = sole prod-instance producer; 7 verbs wired through phase-05 ops under the phase-06 posture wrapper; defaults (per-handle icon, `file:` deepLink); ERGO-2 sweep on start/remove, not step; `EnsureWatchdog`/`WatchdogGate` present but INERT (phase 09 supplies hosts). Both parked phase-06 items landed (loader Warnings→FailureLog; `--json`+`--strict` test). LogicTests green + adapter suite 24 pass/1 skip (incl. ≥1 e2e per verb). AOT 0 warnings. Invariant #7 re-verified.
+- **Cross-phase fix:** real-adapter tests surfaced a genuine platform bug — `AppTaskContent.CreateSequenceOfSteps` throws `E_INVALIDARG` on an empty `executingStep` (fake never modeled it). Fixed at source: `AdvanceModel.NoStepsYetPlaceholder="Not started yet."` baseline, treated as "nothing to archive". Rippled into `TaskOperations`/`AdvanceModel` + their phase-05 tests (reviewer confirmed adaptations legit, not weakened) + `docs/windows-ui-shell-tasks/AppTaskContent.md`.
+- **Review:** PASS. AC4 taskbar-visual residual (unautomatable); dogfood confirmed programmatically via real `tasks.json`.
+- **⚠️ Notes to carry forward:** (a) **Binary 3.97 MB** (4,160,512 B) vs 2.92 MB — cause: `Atv.IconRendering` D2D/WIC interop is now REACHABLE via `CompositionRoot`→`IconService` (phase 07 had trimmed it as unreachable, hence its 0-byte delta). Over INFRA-2's ~3.5 MB soft ceiling. Non-blocking; **natural home for a trim pass = phase 12 (release packaging / DIST-5 AOT size verification)**. (b) Per-verb value flags aren't verb-scoped — e.g. `step h --title x` is accepted-and-ignored (outside AC text; minor). (c) AC4 real-taskbar visual still an OPEN manual check (see phase 07 note) — closeable now that `start --icon` works.
 
 _(Further per-phase notes appended below as phases execute.)_

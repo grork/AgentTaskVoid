@@ -11,6 +11,8 @@
 | `CreateTextSummaryResult` | `static AppTaskContent CreateTextSummaryResult(string text)` | A short text description summarizing a completed result. |
 | `CreateGeneratedAssetsResult` | `static AppTaskContent CreateGeneratedAssetsResult(AppTaskResultAsset[] assets)` | A result that includes generated files/content — see [AppTaskResultAsset.md](AppTaskResultAsset.md). |
 
+**Gotcha (empirical, 2026-07-09):** `CreateSequenceOfSteps`'s `executingStep` parameter cannot be `""` — an empty string throws `ArgumentException`/`E_INVALIDARG` ("executingStep cannot be empty"), even though the SDK signature accepts any `string` and no doc mentions the constraint. This bit `TaskOperations`'s "no real step content yet" baselines (a brand-new `start`, `--reset`, an icon-forced Remove+Create, or a resurrection's fresh content), which all originally passed `""` — caught only once phase 08's real-adapter suite exercised those paths against the live platform (`FakeAppTaskStore` doesn't model this validation; see INFRA-15's "must not" list). Fix: use a non-empty placeholder (`"Not started yet."`) for any not-yet-stepped baseline.
+
 ## Mutators — layer "needs attention" UI on top of any content
 
 `SetQuestion` is a requirement for `AppTaskState.NeedsAttention`: `AppTaskInfo.Update(NeedsAttention, content)` returns `E_INVALIDARG` unless `content` has had `SetQuestion` called on it (any factory shape). `AddButton`/`SetTextInput` are optional additions on top of a question — neither one alone (without `SetQuestion`) satisfies the `NeedsAttention` requirement. All three mutators are valid under every other state, with no `SetQuestion` requirement there. Full matrix: [state-content-compatibility.md](state-content-compatibility.md).

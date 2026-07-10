@@ -96,6 +96,41 @@ public sealed class PostureTests
     }
 
     [TestMethod]
+    public void Run_JsonAndStrict_FailingOperation_WritesOkFalseShape_AndReturnsMappedExitCode()
+    {
+        // The parked phase-06 combination test: --json and --strict are orthogonal
+        // (Output.Json governs the stdout shape; Posture's strict flag governs the
+        // exit code) -- both must apply simultaneously, not just individually.
+        var (posture, stdout, stderr, log, dir) = Build(strict: true, json: true);
+        using (dir)
+        {
+            int exit = posture.Run("start", "h1", () => VerbResult.Failure(FailureKind.ApiUnavailable, "no API"), Now);
+
+            Assert.AreEqual((int)FailureKind.ApiUnavailable, exit);
+            var doc = JsonDocument.Parse(stdout.ToString());
+            Assert.IsFalse(doc.RootElement.GetProperty("ok").GetBoolean());
+            Assert.AreEqual("no API", doc.RootElement.GetProperty("reason").GetString());
+            StringAssert.Contains(stderr.ToString(), "no API");
+            Assert.HasCount(1, log.ReadAll());
+        }
+    }
+
+    [TestMethod]
+    public void Run_JsonAndStrict_SuccessfulOperation_WritesOkTrueShape_AndExitsZero()
+    {
+        var (posture, stdout, stderr, log, dir) = Build(strict: true, json: true);
+        using (dir)
+        {
+            int exit = posture.Run("done", "h1", () => VerbResult.Success("completed"), Now);
+
+            Assert.AreEqual(0, exit);
+            var doc = JsonDocument.Parse(stdout.ToString());
+            Assert.IsTrue(doc.RootElement.GetProperty("ok").GetBoolean());
+            Assert.AreEqual("", stderr.ToString());
+        }
+    }
+
+    [TestMethod]
     public void Run_Json_SuccessfulOperation_WritesOkTrue()
     {
         var (posture, stdout, stderr, log, dir) = Build(json: true);

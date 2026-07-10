@@ -72,4 +72,19 @@ public sealed class AppPaths
     /// <summary>Pure, testable half of <see cref="CurrentWriteMutexName"/> -- takes the package family name (PFN) as plain data.</summary>
     public static string BuildWriteMutexName(string packageFamilyName)
         => $@"Local\{Branding.Name}-{packageFamilyName}-tasks-write";
+
+    /// <summary>
+    /// LIFE-18's ("Watchdog single-instance enforcement") named mutex for the
+    /// CURRENT package identity: <c>Local\&lt;brand&gt;-&lt;PFN&gt;-watchdog</c>,
+    /// held for the watchdog's whole lifetime. Same derivation pattern as
+    /// <see cref="CurrentWriteMutexName"/> -- single source of truth for this
+    /// name too, so phase 08's <c>EnsureWatchdog</c> liveness probe and
+    /// phase 09's real watchdog host never re-derive or hardcode it
+    /// independently.
+    /// </summary>
+    public static string CurrentWatchdogMutexName => BuildWatchdogMutexName(Package.Current.Id.FamilyName);
+
+    /// <summary>Pure, testable half of <see cref="CurrentWatchdogMutexName"/> -- takes the package family name (PFN) as plain data.</summary>
+    public static string BuildWatchdogMutexName(string packageFamilyName)
+        => $@"Local\{Branding.Name}-{packageFamilyName}-watchdog";
 }

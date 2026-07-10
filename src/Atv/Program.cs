@@ -1,115 +1,45 @@
 using Atv;
-using Atv.Store;
-using Windows.ApplicationModel;
+using Atv.Cli;
 
-// AppTaskStore wraps IsSupported() for the CLASS_E_CLASSNOTAVAILABLE
-// COMException some Windows 11 builds throw even with valid package identity
-// (INFRA-13) -- Program.cs no longer needs its own try/catch for that.
-IAppTaskStore store = new AppTaskStore();
+// Thin main (plan/phase-08): parse -> (help/version/bare short-circuit, no
+// identity/platform needed) -> CompositionRoot -> Dispatcher. The only file
+// permitted to import Windows.UI.Shell.Tasks is Store/AppTaskStore.cs
+// (plan/README.md standing invariant #7); this file never does.
 
-if (!store.IsSupported())
+ParseResult parsed = CommandLine.Parse(args);
+
+if (parsed.ShowVersion)
 {
-    Console.Error.WriteLine("AppTaskInfo is not supported on this system.");
-    Console.Error.WriteLine("Make sure:");
-    Console.Error.WriteLine("  1. You are on Windows 11 26100+");
-    Console.Error.WriteLine("  2. The tool is running with package identity (see CLAUDE.md: winapp dev loop)");
-    return 1;
+    Console.WriteLine(ThisAssembly.AssemblyInformationalVersion);
+    return 0;
 }
 
-if (args.Length == 0)
+if (parsed.ShowHelp || (parsed.Verb is null && parsed.Error is null))
 {
     PrintUsage();
     return 0;
 }
 
-switch (args[0].ToLowerInvariant())
-{
-    case "create":
-        return Create(args[1..]);
-
-    case "list":
-        return List();
-
-    case "clear":
-        return Clear();
-
-    default:
-        Console.Error.WriteLine($"Unknown command: {args[0]}");
-        PrintUsage();
-        return 1;
-}
-
-// Not `static`: these close over `store` (a plain field-capture closure, not a
-// static local function) -- the only file allowed to talk to
-// Windows.UI.Shell.Tasks directly is AppTaskStore.cs (plan/README.md standing
-// invariant #7); everything here, including this POC scaffolding, goes
-// through IAppTaskStore.
-int Create(string[] args)
-{
-    if (args.Length == 0)
-    {
-        Console.Error.WriteLine("Usage: create <title> [subtitle]");
-        return 1;
-    }
-
-    string title = args[0];
-    string subtitle = args.Length > 1 ? args[1] : "";
-
-    // Both deepLink and iconUri cannot be null — the native implementation dereferences them
-    // unconditionally in ResolveIconPath and CreateJsonObject respectively.
-    var iconUri = new Uri("ms-appx:///Assets/Square44x44Logo.png");
-    var deepLink = new Uri("https://example.com");
-    var content = new AppTaskContentDto.SequenceOfSteps([], subtitle.Length > 0 ? subtitle : title);
-
-    var task = store.Create(title, subtitle, deepLink, iconUri, content);
-    Console.WriteLine($"Created task: {task.Id}");
-    return 0;
-}
-
-int List()
-{
-    Console.WriteLine($"Package: {PackageFullName()}");
-
-    var tasks = store.FindAll();
-    if (tasks.Count == 0)
-    {
-        Console.WriteLine("No tasks.");
-        return 0;
-    }
-
-    foreach (var task in tasks)
-    {
-        Console.WriteLine($"Id:       {task.Id}");
-        Console.WriteLine($"Title:    {task.Title}");
-        Console.WriteLine($"Subtitle: {task.Subtitle}");
-        Console.WriteLine($"State:    {task.State}");
-        Console.WriteLine();
-    }
-    return 0;
-}
-
-int Clear()
-{
-    var tasks = store.FindAll();
-    foreach (var task in tasks)
-        store.Remove(task.Id);
-    Console.WriteLine($"Cleared {tasks.Count} task(s).");
-    return 0;
-}
-
-// Diagnostic proof of package identity (phase-01 AC2): the PFN returned here is the
-// same value GetCurrentPackageFullName would return, sourced from the same in-process
-// package graph AppTaskInfo itself depends on.
-static string PackageFullName()
-{
-    try { return Package.Current.Id.FullName; }
-    catch (Exception ex) { return $"(no package identity: {ex.Message})"; }
-}
+RootContext root = CompositionRoot.Build(parsed.Global, Console.Out, Console.Error);
+return root.Dispatcher.Run(parsed, DateTimeOffset.Now);
 
 static void PrintUsage()
 {
-    Console.WriteLine("Usage:");
-    Console.WriteLine($"  {Branding.Command} create <title> [subtitle]");
-    Console.WriteLine($"  {Branding.Command} list");
-    Console.WriteLine($"  {Branding.Command} clear");
+    Console.WriteLine($"Usage: {Branding.Command} <verb> <handle> [options]");
+    Console.WriteLine();
+    Console.WriteLine("Lifecycle verbs:");
+    Console.WriteLine($"  {Branding.Command} start <handle> [--title T] [--subtitle S] [--icon TOKEN] [--deep-link URI] [--reset]");
+    Console.WriteLine($"  {Branding.Command} step <handle> <message>");
+    Console.WriteLine($"  {Branding.Command} state <handle> running|paused");
+    Console.WriteLine($"  {Branding.Command} attention <handle> <question>");
+    Console.WriteLine($"  {Branding.Command} done <handle> [--summary TEXT]");
+    Console.WriteLine($"  {Branding.Command} fail <handle> [--summary TEXT]");
+    Console.WriteLine($"  {Branding.Command} remove <handle>");
+    Console.WriteLine();
+    Console.WriteLine("Global options (accepted anywhere): --json --strict --verbose --watchdog-mode spawn|inproc|off --unsafe --wait-for-debugger");
+    Console.WriteLine();
+    Console.WriteLine($"{Branding.Command} --version    Print the tool's version.");
+    Console.WriteLine($"{Branding.Command} --help       Print this usage text.");
+    Console.WriteLine();
+    Console.WriteLine("list/clear/doctor/run land in later phases -- for now, remove <handle> is the way to clean up a single task.");
 }

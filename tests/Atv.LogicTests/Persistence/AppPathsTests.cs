@@ -52,4 +52,25 @@ public sealed class AppPathsTests
         string b = AppPaths.BuildWriteMutexName("pfn-pool-b");
         Assert.AreNotEqual(a, b);
     }
+
+    [TestMethod]
+    public void BuildWatchdogMutexName_IncludesBrandAndPfn_FormatIsLocalScoped()
+    {
+        string name = AppPaths.BuildWatchdogMutexName("Agentaskvoid_abc123xyz");
+
+        Assert.AreEqual(@"Local\Agentaskvoid-Agentaskvoid_abc123xyz-watchdog", name);
+        StringAssert.Contains(name, Branding.Name);
+        StringAssert.StartsWith(name, @"Local\");
+        StringAssert.EndsWith(name, "-watchdog");
+    }
+
+    [TestMethod]
+    public void BuildWatchdogMutexName_DiffersFromWriteMutexName_SamePfn()
+    {
+        // Two distinct named objects for the same identity (LIFE-18 vs INFRA-6) --
+        // must never collide onto the same OS mutex name.
+        string write = AppPaths.BuildWriteMutexName("pfn-pool-a");
+        string watchdog = AppPaths.BuildWatchdogMutexName("pfn-pool-a");
+        Assert.AreNotEqual(write, watchdog);
+    }
 }

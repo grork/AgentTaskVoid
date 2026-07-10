@@ -146,7 +146,7 @@ public sealed class TaskOperations
         // Not live -- consult the recycle bin (miss path, read ONLY here).
         var record = _recycleBin.TryResurrect(handle, now, _recycleBinTtl);
 
-        var content = new AppTaskContentDto.SequenceOfSteps([], "");
+        var content = new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder);
         var validation = Validator.Validate(content, AppTaskState.Running, unsafeBypass); // always Safe; validated for uniformity/defensiveness
         if (!validation.Allowed)
         {
@@ -183,7 +183,7 @@ public sealed class TaskOperations
             // token forces a platform Remove+Create, losing step history
             // unavoidably (ERGO-25's icon caveat).
             _store.Remove(id);
-            var recreated = _store.Create(title, subtitle, deepLink, iconUri, new AppTaskContentDto.SequenceOfSteps([], ""));
+            var recreated = _store.Create(title, subtitle, deepLink, iconUri, new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder));
             _sidecar.Write(handle, recreated.Id, now);
             string reason = "Icon token changed -- forced Remove+Create; step history lost.";
             Log($"{handle}: {reason} (old id {id}, new id {recreated.Id})");
@@ -191,7 +191,7 @@ public sealed class TaskOperations
         }
 
         var content = reset
-            ? new AppTaskContentDto.SequenceOfSteps([], "")
+            ? new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder)
             : new AppTaskContentDto.SequenceOfSteps(live.CompletedSteps, live.ExecutingStep);
 
         var validation = Validator.Validate(content, AppTaskState.Running, unsafeBypass); // always Safe
@@ -237,7 +237,7 @@ public sealed class TaskOperations
 
         return RunUpdateClassVerb(handle, now, unsafeBypass,
             onLive: view => (new AppTaskContentDto.SequenceOfSteps(view.CompletedSteps, view.ExecutingStep), requestedState),
-            onResurrect: () => (new AppTaskContentDto.SequenceOfSteps([], ""), requestedState));
+            onResurrect: () => (new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder), requestedState));
     }
 
     // ---- done / fail --------------------------------------------------------
@@ -253,7 +253,7 @@ public sealed class TaskOperations
     private OperationOutcome Finish(string handle, AppTaskState endingState, DateTimeOffset now, string? summary, bool unsafeBypass)
         => RunUpdateClassVerb(handle, now, unsafeBypass,
             onLive: view => (BuildFinishContent(summary, view.CompletedSteps, view.ExecutingStep), endingState),
-            onResurrect: () => (BuildFinishContent(summary, [], ""), endingState));
+            onResurrect: () => (BuildFinishContent(summary, [], AdvanceModel.NoStepsYetPlaceholder), endingState));
 
     private static AppTaskContentDto BuildFinishContent(string? summary, IReadOnlyList<string> completedSteps, string executingStep)
         => summary is null
@@ -268,7 +268,7 @@ public sealed class TaskOperations
         ArgumentException.ThrowIfNullOrWhiteSpace(question);
         return RunUpdateClassVerb(handle, now, unsafeBypass,
             onLive: view => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps(view.CompletedSteps, view.ExecutingStep) { Question = question }), AppTaskState.NeedsAttention),
-            onResurrect: () => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps([], "") { Question = question }), AppTaskState.NeedsAttention));
+            onResurrect: () => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder) { Question = question }), AppTaskState.NeedsAttention));
     }
 
     // ---- remove ---------------------------------------------------------------
@@ -395,7 +395,7 @@ public sealed class TaskOperations
         // Baseline re-create always lands Running + bare SequenceOfSteps (Create has no state
         // parameter) -- "steps/state restart fresh" (LIFE-21). The verb's real target is then
         // layered on with a follow-up Update, itself already validated above.
-        var baseline = new AppTaskContentDto.SequenceOfSteps([], "");
+        var baseline = new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder);
         var recreated = Resurrection.RecreateFromRecord(_store, record, baseline, _icons);
         _store.Update(recreated.Id, freshState, freshContent);
         var finalView = _store.Find(recreated.Id)!;

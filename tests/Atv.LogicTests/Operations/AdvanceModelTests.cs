@@ -16,6 +16,19 @@ public sealed class AdvanceModelTests
     }
 
     [TestMethod]
+    public void FirstStep_FromNoStepsYetPlaceholder_DoesNotArchiveThePlaceholder()
+    {
+        // TaskOperations uses AdvanceModel.NoStepsYetPlaceholder (not "") as the
+        // real-platform-safe baseline executingStep (AppTaskContent.CreateSequenceOfSteps
+        // rejects an empty executingStep) -- Advance must still recognize it as
+        // "nothing meaningful to archive," exactly like a genuinely blank string.
+        var result = AdvanceModel.Advance([], AdvanceModel.NoStepsYetPlaceholder, "step one");
+
+        Assert.IsEmpty(result.CompletedSteps);
+        Assert.AreEqual("step one", result.ExecutingStep);
+    }
+
+    [TestMethod]
     public void SecondStep_ArchivesThePreviousExecutingStep()
     {
         var first = AdvanceModel.Advance([], "", "step one");
