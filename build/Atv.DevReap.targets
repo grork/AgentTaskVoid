@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Atv.DevReap.targets
+
+  INFRA-20 ("Reaping stale dev watchdogs / the locked-exe problem"), layer 2: a
+  pre-build MSBuild reap that kills any process still holding THIS worktree's own
+  build output exe open, so a stale spawned watchdog (left running from a terminal
+  `dotnet run` in spawn mode, a crash, or a shift-F5'd "app + spawn" profile) never
+  blocks the next rebuild with a file-in-use error. Layer 1 - the default launch
+  profile's ATV_WATCHDOG_MODE=off (INFRA-19) - already removes the DOMINANT source
+  of locked exes (IDE F5/Ctrl+F5 and `dotnet run` spawn nothing); this target is the
+  residual backstop, alongside LIFE-19's own natural self-exit (the watchdog exits on
+  its own once its supervised set empties).
+
+  Mechanism: find any running process whose executable path is EXACTLY this
+  worktree's own build output apphost (not any other worktree's or the release
+  binary's - INFRA-16's per-worktree identity isolation already scopes the blast
+  radius) and stop it. Deliberately not narrower than "only kill watchdog-mode
+  processes specifically": the only process that ever legitimately holds THIS exact
+  exe file open for longer than a single verb's near-instant runtime is a
+  spawned/inproc-hosted watchdog (LIFE-17) - a locked exe from anything else would
+  itself be a bug worth surfacing by failing loudly, not silently tolerating.
+
+  NOTE: $(TargetPath) is the MANAGED assembly (the .dll), never the native apphost
+  .exe that actually gets launched - true for every SDK-style Exe project, exactly
+  the gotcha build/Atv.TestIdentity.targets' own remarks call out at length. The
+  apphost sits alongside it at the same name with a ".exe" extension; that is the
+  path a running process's Process.Path actually reports, so it is the path this
+  target must match against, computed via ChangeExtension below rather than
+  $(TargetPath) directly.
+
+  Not gated by Inputs/Outputs (nothing here needs incremental-build skipping) and
+  ContinueOnError'd (a reap failure - e.g. PowerShell unavailable, no matching
+  process - must never fail an ordinary build; the worst case is the SAME
+  file-in-use error a plain rebuild would already show without this target).
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Target Name="AtvDevReapStaleWatchdog"
+          BeforeTargets="BeforeBuild;Rebuild"
+          Condition="'$(TargetPath)' != ''">
+
+    <PropertyGroup>
+      <_AtvDevReapExePath>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.exe'))</_AtvDevReapExePath>
+    </PropertyGroup>
+
+    <Exec Condition="Exists('$(_AtvDevReapExePath)')"
+          Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Get-Process | Where-Object { $_.Id -ne $PID -and $_.Path -eq '$(_AtvDevReapExePath)' } | ForEach-Object { Write-Host ('[Atv.DevReap] Stopping stale watchdog process {0} holding {1}' -f $_.Id, $_.Path); Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }&quot;"
+          ContinueOnError="WarnAndContinue"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low" />
+
+  </Target>
+
+</Project>

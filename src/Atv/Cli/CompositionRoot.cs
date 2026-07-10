@@ -4,6 +4,7 @@ using Atv.Icons;
 using Atv.Operations;
 using Atv.Persistence;
 using Atv.Store;
+using Atv.Watchdog;
 using Windows.ApplicationModel;
 
 namespace Atv.Cli;
@@ -15,12 +16,14 @@ public sealed record RootContext(Dispatcher Dispatcher, Settings Settings, IRead
 /// The ONLY place production instances get created (plan/phase-08's explicit
 /// requirement): the real <see cref="AppTaskStore"/>, the named LIFE-18/
 /// INFRA-6 mutexes, <see cref="AppPaths"/> itself, resolved
-/// <see cref="Settings"/>, the durable <see cref="FailureLog"/>, and the real
-/// <see cref="IconService"/>. Every other type either takes these as
-/// constructor parameters (<see cref="TaskOperations"/>, <see cref="WriteGate"/>,
-/// ...) or is itself fake-testable (<see cref="Dispatcher"/>) -- this type is
-/// deliberately NOT exercised by the fake-backed logic suite (matches
-/// <see cref="AppPaths.ForCurrentPackage"/>'s own untested-here status;
+/// <see cref="Settings"/>, the durable <see cref="FailureLog"/>, the real
+/// <see cref="IconService"/>, and (phase 09) the real
+/// <see cref="ProcessHost"/>/<see cref="InProcThreadHost"/> watchdog hosts.
+/// Every other type either takes these as constructor parameters
+/// (<see cref="TaskOperations"/>, <see cref="WriteGate"/>, ...) or is itself
+/// fake-testable (<see cref="Dispatcher"/>) -- this type is deliberately NOT
+/// exercised by the fake-backed logic suite (matches
+/// <see cref="AppPaths.ForCurrentPackage"/>'s own untested-here status);
 /// production wiring is proven by the phase-03 real-adapter suite and the
 /// AC4 manual dogfood instead).
 ///
@@ -32,6 +35,14 @@ public sealed record RootContext(Dispatcher Dispatcher, Settings Settings, IRead
 /// `--json`+`--strict` combination itself is a pure <see cref="Posture"/>
 /// behavior with no composition-root-specific wiring, covered instead by
 /// <c>tests/Atv.LogicTests/Diagnostics/PostureTests.cs</c>.
+///
+/// Phase 09: <see cref="BuildWatchdogDeps"/>/<see cref="BuildWatchdogRunContext"/>
+/// share the same <see cref="BuildBootstrap"/> the lifecycle-verb path
+/// (<see cref="Build"/>) uses -- one bootstrap routine, three entry points
+/// (<see cref="Build"/> for <see cref="Dispatcher"/>, <see cref="BuildWatchdogDeps"/>
+/// for <c>Program.cs</c>'s LIFE-20 boot-recovery flat clear,
+/// <see cref="BuildWatchdogRunContext"/> for the hidden <c>watchdog</c> verb
+/// AND the lazy <see cref="InProcThreadHost"/> factory).
 /// </summary>
 public static class CompositionRoot
 {
@@ -41,6 +52,67 @@ public static class CompositionRoot
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
 
+        Bootstrap b = BuildBootstrap(global);
+
+        var output = new Output(stdout, stderr, global.Json);
+        var posture = new Posture(b.Log, output, global.Strict, global.Verbose);
+
+        var ops = new TaskOperations(b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, msg => b.Log.Append("ops", null, msg, DateTimeOffset.Now), b.Icons);
+
+        string watchdogMutexName = ResolveWatchdogMutexName();
+        Action<string> watchdogLog = msg => b.Log.Append("watchdog", null, msg, DateTimeOffset.Now);
+        IWatchdogHost processHost = new ProcessHost(Environment.ProcessPath ?? "", BuildWatchdogSpawnArgs(global), watchdogLog);
+        IWatchdogHost inProcHost = new InProcThreadHost(() => BuildWatchdogRunContext(global), watchdogLog);
+        Action ensureWatchdog = () => EnsureWatchdog.Run(b.Settings.WatchdogMode, watchdogMutexName, processHost, inProcHost, watchdogLog);
+
+        var dispatcher = new Dispatcher(
+            ops,
+            posture,
+            b.Icons,
+            defaultDeepLink: new Uri(b.Paths.Root),
+            hasIdentity: HasPackageIdentity,
+            isSupported: b.Store.IsSupported,
+            ensureWatchdog: ensureWatchdog);
+
+        return new RootContext(dispatcher, b.Settings, b.Warnings);
+    }
+
+    /// <summary>Everything the LIFE-20 boot-recovery flat clear needs -- one bootstrap, no mutex/host wiring.</summary>
+    public static WatchdogDeps BuildWatchdogDeps(GlobalOptions global) => BuildWatchdogDepsCore(global).Deps;
+
+    /// <summary>Everything <see cref="Verbs.WatchdogVerb.Run"/> (and the lazy <see cref="InProcThreadHost"/> factory) needs to actually run <see cref="WatchdogLoop.Run"/>: the deps, the real LIFE-18 single-instance mutex, real <see cref="Thread.Sleep(TimeSpan)"/>, and the real <see cref="StartupTaskControl"/> enable/disable hooks.</summary>
+    public static RunContext BuildWatchdogRunContext(GlobalOptions global)
+    {
+        (WatchdogDeps deps, AppPaths _) = BuildWatchdogDepsCore(global);
+        string mutexName = ResolveWatchdogMutexName();
+        Mutex instanceMutex = ResolveWatchdogInstanceMutex(mutexName);
+        return new RunContext(deps, instanceMutex, Thread.Sleep, StartupTaskControl.EnableSync, StartupTaskControl.DisableSync);
+    }
+
+    private static (WatchdogDeps Deps, AppPaths Paths) BuildWatchdogDepsCore(GlobalOptions global)
+    {
+        Bootstrap b = BuildBootstrap(global);
+        var deps = new WatchdogDeps(
+            b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Icons,
+            msg => b.Log.Append("watchdog", null, msg, DateTimeOffset.Now),
+            () => DateTimeOffset.Now,
+            b.Settings);
+        return (deps, b.Paths);
+    }
+
+    private static IReadOnlyList<string> BuildWatchdogSpawnArgs(GlobalOptions global)
+        => global.WaitForDebugger ? ["watchdog", "--wait-for-debugger"] : ["watchdog"];
+
+    // ---- shared bootstrap --------------------------------------------------------
+
+    /// <summary>Everything every composition entry point below needs before it diverges -- paths, settings, the durable log (with settings warnings already flushed into it), the real store/sidecar/recycle-bin/icons, and the shared write mutex/gate.</summary>
+    private sealed record Bootstrap(
+        AppPaths Paths, Settings Settings, IReadOnlyList<string> Warnings, FailureLog Log,
+        IAppTaskStore Store, SidecarStore Sidecar, RecycleBin RecycleBin, IconService Icons,
+        WriteGate Gate);
+
+    private static Bootstrap BuildBootstrap(GlobalOptions global)
+    {
         AppPaths paths = ResolvePaths();
         DateTimeOffset bootTime = DateTimeOffset.Now;
 
@@ -55,9 +127,6 @@ public static class CompositionRoot
         foreach (string warning in loadResult.Warnings)
             log.Append("settings", null, warning, bootTime);
 
-        var output = new Output(stdout, stderr, global.Json);
-        var posture = new Posture(log, output, global.Strict, global.Verbose);
-
         IAppTaskStore store = new AppTaskStore();
         var sidecar = new SidecarStore(paths.SidecarDir);
         var recycleBin = new RecycleBin(paths.RecycleBinDir);
@@ -65,20 +134,8 @@ public static class CompositionRoot
 
         Mutex writeMutex = ResolveWriteMutex();
         var gate = new WriteGate(writeMutex, settings.MutexWaitBudget, strict: false, log: msg => log.Append("writegate", null, msg, DateTimeOffset.Now));
-        var ops = new TaskOperations(store, sidecar, recycleBin, gate, settings.RecycleBinTtl, msg => log.Append("ops", null, msg, DateTimeOffset.Now), icons);
 
-        var dispatcher = new Dispatcher(
-            ops,
-            posture,
-            icons,
-            defaultDeepLink: new Uri(paths.Root),
-            hasIdentity: HasPackageIdentity,
-            isSupported: store.IsSupported,
-            watchdogMode: settings.WatchdogMode,
-            watchdogMutexName: ResolveWatchdogMutexName(),
-            watchdogLog: msg => log.Append("watchdog", null, msg, DateTimeOffset.Now));
-
-        return new RootContext(dispatcher, settings, loadResult.Warnings);
+        return new Bootstrap(paths, settings, loadResult.Warnings, log, store, sidecar, recycleBin, icons, gate);
     }
 
     private static Dictionary<string, string> ReadProcessEnvironment()
@@ -115,6 +172,12 @@ public static class CompositionRoot
     {
         try { return AppPaths.CurrentWatchdogMutexName; }
         catch (Exception) { return $@"Local\{Branding.Name}-no-identity-watchdog"; }
+    }
+
+    private static Mutex ResolveWatchdogInstanceMutex(string name)
+    {
+        try { return new Mutex(initiallyOwned: false, name); }
+        catch (Exception) { return new Mutex(initiallyOwned: false); }
     }
 
     private static bool HasPackageIdentity()

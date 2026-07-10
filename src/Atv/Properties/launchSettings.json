@@ -3,7 +3,20 @@
     "Atv": {
       "commandName": "Project",
       "environmentVariables": {
-        "WATCHDOG_MODE": "off"
+        "ATV_WATCHDOG_MODE": "off"
+      }
+    },
+    "watchdog (foreground)": {
+      "commandName": "Project",
+      "commandLineArgs": "watchdog",
+      "environmentVariables": {
+        "ATV_WATCHDOG_MODE": "off"
+      }
+    },
+    "app + spawn": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ATV_WATCHDOG_MODE": "spawn"
       }
     }
   }

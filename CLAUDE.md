@@ -40,7 +40,7 @@ The manifest is `src/Atv/Package/AppxManifest.template.xml`. Only `Identity/@Nam
 
 One real quirk: `winapp`'s own dev-run gate is evaluated at MSBuild *file-evaluation* time (before any target, including our stamping target, has run this invocation), and it requires the stamped manifest to already exist on disk. So the very first `dotnet run` in a totally fresh clone (no prior `obj/`) builds fine but launches as a plain unpackaged process (no identity) — the *next* `dotnet run` picks up the manifest that the first build's `Build` target just stamped and gets identity from then on. In practice this never matters: `dotnet build` (or any prior build) before you first `dotnet run` is normal, not a bespoke step. Full explanation in the comments on `WinAppManifestPath` in `src/Atv/Atv.csproj`.
 
-`src/Atv/Properties/launchSettings.json` sets `WATCHDOG_MODE=off` for the default profile, so F5 / Ctrl+F5 / `dotnet run` never spawn a detached watchdog (setting is consumed starting phase 09; harmless before then).
+`src/Atv/Properties/launchSettings.json` sets `ATV_WATCHDOG_MODE=off` (the brand-derived env var, resolved via `SettingsLoader.CurrentEnvVarName` — not a bare `WATCHDOG_MODE`) for the default profile, so F5 / Ctrl+F5 / `dotnet run` never spawn a detached watchdog. Two other profiles exist for watchdog work: "watchdog (foreground)" runs `atv watchdog` directly for breakpoints, and "app + spawn" sets `ATV_WATCHDOG_MODE=spawn` to exercise the real detached path (phase 09).
 
 ### NativeAOT release build
 

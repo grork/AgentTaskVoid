@@ -4,8 +4,10 @@ using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.LogicTests.Persistence;
 using Atv.LogicTests.Store;
+using Atv.LogicTests.Watchdog;
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Watchdog;
 
 namespace Atv.LogicTests.Cli;
 
@@ -43,8 +45,14 @@ internal sealed class DispatcherHarness : IDisposable
     /// <summary>Backing field for the <see cref="Dispatcher"/>'s injected identity check -- flip to simulate AC3's "missing platform" scenarios.</summary>
     public bool HasIdentity { get; set; } = true;
 
-    /// <summary>A per-instance, never-created mutex name -- <see cref="WatchdogGate.Ensure"/> always takes the "not running" branch unless a test explicitly creates it.</summary>
+    /// <summary>A per-instance, never-created mutex name -- <see cref="EnsureWatchdog.Run"/> always takes the "not running" branch unless a test explicitly creates it.</summary>
     public string WatchdogMutexName { get; } = $@"Local\atv-tests-{Guid.NewGuid():N}-watchdog";
+
+    /// <summary>The fake host <see cref="EnsureWatchdog.Run"/> selects for <see cref="Config.WatchdogMode.Spawn"/> -- never a real process in this fake-backed suite.</summary>
+    public FakeWatchdogHost ProcessHost { get; } = new();
+
+    /// <summary>The fake host <see cref="EnsureWatchdog.Run"/> selects for <see cref="Config.WatchdogMode.InProc"/> -- never a real thread in this fake-backed suite.</summary>
+    public FakeWatchdogHost InProcHost { get; } = new();
 
     public DispatcherHarness()
     {
@@ -60,6 +68,7 @@ internal sealed class DispatcherHarness : IDisposable
     {
         var output = new Output(Stdout, Stderr, json);
         var posture = new Posture(Log, output, strict, verbose);
+        Action ensureWatchdog = () => EnsureWatchdog.Run(watchdogMode, WatchdogMutexName, ProcessHost, InProcHost, WatchdogLogs.Add);
         return new Dispatcher(
             Ops,
             posture,
@@ -67,9 +76,7 @@ internal sealed class DispatcherHarness : IDisposable
             defaultDeepLink: new Uri(_appDataDir.Path),
             hasIdentity: () => HasIdentity,
             isSupported: () => Store.IsSupported(),
-            watchdogMode: watchdogMode,
-            watchdogMutexName: WatchdogMutexName,
-            watchdogLog: WatchdogLogs.Add);
+            ensureWatchdog: ensureWatchdog);
     }
 
     public int Run(Dispatcher dispatcher, params string[] args) => dispatcher.Run(CommandLine.Parse(args), Now);

@@ -1,5 +1,7 @@
 using Atv;
 using Atv.Cli;
+using Atv.Cli.Verbs;
+using Atv.Watchdog;
 
 // Thin main (plan/phase-08): parse -> (help/version/bare short-circuit, no
 // identity/platform needed) -> CompositionRoot -> Dispatcher. The only file
@@ -14,8 +16,27 @@ if (parsed.ShowVersion)
     return 0;
 }
 
+// Hidden `watchdog` verb (LIFE-17/INFRA-21): a long-running blocking loop,
+// never routed through Dispatcher/Posture (not a single request/outcome
+// verb), and deliberately absent from PrintUsage() below.
+if (parsed.Verb == "watchdog")
+{
+    return WatchdogVerb.Run(parsed.Global);
+}
+
 if (parsed.ShowHelp || (parsed.Verb is null && parsed.Error is null))
 {
+    // LIFE-20 boot recovery: a truly bare invocation (no verb, no parse
+    // error, --help not requested -- StartupTask launches carry no CLI args)
+    // recognized by ACTIVATION KIND is an OS-triggered boot/crash-recovery
+    // run, not a user asking for usage text.
+    if (!parsed.ShowHelp && parsed.Verb is null && parsed.Error is null && BootRecovery.IsStartupTaskActivation())
+    {
+        BootRecovery.FlatClear(CompositionRoot.BuildWatchdogDeps(parsed.Global));
+        StartupTaskControl.DisableSync();
+        return 0;
+    }
+
     PrintUsage();
     return 0;
 }

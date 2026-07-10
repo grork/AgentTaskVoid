@@ -75,5 +75,7 @@
   </PropertyGroup>
 
   <Import Project="..\..\build\Atv.Package.targets" />
+  <!-- INFRA-20: pre-build reap of a stale dev watchdog holding this worktree's exe open. -->
+  <Import Project="..\..\build\Atv.DevReap.targets" />
 
 </Project>

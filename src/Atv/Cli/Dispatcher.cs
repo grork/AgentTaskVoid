@@ -17,7 +17,7 @@ namespace Atv.Cli;
 /// parsing, the C7 running|paused restriction) -- runs first and unconditionally,
 /// independent of platform state; (2) <see cref="Capability.Check"/>
 /// (identity, then API support); (3) the LIFE-17/INFRA-19
-/// <see cref="WatchdogGate.Ensure"/> liveness gate; (4) the phase-05
+/// <see cref="Atv.Watchdog.EnsureWatchdog.Run"/> liveness gate; (4) the phase-05
 /// <see cref="TaskOperations"/> call itself. Every failure mode -- bad args,
 /// platform down, ERGO-10 validator refusal, unknown handle -- therefore goes
 /// through the identical non-disruptive pipe (ERGO-27: "all behavior
@@ -31,9 +31,7 @@ public sealed class Dispatcher
     private readonly Uri _defaultDeepLink;
     private readonly Func<bool> _hasIdentity;
     private readonly Func<bool> _isSupported;
-    private readonly WatchdogMode _watchdogMode;
-    private readonly string _watchdogMutexName;
-    private readonly Action<string> _watchdogLog;
+    private readonly Action _ensureWatchdog;
 
     public Dispatcher(
         TaskOperations ops,
@@ -42,9 +40,7 @@ public sealed class Dispatcher
         Uri defaultDeepLink,
         Func<bool> hasIdentity,
         Func<bool> isSupported,
-        WatchdogMode watchdogMode,
-        string watchdogMutexName,
-        Action<string> watchdogLog)
+        Action ensureWatchdog)
     {
         _ops = ops ?? throw new ArgumentNullException(nameof(ops));
         _posture = posture ?? throw new ArgumentNullException(nameof(posture));
@@ -52,9 +48,7 @@ public sealed class Dispatcher
         _defaultDeepLink = defaultDeepLink ?? throw new ArgumentNullException(nameof(defaultDeepLink));
         _hasIdentity = hasIdentity ?? throw new ArgumentNullException(nameof(hasIdentity));
         _isSupported = isSupported ?? throw new ArgumentNullException(nameof(isSupported));
-        _watchdogMode = watchdogMode;
-        _watchdogMutexName = watchdogMutexName ?? throw new ArgumentNullException(nameof(watchdogMutexName));
-        _watchdogLog = watchdogLog ?? throw new ArgumentNullException(nameof(watchdogLog));
+        _ensureWatchdog = ensureWatchdog ?? throw new ArgumentNullException(nameof(ensureWatchdog));
     }
 
     /// <summary>Dispatches one lifecycle-verb invocation. Callers must have already handled <see cref="ParseResult.ShowHelp"/>/<see cref="ParseResult.ShowVersion"/>/a bare (no-verb) invocation -- those never reach here (Program.cs's job, needs no identity/platform/Posture at all).</summary>
@@ -95,7 +89,7 @@ public sealed class Dispatcher
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
-        WatchdogGate.Ensure(_watchdogMode, _watchdogMutexName, _watchdogLog);
+        _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _ops.Start(handle, title, subtitle, iconUri, deepLink, now, reset: p.Reset, unsafeBypass: p.Global.Unsafe);
@@ -111,7 +105,7 @@ public sealed class Dispatcher
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
-        WatchdogGate.Ensure(_watchdogMode, _watchdogMutexName, _watchdogLog);
+        _ensureWatchdog();
 
         return MapOutcome(_ops.Step(handle, message, now, unsafeBypass: p.Global.Unsafe));
     }
@@ -137,7 +131,7 @@ public sealed class Dispatcher
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
-        WatchdogGate.Ensure(_watchdogMode, _watchdogMutexName, _watchdogLog);
+        _ensureWatchdog();
 
         return MapOutcome(_ops.SetState(handle, state.Value, now, unsafeBypass: p.Global.Unsafe));
     }
@@ -153,7 +147,7 @@ public sealed class Dispatcher
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
-        WatchdogGate.Ensure(_watchdogMode, _watchdogMutexName, _watchdogLog);
+        _ensureWatchdog();
 
         return MapOutcome(_ops.Attention(handle, question, now, unsafeBypass: p.Global.Unsafe));
     }
@@ -172,7 +166,7 @@ public sealed class Dispatcher
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
-        WatchdogGate.Ensure(_watchdogMode, _watchdogMutexName, _watchdogLog);
+        _ensureWatchdog();
 
         return MapOutcome(finish(handle, now, summary, p.Global.Unsafe));
     }
@@ -186,7 +180,7 @@ public sealed class Dispatcher
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
-        WatchdogGate.Ensure(_watchdogMode, _watchdogMutexName, _watchdogLog);
+        _ensureWatchdog();
 
         return MapOutcome(_ops.Remove(handle, now));
     }

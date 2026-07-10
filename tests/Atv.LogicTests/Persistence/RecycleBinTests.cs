@@ -120,6 +120,32 @@ public sealed class RecycleBinTests
         Assert.AreEqual(handle, found!.Handle);
     }
 
+    // ---- LIFE-20 boot recovery: unconditional wipe ------------------------
+
+    [TestMethod]
+    public void WipeAll_DeletesEveryFile_RecordsAndAnyCoLocatedNonRecordFiles()
+    {
+        using var dir = new TempDirectory();
+        var bin = new RecycleBin(dir.Path);
+        bin.Tombstone(new RecycleRecord("a", "T", "S", null, DeepLink, DateTimeOffset.Now));
+        bin.Tombstone(new RecycleRecord("b", "T", "S", null, DeepLink, DateTimeOffset.Now));
+        // Simulate a co-located icon file (Atv.Icons.IconService's own convention -- same directory, different extension).
+        File.WriteAllBytes(Path.Combine(dir.Path, "a.png"), [1, 2, 3]);
+
+        int removed = bin.WipeAll();
+
+        Assert.AreEqual(3, removed);
+        Assert.IsEmpty(Directory.GetFiles(dir.Path));
+    }
+
+    [TestMethod]
+    public void WipeAll_OnMissingDirectory_ReturnsZero_NoThrow()
+    {
+        using var dir = new TempDirectory();
+        var bin = new RecycleBin(dir.Path);
+        Assert.AreEqual(0, bin.WipeAll());
+    }
+
     // ---- AC4: hot-path code never touches the folder (by construction) ----
 
     [TestMethod]

@@ -125,6 +125,30 @@ public sealed class RecycleBin
         return new ScavengeResult(removed, kept);
     }
 
+    /// <summary>
+    /// LIFE-20's boot-recovery unconditional wipe: deletes EVERY file in the
+    /// directory -- both tombstone <c>.json</c> records and their co-located
+    /// <c>Atv.Icons.IconService</c> recycle-side <c>.png</c> copies (same
+    /// directory, same <see cref="HandleEncoding"/> filename convention, by
+    /// deliberate convention rather than a dependency between the two types
+    /// -- see <c>Atv.Icons.IconService</c>'s own remarks). Ignores TTL
+    /// entirely -- never called from any hot path, boot-recovery only.
+    /// Returns the count of files removed.
+    /// </summary>
+    public int WipeAll()
+    {
+        if (!Directory.Exists(_directory)) return 0;
+
+        int removed = 0;
+        foreach (string file in Directory.EnumerateFiles(_directory))
+        {
+            try { File.Delete(file); removed++; }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        return removed;
+    }
+
     private static RecycleRecord? ReadFile(string path)
     {
         try
