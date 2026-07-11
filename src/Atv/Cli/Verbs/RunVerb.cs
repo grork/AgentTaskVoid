@@ -55,9 +55,6 @@ public static class RunVerb
 
     public static int Run(RunDeps deps, ParseResult parsed, DateTimeOffset now)
     {
-        ArgumentNullException.ThrowIfNull(deps);
-        ArgumentNullException.ThrowIfNull(parsed);
-
         if (parsed.Positionals.Count > 0)
         {
             return deps.Posture.Run("run", null, () => VerbResult.Failure(FailureKind.InvalidArguments,
@@ -172,14 +169,6 @@ public static class RunOrchestrator
         Stream stderrMirror,
         DateTimeOffset startNow)
     {
-        ArgumentNullException.ThrowIfNull(ops);
-        ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(clock);
-        ArgumentNullException.ThrowIfNull(sleep);
-        ArgumentNullException.ThrowIfNull(child);
-        ArgumentNullException.ThrowIfNull(stdoutMirror);
-        ArgumentNullException.ThrowIfNull(stderrMirror);
-
         ops.Start(handle, title, subtitle: "", iconUri, deepLink, startNow);
 
         var publisher = new StepPublisher(ops, handle, settings.RunKeepAliveInterval, startNow);

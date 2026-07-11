@@ -50,10 +50,6 @@ public static class CompositionRoot
 {
     public static RootContext Build(GlobalOptions global, TextWriter stdout, TextWriter stderr)
     {
-        ArgumentNullException.ThrowIfNull(global);
-        ArgumentNullException.ThrowIfNull(stdout);
-        ArgumentNullException.ThrowIfNull(stderr);
-
         Bootstrap b = BuildBootstrap(global);
 
         var output = new Output(stdout, stderr, global.Json);

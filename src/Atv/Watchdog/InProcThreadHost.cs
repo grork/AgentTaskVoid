@@ -21,7 +21,7 @@ public sealed class InProcThreadHost : IWatchdogHost
 
     public InProcThreadHost(Func<RunContext> buildContext, Action<string>? log = null)
     {
-        _buildContext = buildContext ?? throw new ArgumentNullException(nameof(buildContext));
+        _buildContext = buildContext;
         _log = log ?? (_ => { });
     }
 

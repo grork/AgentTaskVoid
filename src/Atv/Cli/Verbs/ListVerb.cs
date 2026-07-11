@@ -36,12 +36,6 @@ public static class ListVerb
 {
     public static int Run(Output output, Posture posture, Func<bool> hasIdentity, Func<bool> isSupported, TaskOperations ops, DateTimeOffset now)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        ArgumentNullException.ThrowIfNull(posture);
-        ArgumentNullException.ThrowIfNull(hasIdentity);
-        ArgumentNullException.ThrowIfNull(isSupported);
-        ArgumentNullException.ThrowIfNull(ops);
-
         return posture.RunQuery("list", null, () =>
         {
             var cap = Capability.Check(hasIdentity, isSupported);

@@ -63,8 +63,6 @@ public sealed class IconService
 
     public IconService(string iconsDir, string recycleBinDir, int sizePx = DefaultSizePx, Action<string>? log = null)
     {
-        ArgumentNullException.ThrowIfNull(iconsDir);
-        ArgumentNullException.ThrowIfNull(recycleBinDir);
         if (sizePx <= 0) throw new ArgumentOutOfRangeException(nameof(sizePx));
 
         _handlesDir = Path.Combine(iconsDir, "handles");
@@ -86,7 +84,6 @@ public sealed class IconService
     /// </summary>
     public Uri Place(string handle, IconToken token)
     {
-        ArgumentException.ThrowIfNullOrEmpty(handle);
         byte[] png = RenderWithFallback(token);
         return WriteHandleCopy(handle, png);
     }
@@ -240,8 +237,6 @@ public sealed class IconService
     /// </summary>
     public Uri MoveBackFromRecycle(string handle)
     {
-        ArgumentException.ThrowIfNullOrEmpty(handle);
-
         if (TryMove(RecyclePathFor(handle), HandlePathFor(handle)))
             return new Uri(HandlePathFor(handle));
 
@@ -311,9 +306,6 @@ public sealed class IconService
     /// </summary>
     public int SweepOrphans(IReadOnlyCollection<string> liveHandles, IReadOnlyCollection<string> recycleHandles)
     {
-        ArgumentNullException.ThrowIfNull(liveHandles);
-        ArgumentNullException.ThrowIfNull(recycleHandles);
-
         if (!Directory.Exists(_handlesDir)) return 0;
 
         var owned = new HashSet<string>(liveHandles, StringComparer.Ordinal);

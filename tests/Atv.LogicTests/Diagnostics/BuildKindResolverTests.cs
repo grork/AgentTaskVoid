@@ -127,9 +127,4 @@ public sealed class BuildKindResolverTests
         Assert.AreEqual("1.2.3.4", line);
     }
 
-    [TestMethod]
-    public void FormatVersionLine_NullVersion_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => BuildKindResolver.FormatVersionLine(null!, Branding.Name));
-    }
 }

@@ -14,8 +14,6 @@ public static class WatchdogVerb
 {
     public static int Run(GlobalOptions global)
     {
-        ArgumentNullException.ThrowIfNull(global);
-
         if (global.WaitForDebugger)
             SpinUntilDebuggerAttached();
 

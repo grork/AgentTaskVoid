@@ -29,10 +29,6 @@ public static class OutputPump
 
     public static void Pump(Stream source, Stream mirror, Action<string> onLine)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(mirror);
-        ArgumentNullException.ThrowIfNull(onLine);
-
         var decoder = Encoding.UTF8.GetDecoder();
         byte[] readBuffer = new byte[ReadBufferSize];
         char[] charBuffer = new char[ReadBufferSize]; // UTF-8 decoding never yields more chars than input bytes.

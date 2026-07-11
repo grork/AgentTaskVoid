@@ -49,8 +49,6 @@ public static class BootRecovery
     /// </summary>
     public static int FlatClear(WatchdogDeps deps)
     {
-        ArgumentNullException.ThrowIfNull(deps);
-
         int? cleared = null;
         bool ran = deps.WriteGate.TryRun(() => cleared = FlatClearCore(deps));
 

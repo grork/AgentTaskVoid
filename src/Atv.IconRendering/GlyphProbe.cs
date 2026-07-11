@@ -20,8 +20,6 @@ public static unsafe class GlyphProbe
     /// <summary><see langword="true"/> if <paramref name="fontFamily"/> exists on the system font collection AND maps <paramref name="codepoint"/> to a real glyph (not the ".notdef" placeholder).</summary>
     public static bool IsPresent(string fontFamily, int codepoint)
     {
-        ArgumentException.ThrowIfNullOrEmpty(fontFamily);
-
         IDWriteFontCollection* collection = null;
         IDWriteFontFamily* family = null;
         IDWriteFont* font = null;

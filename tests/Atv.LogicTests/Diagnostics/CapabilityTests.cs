@@ -49,10 +49,4 @@ public sealed class CapabilityTests
         Assert.IsFalse(isSupportedCalled);
     }
 
-    [TestMethod]
-    public void Check_NullDelegates_Throw()
-    {
-        Assert.Throws<ArgumentNullException>(() => Capability.Check(null!, () => true));
-        Assert.Throws<ArgumentNullException>(() => Capability.Check(() => true, null!));
-    }
 }

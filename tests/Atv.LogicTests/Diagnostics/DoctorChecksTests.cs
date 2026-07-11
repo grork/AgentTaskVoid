@@ -190,15 +190,4 @@ public sealed class DoctorChecksTests
         Assert.IsTrue(result.Ok, "Developer Mode/watchdog are informational only -- they must never make doctor's overall verdict a failure.");
     }
 
-    [TestMethod]
-    public void Run_NullContext_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => DoctorChecks.Run(null!));
-    }
-
-    [TestMethod]
-    public void ToVerbResult_NullReport_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => DoctorChecks.ToVerbResult(null!));
-    }
 }

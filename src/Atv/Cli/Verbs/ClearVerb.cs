@@ -24,12 +24,6 @@ public static class ClearVerb
         bool includeRecycleBin,
         DateTimeOffset now)
     {
-        ArgumentNullException.ThrowIfNull(posture);
-        ArgumentNullException.ThrowIfNull(hasIdentity);
-        ArgumentNullException.ThrowIfNull(isSupported);
-        ArgumentNullException.ThrowIfNull(ensureWatchdog);
-        ArgumentNullException.ThrowIfNull(ops);
-
         return posture.Run("clear", null, () =>
         {
             var cap = Capability.Check(hasIdentity, isSupported);

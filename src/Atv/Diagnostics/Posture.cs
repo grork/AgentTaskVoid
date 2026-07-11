@@ -23,8 +23,8 @@ public readonly struct VerbResult
         Reason = reason;
     }
 
-    public static VerbResult Success(string reason = "") => new(true, default, reason ?? throw new ArgumentNullException(nameof(reason)));
-    public static VerbResult Failure(FailureKind kind, string reason) => new(false, kind, reason ?? throw new ArgumentNullException(nameof(reason)));
+    public static VerbResult Success(string reason = "") => new(true, default, reason);
+    public static VerbResult Failure(FailureKind kind, string reason) => new(false, kind, reason);
 }
 
 /// <summary>
@@ -56,8 +56,8 @@ public sealed class Posture
 
     public Posture(FailureLog log, Output output, bool strict, bool verbose = false)
     {
-        _log = log ?? throw new ArgumentNullException(nameof(log));
-        _output = output ?? throw new ArgumentNullException(nameof(output));
+        _log = log;
+        _output = output;
         _strict = strict;
         _verbose = verbose;
     }
@@ -83,9 +83,6 @@ public sealed class Posture
 
     private int RunCore(string verb, string? handle, Func<VerbResult> body, DateTimeOffset now, bool emitMutatingResult)
     {
-        ArgumentException.ThrowIfNullOrEmpty(verb);
-        ArgumentNullException.ThrowIfNull(body);
-
         VerbResult result;
         try
         {
@@ -126,9 +123,6 @@ public static class Capability
 {
     public static VerbResult Check(Func<bool> hasIdentity, Func<bool> isSupported)
     {
-        ArgumentNullException.ThrowIfNull(hasIdentity);
-        ArgumentNullException.ThrowIfNull(isSupported);
-
         if (!hasIdentity())
             return VerbResult.Failure(FailureKind.IdentityNotRegistered,
                 $"No package identity -- AppTaskInfo requires the installed package (winget install {DoctorChecks.WingetPackageId}).");

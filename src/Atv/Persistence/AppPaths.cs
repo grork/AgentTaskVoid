@@ -33,7 +33,7 @@ public sealed class AppPaths
     private AppPaths(string root) => Root = root;
 
     /// <summary>Injects an arbitrary root. Tests use a temp directory -- no package identity required.</summary>
-    public static AppPaths ForRoot(string root) => new(root ?? throw new ArgumentNullException(nameof(root)));
+    public static AppPaths ForRoot(string root) => new(root);
 
     /// <summary>Production root: the current package's isolated app-data folder.</summary>
     public static AppPaths ForCurrentPackage() => new(ApplicationData.Current.LocalFolder.Path);

@@ -32,7 +32,7 @@ public sealed class SidecarStore
 
     private readonly string _directory;
 
-    public SidecarStore(string directory) => _directory = directory ?? throw new ArgumentNullException(nameof(directory));
+    public SidecarStore(string directory) => _directory = directory;
 
     /// <summary>Reads the entry for <paramref name="handle"/>, or <see langword="null"/> if absent or corrupt (graceful degradation, ERGO-21).</summary>
     public SidecarEntry? Read(string handle)

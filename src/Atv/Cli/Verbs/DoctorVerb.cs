@@ -19,10 +19,6 @@ public static class DoctorVerb
 {
     public static int Run(Output output, Posture posture, DoctorContext context, DateTimeOffset now)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        ArgumentNullException.ThrowIfNull(posture);
-        ArgumentNullException.ThrowIfNull(context);
-
         return posture.RunQuery("doctor", null, () =>
         {
             DoctorReport report = DoctorChecks.Run(context);

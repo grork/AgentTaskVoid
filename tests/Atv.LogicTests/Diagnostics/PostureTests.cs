@@ -272,24 +272,6 @@ public sealed class PostureTests
     }
 
     [TestMethod]
-    public void Constructor_NullLogOrOutput_Throw()
-    {
-        var (_, _, _, log, dir) = Build();
-        using (dir)
-        {
-            var output = new Output(new StringWriter(), new StringWriter(), json: false);
-            Assert.Throws<ArgumentNullException>(() => new Posture(null!, output, strict: false));
-            Assert.Throws<ArgumentNullException>(() => new Posture(log, null!, strict: false));
-        }
-    }
-
-    [TestMethod]
-    public void VerbResult_Failure_NullReason_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => VerbResult.Failure(FailureKind.Generic, null!));
-    }
-
-    [TestMethod]
     public void VerbResult_Success_DefaultReasonIsEmpty()
     {
         Assert.AreEqual("", VerbResult.Success().Reason);

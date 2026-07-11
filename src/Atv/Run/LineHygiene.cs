@@ -41,8 +41,6 @@ public static partial class LineHygiene
     /// </summary>
     public static string? Clean(string rawLine, int maxLength)
     {
-        ArgumentNullException.ThrowIfNull(rawLine);
-
         string s = AnsiEscapePattern().Replace(rawLine, "");
         s = CollapseCarriageReturns(s);
         s = ScrubControlChars(s);

@@ -40,8 +40,6 @@ public static class Validator
 {
     public static ValidationResult Validate(AppTaskContentDto content, AppTaskState state, bool bypass)
     {
-        ArgumentNullException.ThrowIfNull(content);
-
         ContentShape shape = SafeCombinationMatrix.ShapeOf(content);
         bool hasQuestion = content.Question is not null;
         bool safe = SafeCombinationMatrix.IsSafe(shape, state, hasQuestion);

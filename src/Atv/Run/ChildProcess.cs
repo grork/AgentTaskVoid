@@ -73,7 +73,6 @@ public sealed partial class ChildProcess : IChildProcess
     /// <summary><paramref name="commandAndArgs"/>[0] is the executable; the rest are passed via <see cref="ProcessStartInfo.ArgumentList"/> (no manual quoting/escaping).</summary>
     public static ChildProcess Start(IReadOnlyList<string> commandAndArgs)
     {
-        ArgumentNullException.ThrowIfNull(commandAndArgs);
         if (commandAndArgs.Count == 0)
             throw new ArgumentException("A child command requires at least one token (the executable).", nameof(commandAndArgs));
 

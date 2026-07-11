@@ -41,8 +41,6 @@ public static class HandleEncoding
     /// <summary>Encodes an arbitrary handle into a string safe to use as a single Windows filename component (once an extension is appended).</summary>
     public static string Encode(string handle)
     {
-        ArgumentNullException.ThrowIfNull(handle);
-
         var sb = new StringBuilder(handle.Length);
         foreach (char c in handle)
         {
@@ -57,8 +55,6 @@ public static class HandleEncoding
     /// <summary>Inverse of <see cref="Encode"/>. Recovers the original handle from an encoded filename component.</summary>
     public static string Decode(string encoded)
     {
-        ArgumentNullException.ThrowIfNull(encoded);
-
         var sb = new StringBuilder(encoded.Length);
         for (int i = 0; i < encoded.Length; i++)
         {

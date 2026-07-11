@@ -30,8 +30,6 @@ public sealed class ProcessHost : IWatchdogHost
 
     public ProcessHost(string exePath, IReadOnlyList<string> args, Action<string>? log = null, IReadOnlyDictionary<string, string>? extraEnvironment = null)
     {
-        ArgumentNullException.ThrowIfNull(exePath);
-        ArgumentNullException.ThrowIfNull(args);
         _exePath = exePath;
         _args = args;
         _extraEnvironment = extraEnvironment;

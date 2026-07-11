@@ -46,10 +46,6 @@ public static class AdvanceModel
     public static AppTaskContentDto.SequenceOfSteps Advance(
         IReadOnlyList<string> currentCompletedSteps, string currentExecutingStep, string newExecutingStep)
     {
-        ArgumentNullException.ThrowIfNull(currentCompletedSteps);
-        ArgumentNullException.ThrowIfNull(currentExecutingStep);
-        ArgumentNullException.ThrowIfNull(newExecutingStep);
-
         var next = new List<string>(currentCompletedSteps);
         if (!string.IsNullOrEmpty(currentExecutingStep) && currentExecutingStep != NoStepsYetPlaceholder)
         {

@@ -86,10 +86,10 @@ public sealed class TaskOperations
         Action<string>? log = null,
         IconService? icons = null)
     {
-        _store = store ?? throw new ArgumentNullException(nameof(store));
-        _sidecar = sidecar ?? throw new ArgumentNullException(nameof(sidecar));
-        _recycleBin = recycleBin ?? throw new ArgumentNullException(nameof(recycleBin));
-        _writeGate = writeGate ?? throw new ArgumentNullException(nameof(writeGate));
+        _store = store;
+        _sidecar = sidecar;
+        _recycleBin = recycleBin;
+        _writeGate = writeGate;
         _recycleBinTtl = recycleBinTtl;
         _log = log ?? (_ => { });
         _icons = icons;
@@ -116,10 +116,6 @@ public sealed class TaskOperations
         DateTimeOffset now, bool reset = false, bool unsafeBypass = false)
     {
         ValidateHandle(handle);
-        ArgumentNullException.ThrowIfNull(title);
-        ArgumentNullException.ThrowIfNull(subtitle);
-        ArgumentNullException.ThrowIfNull(iconUri);
-        ArgumentNullException.ThrowIfNull(deepLink);
 
         OperationOutcome? outcome = null;
         bool ran = _writeGate.TryRun(() =>
@@ -216,7 +212,6 @@ public sealed class TaskOperations
     /// <summary>Advances the executing step (ERGO-8): archives the previous one into <c>completedSteps</c> (FIFO cap 10), sets the new one. PRESERVES the card's current state -- a NeedsAttention card refuses this (no question in the rebuilt content).</summary>
     public OperationOutcome Step(string handle, string message, DateTimeOffset now, bool unsafeBypass = false)
     {
-        ArgumentNullException.ThrowIfNull(message);
         return RunUpdateClassVerb(handle, now, unsafeBypass,
             onLive: view => (AdvanceModel.Advance(view.CompletedSteps, view.ExecutingStep, message), view.State),
             onResurrect: () => (AdvanceModel.Advance([], "", message), AppTaskState.Running));
@@ -265,7 +260,6 @@ public sealed class TaskOperations
     /// <summary>NeedsAttention + SetQuestion (ERGO-9/10) -- the one documented-safe question cell. Preserves the readable steps underneath the question.</summary>
     public OperationOutcome Attention(string handle, string question, DateTimeOffset now, bool unsafeBypass = false)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(question);
         return RunUpdateClassVerb(handle, now, unsafeBypass,
             onLive: view => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps(view.CompletedSteps, view.ExecutingStep) { Question = question }), AppTaskState.NeedsAttention),
             onResurrect: () => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder) { Question = question }), AppTaskState.NeedsAttention));
@@ -425,7 +419,6 @@ public sealed class TaskOperations
     /// </summary>
     public OperationOutcome ReplaceSteps(string handle, IReadOnlyList<string> lines, DateTimeOffset now, bool unsafeBypass = false)
     {
-        ArgumentNullException.ThrowIfNull(lines);
         return RunUpdateClassVerb(handle, now, unsafeBypass,
             onLive: _ => (BuildStepContent(lines), AppTaskState.Running),
             onResurrect: () => (BuildStepContent(lines), AppTaskState.Running));

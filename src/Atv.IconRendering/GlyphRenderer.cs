@@ -33,7 +33,6 @@ public static unsafe class GlyphRenderer
     /// <summary>Renders a single literal emoji character (or a single non-BMP emoji encoded as a surrogate pair) via <see cref="EmojiFontFamily"/>.</summary>
     public static RenderResult RenderEmoji(string emoji, int sizePx)
     {
-        ArgumentException.ThrowIfNullOrEmpty(emoji);
         int codepoint = char.ConvertToUtf32(emoji, 0);
         return Render(emoji, EmojiFontFamily, sizePx, codepoint);
     }

@@ -111,12 +111,6 @@ public sealed class OutputTests
         Assert.AreEqual(42, doc.RootElement.GetProperty("B").GetInt32());
     }
 
-    [TestMethod]
-    public void Constructor_NullWriters_Throw()
-    {
-        Assert.Throws<ArgumentNullException>(() => new Output(null!, new StringWriter(), json: false));
-        Assert.Throws<ArgumentNullException>(() => new Output(new StringWriter(), null!, json: false));
-    }
 }
 
 // A tiny self-contained test-only DTO + source-gen context, standing in for a

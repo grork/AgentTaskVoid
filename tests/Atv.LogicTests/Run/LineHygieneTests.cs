@@ -73,9 +73,4 @@ public sealed class LineHygieneTests
         Assert.AreEqual("Progress: 100%", result);
     }
 
-    [TestMethod]
-    public void Clean_NullInput_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => LineHygiene.Clean(null!, DefaultMaxLength));
-    }
 }

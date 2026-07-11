@@ -69,27 +69,26 @@ public sealed class Dispatcher
         Stream stdoutMirror,
         Stream stderrMirror)
     {
-        _ops = ops ?? throw new ArgumentNullException(nameof(ops));
-        _posture = posture ?? throw new ArgumentNullException(nameof(posture));
-        _output = output ?? throw new ArgumentNullException(nameof(output));
-        _icons = icons ?? throw new ArgumentNullException(nameof(icons));
-        _defaultDeepLink = defaultDeepLink ?? throw new ArgumentNullException(nameof(defaultDeepLink));
-        _hasIdentity = hasIdentity ?? throw new ArgumentNullException(nameof(hasIdentity));
-        _isSupported = isSupported ?? throw new ArgumentNullException(nameof(isSupported));
-        _ensureWatchdog = ensureWatchdog ?? throw new ArgumentNullException(nameof(ensureWatchdog));
-        _doctorContext = doctorContext ?? throw new ArgumentNullException(nameof(doctorContext));
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
-        _sleep = sleep ?? throw new ArgumentNullException(nameof(sleep));
-        _spawnChild = spawnChild ?? throw new ArgumentNullException(nameof(spawnChild));
-        _stdoutMirror = stdoutMirror ?? throw new ArgumentNullException(nameof(stdoutMirror));
-        _stderrMirror = stderrMirror ?? throw new ArgumentNullException(nameof(stderrMirror));
+        _ops = ops;
+        _posture = posture;
+        _output = output;
+        _icons = icons;
+        _defaultDeepLink = defaultDeepLink;
+        _hasIdentity = hasIdentity;
+        _isSupported = isSupported;
+        _ensureWatchdog = ensureWatchdog;
+        _doctorContext = doctorContext;
+        _settings = settings;
+        _clock = clock;
+        _sleep = sleep;
+        _spawnChild = spawnChild;
+        _stdoutMirror = stdoutMirror;
+        _stderrMirror = stderrMirror;
     }
 
     /// <summary>Dispatches one lifecycle-verb invocation. Callers must have already handled <see cref="ParseResult.ShowHelp"/>/<see cref="ParseResult.ShowVersion"/>/a bare (no-verb) invocation -- those never reach here (Program.cs's job, needs no identity/platform/Posture at all).</summary>
     public int Run(ParseResult parsed, DateTimeOffset now)
     {
-        ArgumentNullException.ThrowIfNull(parsed);
         if (parsed.ShowHelp || parsed.ShowVersion)
             throw new ArgumentException("Help/version requests must be handled by the caller before reaching Dispatcher.Run.", nameof(parsed));
 

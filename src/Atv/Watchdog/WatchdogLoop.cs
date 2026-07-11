@@ -100,8 +100,6 @@ public static class WatchdogLoop
     /// </param>
     public static TickResult RunTick(WatchdogDeps deps, DateTimeOffset now, Action? onAfterReconcile = null)
     {
-        ArgumentNullException.ThrowIfNull(deps);
-
         TickResult? result = null;
         bool ran = deps.WriteGate.TryRun(() => result = RunTickCore(deps, now, onAfterReconcile));
 
@@ -211,8 +209,6 @@ public static class WatchdogLoop
     /// </summary>
     public static void Run(RunContext ctx)
     {
-        ArgumentNullException.ThrowIfNull(ctx);
-
         bool acquired;
         try
         {

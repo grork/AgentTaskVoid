@@ -93,14 +93,4 @@ public sealed class EnsureWatchdogTests
         Assert.IsTrue(logs.Any(l => l.Contains("failed to start", StringComparison.Ordinal)));
     }
 
-    [TestMethod]
-    public void NullArguments_Throw()
-    {
-        var processHost = new FakeWatchdogHost();
-        var inProcHost = new FakeWatchdogHost();
-        Assert.Throws<ArgumentException>(() => EnsureWatchdog.Run(WatchdogMode.Spawn, "", processHost, inProcHost, _ => { }));
-        Assert.Throws<ArgumentNullException>(() => EnsureWatchdog.Run(WatchdogMode.Spawn, "name", null!, inProcHost, _ => { }));
-        Assert.Throws<ArgumentNullException>(() => EnsureWatchdog.Run(WatchdogMode.Spawn, "name", processHost, null!, _ => { }));
-        Assert.Throws<ArgumentNullException>(() => EnsureWatchdog.Run(WatchdogMode.Spawn, "name", processHost, inProcHost, null!));
-    }
 }

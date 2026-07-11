@@ -115,11 +115,7 @@ public static class SettingsLoader
     /// not editing <see cref="Branding"/> itself.
     /// </summary>
     public static string BuildEnvVarName(string commandName, string key)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(commandName);
-        ArgumentException.ThrowIfNullOrEmpty(key);
-        return $"{commandName.ToUpperInvariant()}_{key.Replace('-', '_').ToUpperInvariant()}";
-    }
+        => $"{commandName.ToUpperInvariant()}_{key.Replace('-', '_').ToUpperInvariant()}";
 
     // ---- layer extraction ---------------------------------------------------
 

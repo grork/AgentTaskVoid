@@ -47,10 +47,6 @@ public static class Resurrection
     /// </summary>
     public static AppTaskView RecreateFromRecord(IAppTaskStore store, RecycleRecord record, AppTaskContentDto content, IconService? icons = null)
     {
-        ArgumentNullException.ThrowIfNull(store);
-        ArgumentNullException.ThrowIfNull(record);
-        ArgumentNullException.ThrowIfNull(content);
-
         Uri iconUri = icons is not null ? icons.MoveBackFromRecycle(record.Handle) : ResolveIconUri(record.IconRef);
         return store.Create(record.Title, record.Subtitle, record.DeepLink, iconUri, content);
     }

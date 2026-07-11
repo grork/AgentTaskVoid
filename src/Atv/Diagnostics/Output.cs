@@ -28,8 +28,8 @@ public sealed class Output
 
     public Output(TextWriter stdout, TextWriter stderr, bool json)
     {
-        _stdout = stdout ?? throw new ArgumentNullException(nameof(stdout));
-        _stderr = stderr ?? throw new ArgumentNullException(nameof(stderr));
+        _stdout = stdout;
+        _stderr = stderr;
         Json = json;
     }
 

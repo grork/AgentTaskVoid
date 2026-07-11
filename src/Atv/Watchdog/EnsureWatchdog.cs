@@ -22,11 +22,6 @@ public static class EnsureWatchdog
 {
     public static void Run(WatchdogMode mode, string mutexName, IWatchdogHost processHost, IWatchdogHost inProcHost, Action<string> log)
     {
-        ArgumentException.ThrowIfNullOrEmpty(mutexName);
-        ArgumentNullException.ThrowIfNull(processHost);
-        ArgumentNullException.ThrowIfNull(inProcHost);
-        ArgumentNullException.ThrowIfNull(log);
-
         if (mode == WatchdogMode.Off) return;
 
         try
@@ -68,7 +63,6 @@ public static class EnsureWatchdog
     /// </summary>
     public static bool IsRunning(string mutexName)
     {
-        ArgumentException.ThrowIfNullOrEmpty(mutexName);
         try
         {
             using var existing = Mutex.OpenExisting(mutexName);

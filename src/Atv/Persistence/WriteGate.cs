@@ -34,7 +34,7 @@ public sealed class WriteGate
 
     public WriteGate(Mutex mutex, TimeSpan? timeout = null, bool strict = false, Action<string>? log = null)
     {
-        _mutex = mutex ?? throw new ArgumentNullException(nameof(mutex));
+        _mutex = mutex;
         _timeout = timeout ?? DefaultTimeout;
         _strict = strict;
         _log = log ?? (_ => { });
@@ -43,7 +43,6 @@ public sealed class WriteGate
     /// <summary>Runs <paramref name="criticalSection"/> under the mutex. Returns <see langword="false"/> (non-strict timeout) without running it, or <see langword="true"/> once it has completed.</summary>
     public bool TryRun(Action criticalSection)
     {
-        ArgumentNullException.ThrowIfNull(criticalSection);
         return TryRun<object?>(() =>
         {
             criticalSection();
@@ -61,7 +60,6 @@ public sealed class WriteGate
     /// </summary>
     public bool TryRun<T>(Func<T> criticalSection, out T? result)
     {
-        ArgumentNullException.ThrowIfNull(criticalSection);
         result = default;
 
         if (!TryAcquire())

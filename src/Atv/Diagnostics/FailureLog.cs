@@ -55,7 +55,7 @@ public sealed class FailureLog
     /// </param>
     public FailureLog(string path, long maxBytes, TimeSpan maxAge, string? buildKindMarker = null)
     {
-        _path = path ?? throw new ArgumentNullException(nameof(path));
+        _path = path;
         _maxBytes = maxBytes;
         _maxAge = maxAge;
         _buildKindMarker = buildKindMarker;

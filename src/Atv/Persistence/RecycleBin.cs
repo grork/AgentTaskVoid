@@ -43,7 +43,7 @@ public sealed class RecycleBin
 
     private readonly string _directory;
 
-    public RecycleBin(string directory) => _directory = directory ?? throw new ArgumentNullException(nameof(directory));
+    public RecycleBin(string directory) => _directory = directory;
 
     /// <summary>
     /// Writes (or overwrites) the tombstone record for

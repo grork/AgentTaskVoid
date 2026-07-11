@@ -24,11 +24,6 @@ public sealed class AppPathsTests
         Assert.AreEqual(Path.Combine(@"C:\fake-root", $"{Branding.Command}-config.json"), paths.ConfigPath);
     }
 
-    [TestMethod]
-    public void ForRoot_NullRoot_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() => AppPaths.ForRoot(null!));
-    }
 
     [TestMethod]
     public void BuildWriteMutexName_IncludesBrandAndPfn_FormatIsLocalScoped()

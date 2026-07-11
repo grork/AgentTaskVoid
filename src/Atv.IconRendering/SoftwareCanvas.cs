@@ -39,7 +39,6 @@ internal static unsafe class SoftwareCanvas
     /// </summary>
     public static byte[] Render(int sizePx, DrawCallback draw)
     {
-        ArgumentNullException.ThrowIfNull(draw);
         if (sizePx <= 0) throw new ArgumentOutOfRangeException(nameof(sizePx));
 
         IWICBitmap* bitmap = null;

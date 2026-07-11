@@ -37,8 +37,7 @@ public sealed class StepPublisher
 
     public StepPublisher(TaskOperations ops, string handle, TimeSpan keepAliveInterval, DateTimeOffset startNow, int capacity = Capacity)
     {
-        _ops = ops ?? throw new ArgumentNullException(nameof(ops));
-        ArgumentException.ThrowIfNullOrEmpty(handle);
+        _ops = ops;
         _handle = handle;
         _keepAliveInterval = keepAliveInterval;
         _capacity = capacity;
@@ -48,7 +47,6 @@ public sealed class StepPublisher
     /// <summary>Appends one already-<see cref="LineHygiene"/>-cleaned, non-blank line to the rolling buffer. O(1), touches no I/O -- safe to call concurrently from both the stdout and stderr reader threads.</summary>
     public void Ingest(string line)
     {
-        ArgumentNullException.ThrowIfNull(line);
         lock (_gate)
         {
             _buffer.Add(line);
@@ -103,10 +101,6 @@ public sealed class StepPublisher
     /// </summary>
     public void RunLoop(Func<DateTimeOffset> clock, Action<TimeSpan> sleep, TimeSpan interval, Func<bool> shouldStop)
     {
-        ArgumentNullException.ThrowIfNull(clock);
-        ArgumentNullException.ThrowIfNull(sleep);
-        ArgumentNullException.ThrowIfNull(shouldStop);
-
         while (!shouldStop())
         {
             sleep(interval);

@@ -60,8 +60,6 @@ public static class CommandLine
 
     public static ParseResult Parse(IReadOnlyList<string> args)
     {
-        ArgumentNullException.ThrowIfNull(args);
-
         bool json = false, strict = false, verbose = false, unsafeBypass = false, waitForDebugger = false;
         bool showHelp = false, showVersion = false, reset = false, includeRecycleBin = false;
         string? watchdogModeRaw = null;

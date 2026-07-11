@@ -82,7 +82,6 @@ public static class BuildKindResolver
     /// </summary>
     public static string FormatVersionLine(string version, string? packageIdentityName)
     {
-        ArgumentNullException.ThrowIfNull(version);
         string? marker = Marker(packageIdentityName);
         return marker is null ? version : $"{version} {marker}";
     }

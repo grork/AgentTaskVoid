@@ -92,9 +92,6 @@ public static class DoctorChecks
 
     public static DoctorReport Run(DoctorContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(context.Probes);
-
         string? pfn = context.Probes.PackageFullName();
         bool identityPresent = pfn is not null;
         bool apiSupported = context.Probes.ApiSupported();
@@ -122,8 +119,6 @@ public static class DoctorChecks
     /// </summary>
     public static VerbResult ToVerbResult(DoctorReport report)
     {
-        ArgumentNullException.ThrowIfNull(report);
-
         if (!report.IdentityPresent)
             return VerbResult.Failure(FailureKind.IdentityNotRegistered, "No package identity detected -- see the winget remedy.");
 
