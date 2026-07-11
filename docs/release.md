@@ -183,9 +183,11 @@ cmd.exe /c "atv-reltest doctor"
 
 Confirm the printed identity line ends `Agentaskvoid-reltest` (structurally
 distinct from the dev-interactive `Agentaskvoid-bbbb1168_016qghrny08mj` PFN --
-DIST-3's three-pool isolation, no marker on this line since a release-family
-build is unmarked) and, since this is a release-family build (not
-dev/test-pool), no `(dev)`/`(test)` suffix. Also confirm:
+DIST-3's three-pool isolation) with a trailing `(dev)` marker. That marker is
+CORRECT, not a bug: `BuildKindResolver` classifies `-reltest` as Dev-pool (its
+Name is neither the bare brand nor `<brand>.Test.*`), so it prints `(dev)` --
+the ONLY unmarked identity is the real release build (Name = bare
+`Agentaskvoid`). Verified live 2026-07-10. Also confirm:
 `api: AppTaskInfo.IsSupported() -> true`; `config file:` / `app-data folder:` /
 `sidecar dir:` / `log file:` all resolve under THIS package's own `LocalState`,
 distinct from both the dev worktree's and the real release identity's.
