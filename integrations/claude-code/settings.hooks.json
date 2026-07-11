@@ -1,0 +1,69 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "timeout": 15,
+            "command": "$j=[Console]::In.ReadToEnd()|ConvertFrom-Json;if(Get-Command atv -ErrorAction SilentlyContinue){$dir=Split-Path -Leaf $j.cwd;if([string]::IsNullOrEmpty($dir)){$dir='session'};& atv start $j.session_id --title 'Claude Code' --subtitle $dir --icon Robot 2>$null|Out-Null};exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "timeout": 15,
+            "command": "$j=[Console]::In.ReadToEnd()|ConvertFrom-Json;if(Get-Command atv -ErrorAction SilentlyContinue){$msg=\"$($j.tool_name): $($j.tool_input|ConvertTo-Json -Compress)\";if($msg.Length -gt 150){$msg=$msg.Substring(0,150)+'...'};& atv state $j.session_id running 2>$null|Out-Null;& atv step $j.session_id $msg 2>$null|Out-Null};exit 0"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "timeout": 15,
+            "command": "$j=[Console]::In.ReadToEnd()|ConvertFrom-Json;if(Get-Command atv -ErrorAction SilentlyContinue){& atv attention $j.session_id $j.message 2>$null|Out-Null};exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "timeout": 15,
+            "command": "$j=[Console]::In.ReadToEnd()|ConvertFrom-Json;if(Get-Command atv -ErrorAction SilentlyContinue){& atv done $j.session_id 2>$null|Out-Null};exit 0"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "timeout": 10,
+            "command": "$j=[Console]::In.ReadToEnd()|ConvertFrom-Json;if(Get-Command atv -ErrorAction SilentlyContinue){& atv remove $j.session_id 2>$null|Out-Null};exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
