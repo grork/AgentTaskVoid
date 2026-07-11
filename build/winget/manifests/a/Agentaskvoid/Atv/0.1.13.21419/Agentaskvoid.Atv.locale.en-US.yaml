@@ -1,0 +1,22 @@
+# See Agentaskvoid.Atv.yaml for the snapshot/regeneration note.
+PackageIdentifier: Agentaskvoid.Atv
+PackageVersion: 0.1.13.21419
+PackageLocale: en-US
+Publisher: AppTaskInfoCli
+PublisherUrl: https://github.com/grork/AppTaskInfoCli
+PublisherSupportUrl: https://github.com/grork/AppTaskInfoCli/issues
+PackageName: Agentaskvoid
+PackageUrl: https://github.com/grork/AppTaskInfoCli
+License: MIT
+LicenseUrl: https://github.com/grork/AppTaskInfoCli/blob/main/LICENSE
+ShortDescription: Agent task presence on the Windows 11 taskbar
+Description: >-
+  Agentaskvoid (atv) wraps the experimental Windows.UI.Shell.Tasks.AppTaskInfo
+  WinRT API to show persistent task entries as their own standalone icons on
+  the Windows 11 taskbar, grouped independently of any running app window.
+Tags:
+  - cli
+  - taskbar
+  - agent
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

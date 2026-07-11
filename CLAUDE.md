@@ -32,7 +32,17 @@ Before calling the `microsoft-learn` MCP tools for `Windows.UI.Shell.Tasks` type
 
 `AppTaskInfo` only works when the process has package identity. This project uses the **full-package identity model** (`questions/distribution/DIST-1-end-user-distribution-vehicle.md`): a loose-layout package in dev, a signed full MSIX at release. There is no sparse/external-location package, no `Register-Identity.ps1`, and no `<msix>` element in an `app.manifest` — that scaffolding was deliberately dropped (`questions/infrastructure/INFRA-17-dogfood-run-ergonomics-without-a-load-bearing-script.md`): sparse and full-package identity are mutually exclusive at the manifest level, and only the full-package model gets a zero-manual-step dev loop.
 
-The manifest is `src/Atv/Package/AppxManifest.template.xml`. Only `Identity/@Name` (brand + a stable hash of the project directory) and `Identity/@Version` (Nerdbank.GitVersioning's 4-part `$(BuildVersion)`) are stamped at build time; every other field is static, hand-authored to match the brand. The stamping target is `build/Atv.Package.targets` (`AtvStampAppxManifest`), which writes the resolved manifest to `$(IntermediateOutputPath)AppxManifest.xml` (i.e. under `obj/`, RID-qualified for a RID-specific build/publish) — never checked into source. See `questions/distribution/DIST-7-release-full-package-manifest.md` for the full implementation rules (why the version/path computation must happen in the target's execution-time `PropertyGroup`, not the file body).
+The manifest is `src/Atv/Package/AppxManifest.template.xml`. `Identity/@Version` (Nerdbank.GitVersioning's 4-part `$(BuildVersion)`) is always stamped the same way; every other field is static, hand-authored to match the brand — except `Identity/@Name` and the `AppExecutionAlias`'s `Alias`, which are **build-kind-aware** as of the 2026-07-10 DIST-3 amendment:
+
+- **Dev (default — `dotnet build`/`dotnet run`/F5/`winapp run`, no special properties set):** Name = brand + a stable hash of the project directory (e.g. `Agentaskvoid-bbbb1168` in the primary worktree), alias `atv`. Unchanged from the original mechanism — this is the identity that has been driving real dogfooding (Checkpoint C1's taskbar render), so it must keep resolving to the same Name.
+- **Release (`-p:AtvReleaseIdentity=true`, set automatically by `build/Atv.Release.targets`'s `-t:AtvRelease`):** a clean, pathhash-free Name = brand exactly (e.g. `Agentaskvoid`), alias `atv`. A shipped identity must not encode the developer's build-directory path.
+- **The phase-12 throwaway smoke variant (`-p:AtvVerifyIdentity=true`, additionally set by `-t:AtvRelease -p:AtvVerifyIdentity=true`):** a distinct Name = brand + `-reltest` (e.g. `Agentaskvoid-reltest`), alias `atv-reltest`. Exists so a release-on-dev-box smoke install can coexist with the dev-interactive pool above without clobbering its `atv` alias or sharing its PFN.
+
+Different Names produce different PFNs, which is what makes DIST-3's ("Dev vs release identity (PFN) divergence") three-pool isolation (release / dev-interactive / per-worktree test) structural, independent of the still-static Publisher (`CN=AppTaskInfoCli`, until the deferred DIST-2 real cert). The per-worktree TEST pool (`build/Atv.TestIdentity.targets`, a separate sibling template) is untouched by this amendment — it already stamped its own `<brand>.Test.<hash>` Name and per-worktree alias.
+
+The stamping target is `build/Atv.Package.targets` (`AtvStampAppxManifest`), which writes the resolved manifest to `$(IntermediateOutputPath)AppxManifest.xml` (i.e. under `obj/`, RID-qualified for a RID-specific build/publish) — never checked into source. See `questions/distribution/DIST-7-release-full-package-manifest.md` and `questions/distribution/DIST-3-dev-vs-release-identity-pfn-divergence.md` for the full implementation rules (why the version/path computation must happen in the target's execution-time `PropertyGroup`, not the file body).
+
+**The `(dev)`/`(test)` console/log marker:** `Atv.Diagnostics.BuildKindResolver` (`src/Atv/Diagnostics/BuildKind.cs`) classifies the CURRENT process's build kind from `Package.Current.Id.Name` (Release when it equals the brand exactly, Test when it starts with `<brand>.Test.`, Dev otherwise — including the `-reltest` variant) and renders an unambiguous `(dev)`/`(test)` marker (`null` for Release/no-identity — release output stays unmarked). Surfaced in `doctor`'s identity line, `--version`'s output, and every durable failure-log entry (a new trailing `buildKind` field on `LogEntry`, stamped once per process by the composition root) — so traces are always self-identifying, per the operator's "not ambiguous looking at lots [of logs], traces etc." request.
 
 ### Dev loop: `dotnet run` / F5, no manual pre-steps
 
@@ -46,11 +56,31 @@ One real quirk: `winapp`'s own dev-run gate is evaluated at MSBuild *file-evalua
 
 ### NativeAOT release build
 
-`dotnet publish -r win-x64 -c Release -p:PublishAot=true` (or `win-arm64`) produces a single self-contained native exe, ~3.0–3.5 MB, no `Microsoft.WindowsAppSDK` runtime dependency. Size levers (`InvariantGlobalization`, `OptimizationPreference=Size`, disabled `StackTraceSupport`/`EventSourceSupport`/`DebuggerSupport`, `UseSystemResourceKeys`, no `.pdb` in Release) live in `Directory.Build.props`. Sub-1 MB is explicitly not a goal (`questions/infrastructure/INFRA-2-minimizing-the-on-disk-size-of-the-tool.md`).
+`dotnet publish -r win-x64 -c Release -p:PublishAot=true` (or `win-arm64`) produces a single self-contained native exe, no `Microsoft.WindowsAppSDK` runtime dependency. Size levers (`InvariantGlobalization`, `OptimizationPreference=Size`, disabled `StackTraceSupport`/`EventSourceSupport`/`DebuggerSupport`, `UseSystemResourceKeys`, no `.pdb` in Release) live in `Directory.Build.props`. Sub-1 MB is explicitly not a goal (`questions/infrastructure/INFRA-2-minimizing-the-on-disk-size-of-the-tool.md`).
 
-A published AOT exe still has no identity by itself — to smoke-test it, register + launch it with `winapp run <publish-output-folder> --manifest <RID-qualified obj/AppxManifest.xml> --with-alias`. Full release packaging (`winapp package` / `winapp sign` / winget) is phase 12, out of scope here.
+Actual size climbed from ~2.6 MB (phase 01, minimal surface) to ~4.4–4.8 MB (phase 12, full CLI + watchdog + `run` wrapper + icon pipeline) as real functional surface (`System.Diagnostics.Process`, `Windows.ApplicationModel.StartupTask`, the icon-rendering D2D/DWrite interop) became reachable. Phase 12's trim investigation confirmed every documented lever is already at its maximum: `StackTraceSupport=false` already implies full method-body folding (`IlcFoldIdenticalMethodBodies` is redundant); `IlcGenerateCompleteTypeMetadata` already defaults to its smaller (unset) value; CsWinRT's `CsWinRTAotOptimizerEnabled`/`CsWinRTAotExportsEnabled` are already `true` by default for this TFM+`PublishAot` combination. Both JSON (all call sites use source-gen `JsonSerializerContext`s, never reflection-based `JsonSerializer.Serialize/Deserialize` overloads) and regex (`[GeneratedRegex]`, not the interpreted `Regex` constructor) are already AOT-safe by construction, so neither is a hidden bloat source. Extra feature-switch flags (`HttpActivityPropagationSupport`, `NullabilityInfoContextSupport`, `MetadataUpdaterSupport`, `CustomResourceTypesSupport`, etc.) measured **zero** byte difference (code paths already unreachable/trimmed); `CsWinRTMergeReferencedActivationFactories=true` broke the build outright (bad codegen against the `Atv.IconRendering` project reference) and was rejected. Further reduction would require extraordinary measures (e.g. `IlcDisableReflection`, risky against CsWinRT's interop marshalling) that INFRA-2 explicitly doesn't ask for; 3–5 MB was operator-accepted as fine.
 
-On an ARM64 dev machine, publishing a non-native RID (e.g. `-r win-x64`) needs `vswhere.exe` on `PATH` for NativeAOT's cross-architecture native linking step (`Microsoft.DotNet.ILCompiler`'s targets shell out to it to locate the matching MSVC cross tools); it isn't on `PATH` by default even when Visual Studio is installed — add `...\Microsoft Visual Studio\Installer` for that session. Without it, `link.exe` fails with an opaque "filename, directory, or volume label syntax is incorrect" (exit 123).
+A published AOT exe still has no identity by itself — to smoke-test it standalone, register + launch it with `winapp run <publish-output-folder> --manifest <RID-qualified obj/AppxManifest.xml> --with-alias`. For the full signed-MSIX release build, see "Release build (signed MSIX)" below.
+
+On an ARM64 dev machine, publishing a non-native RID (e.g. `-r win-x64`) needs `vswhere.exe` on `PATH` for NativeAOT's cross-architecture native linking step (`Microsoft.DotNet.ILCompiler`'s targets shell out to it to locate the matching MSVC cross tools); it isn't on `PATH` by default even when Visual Studio is installed — add `...\Microsoft Visual Studio\Installer` for that session. Without it, `link.exe` fails with an opaque "filename, directory, or volume label syntax is incorrect" (exit 123). This also applies to a same-architecture (`win-arm64` on this machine) publish, not just cross-arch — `vswhere.exe` is needed regardless of RID.
+
+### Release build (signed MSIX)
+
+```
+dotnet build src\Atv\Atv.csproj -t:AtvRelease
+```
+
+One command (`build/Atv.Release.targets`, phase 12): publishes NativeAOT `atv.exe` for both `win-x64` and `win-arm64`, packages each against its RID-qualified stamped manifest (`winapp package --manifest <obj-copy>`, explicit, never auto-detected — DIST-7), and signs both with a throwaway self-signed dev cert (`winapp cert generate` / `winapp sign`) into `artifacts\release\msix\*.msix` (gitignored). This stamps the clean **release** identity (Name = brand, alias `atv` — see "Package identity" above). Version comes from NBGV's `$(BuildVersion)`; re-running with nothing changed is a no-op repack (MSBuild Inputs/Outputs on the per-arch targets).
+
+For the throwaway **smoke** variant that coexists with the dev-interactive pool (Name = brand + `-reltest`, alias `atv-reltest`), add `-p:AtvVerifyIdentity=true`:
+
+```
+dotnet build src\Atv\Atv.csproj -t:AtvRelease -p:AtvVerifyIdentity=true
+```
+
+Artifacts land under distinct filenames (`artifacts\release\msix\Agentaskvoid_<ver>_{x64,arm64}_reltest.msix`), so they never collide with, or falsely up-to-date-skip against, the real release msix — see `docs/release.md` §3 for the supervised install steps this variant is for.
+
+Full runbook, the dev-cert-vs-real-cert distinction, and the supervised install/upgrade/uninstall verification steps: [`docs/release.md`](docs/release.md).
 
 ### CsWinRT projection
 

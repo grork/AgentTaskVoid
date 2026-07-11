@@ -2,6 +2,10 @@
 bin/
 obj/
 
+# Phase 12 release packaging outputs (publish/, msix/, and the throwaway dev
+# signing cert) -- build/Atv.Release.targets; never checked in.
+artifacts/
+
 # User-specific files
 *.user
 *.suo

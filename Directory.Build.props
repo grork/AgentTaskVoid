@@ -33,6 +33,25 @@
       Only take effect on AOT/trimmed publish; harmless no-ops for a normal Debug
       build. Sub-1 MB is explicitly not a goal (INFRA-2); no extraordinary
       measures beyond these.
+
+      Phase 12 trim investigation (2026-07-10, exe grew ~2.6 MB at phase 01 to
+      ~4.4-4.8 MB by phase 11 as real functional surface (Process, StartupTask,
+      icon-rendering D2D/DWrite) became reachable): confirmed every lever below
+      is already maximal, so none were added/changed. StackTraceSupport=false
+      already implies full IL method-body folding (IlcFoldIdenticalMethodBodies
+      would be redundant); IlcGenerateCompleteTypeMetadata already defaults to
+      its smaller/unset value; CsWinRT's own CsWinRTAotOptimizerEnabled /
+      CsWinRTAotExportsEnabled already default to true for this TFM+PublishAot
+      combination. JSON is 100% source-gen (JsonSerializerContext, no reflection
+      overloads) and regex is 100% [GeneratedRegex] (no interpreted Regex), so
+      neither is a hidden bloat source. Extra feature switches
+      (HttpActivityPropagationSupport, NullabilityInfoContextSupport,
+      MetadataUpdaterSupport, CustomResourceTypesSupport, EnableUnsafeUTF7Encoding,
+      EnableUnsafeBinaryFormatterSerialization) measured ZERO byte difference
+      (gated code already unreachable/trimmed); CsWinRTMergeReferencedActivationFactories=true
+      broke the build against the Atv.IconRendering project reference and was
+      rejected. See CLAUDE.md's "NativeAOT release build" section and
+      docs/release.md for the full writeup.
     -->
     <InvariantGlobalization>true</InvariantGlobalization>
     <OptimizationPreference>Size</OptimizationPreference>

@@ -22,13 +22,15 @@ public sealed class DoctorChecksTests
         string configPath = @"C:\fake\atv-config.json",
         string appDataFolder = @"C:\fake",
         string sidecarDir = @"C:\fake\sidecar",
-        string logPath = @"C:\fake\atv.log")
+        string logPath = @"C:\fake\atv.log",
+        string? packageName = null)
     {
         var probes = new DoctorProbes(
             PackageFullName: () => packageFullName,
             ApiSupported: () => apiSupported,
             DeveloperModeEnabled: () => devMode,
-            WatchdogRunning: () => watchdogRunning);
+            WatchdogRunning: () => watchdogRunning,
+            PackageName: () => packageName);
         return new DoctorContext(probes, configPath, appDataFolder, sidecarDir, logPath);
     }
 
@@ -43,7 +45,7 @@ public sealed class DoctorChecksTests
     }
 
     [TestMethod]
-    public void Run_IdentityAbsent_ReportsAbsent_AndEmitsWingetRemedyWithThePlaceholderId()
+    public void Run_IdentityAbsent_ReportsAbsent_AndEmitsWingetRemedyWithTheFinalizedId()
     {
         var report = DoctorChecks.Run(Context(packageFullName: null));
 
@@ -51,7 +53,7 @@ public sealed class DoctorChecksTests
         Assert.IsNull(report.PackageFullName);
         Assert.IsNotNull(report.Remedy);
         StringAssert.Contains(report.Remedy!, "winget install");
-        StringAssert.Contains(report.Remedy!, DoctorChecks.WingetPackageIdPlaceholder);
+        StringAssert.Contains(report.Remedy!, DoctorChecks.WingetPackageId);
     }
 
     [TestMethod]
@@ -110,6 +112,53 @@ public sealed class DoctorChecksTests
         Assert.AreEqual(@"X:\data", report.AppDataFolder);
         Assert.AreEqual(@"X:\data\sidecar", report.SidecarDir);
         Assert.AreEqual(@"X:\data\atv.log", report.LogPath);
+    }
+
+    // ---- DIST-3 (2026-07-10 amendment): build-kind marker -------------------------
+
+    [TestMethod]
+    public void Run_PackageNameIsBrand_BuildKindMarkerIsNull_Release()
+    {
+        var report = DoctorChecks.Run(Context(packageName: Atv.Branding.Name));
+        Assert.IsNull(report.BuildKindMarker, "Release (clean brand-only Name) must be unmarked ship output.");
+    }
+
+    [TestMethod]
+    public void Run_PackageNameIsBrandPlusHash_BuildKindMarkerIsDev()
+    {
+        var report = DoctorChecks.Run(Context(packageName: $"{Atv.Branding.Name}-bbbb1168"));
+        Assert.AreEqual("(dev)", report.BuildKindMarker);
+    }
+
+    [TestMethod]
+    public void Run_PackageNameIsTestPool_BuildKindMarkerIsTest()
+    {
+        var report = DoctorChecks.Run(Context(packageName: $"{Atv.Branding.Name}.Test.abcd1234"));
+        Assert.AreEqual("(test)", report.BuildKindMarker);
+    }
+
+    [TestMethod]
+    public void Run_NoPackageNameSupplied_BuildKindMarkerIsNull_NoIdentityDocumented()
+    {
+        var report = DoctorChecks.Run(Context(packageName: null));
+        Assert.IsNull(report.BuildKindMarker);
+    }
+
+    [TestMethod]
+    public void Run_PackageNameProbeOmittedEntirely_DoesNotThrow_DefaultsToNull()
+    {
+        // A caller predating the DIST-3 amendment supplies no PackageName probe at
+        // all (the record default) -- Run must not NullReferenceException on it.
+        var probes = new DoctorProbes(
+            PackageFullName: () => "Agentaskvoid-x_1.0.0.0_neutral",
+            ApiSupported: () => true,
+            DeveloperModeEnabled: () => true,
+            WatchdogRunning: () => false);
+        var context = new DoctorContext(probes, "cfg", "data", "sidecar", "log");
+
+        var report = DoctorChecks.Run(context);
+
+        Assert.IsNull(report.BuildKindMarker);
     }
 
     [TestMethod]

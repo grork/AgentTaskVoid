@@ -1,18 +1,32 @@
 using Atv;
 using Atv.Cli;
 using Atv.Cli.Verbs;
+using Atv.Diagnostics;
 using Atv.Watchdog;
+using Windows.ApplicationModel;
 
 // Thin main (plan/phase-08): parse -> (help/version/bare short-circuit, no
 // identity/platform needed) -> CompositionRoot -> Dispatcher. The only file
 // permitted to import Windows.UI.Shell.Tasks is Store/AppTaskStore.cs
-// (plan/README.md standing invariant #7); this file never does.
+// (plan/README.md standing invariant #7); this file never does. Reading
+// Package.Current.Id.Name below (for the DIST-3 (dev)/(test) --version
+// marker) is a DIFFERENT WinRT namespace (Windows.ApplicationModel, already
+// used by AppPaths.cs/CompositionRoot.cs) and does not touch that invariant.
 
 ParseResult parsed = CommandLine.Parse(args);
 
 if (parsed.ShowVersion)
 {
-    Console.WriteLine(ThisAssembly.AssemblyInformationalVersion);
+    // DIST-3 (2026-07-10 amendment): the (dev)/(test) build-kind marker, so
+    // `atv --version` output is never ambiguous about which pool produced it.
+    // FormatVersionLine itself is unit-tested; only this try/catch wrapper
+    // around the live WinRT call is not (needs real package identity to mean
+    // anything).
+    string? packageIdentityName;
+    try { packageIdentityName = Package.Current.Id.Name; }
+    catch (Exception) { packageIdentityName = null; }
+
+    Console.WriteLine(BuildKindResolver.FormatVersionLine(ThisAssembly.AssemblyInformationalVersion, packageIdentityName));
     return 0;
 }
 

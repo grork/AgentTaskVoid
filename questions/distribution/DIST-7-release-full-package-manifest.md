@@ -1,6 +1,16 @@
 # DIST-7: The release full-package manifest
-**Status:** DECIDED
+**Status:** DECIDED (Name/alias stamping made build-kind-aware, 2026-07-10 — see DIST-3)
 **Parent:** DIST-5
+
+**Amendment 2026-07-10 (phase 12, ratified with [[DIST-3]]):** the stamp is NO LONGER
+uniform across dev/release. `Identity/@Name` is now **build-kind-aware** — release stamps a
+CLEAN pathhash-free `<brand>`; dev/test keep their suffixed Names — and the
+`AppExecutionAlias` is tokenized so a coexisting variant (the phase-12 `atv-reltest` smoke)
+can override it. This is what makes DIST-3's three-pool isolation STRUCTURAL rather than
+dependent on the deferred DIST-2 publisher edit. Publisher stays static (`CN=AppTaskInfoCli`)
+until the DIST-2 real cert. The "single template, only Name+Version stamped, every other
+field static/uniform" description below is superseded on the Name/alias axis.
+
 **Decision:** One brand-parameterized full-package `AppxManifest` template serves BOTH dev
 loose-layout (`winapp run`) and release (`winapp package`). A single build-time MSBuild
 target stamps only the Identity **Name** (brand + build-output-path hash) and **Version**

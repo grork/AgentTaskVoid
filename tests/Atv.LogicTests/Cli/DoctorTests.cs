@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Atv;
 using Atv.Config;
 using Atv.Diagnostics;
 
@@ -47,7 +48,7 @@ public sealed class DoctorTests
         string output = h.Stdout.ToString();
         StringAssert.Contains(output, "identity: NOT present");
         StringAssert.Contains(output, "winget install");
-        StringAssert.Contains(output, DoctorChecks.WingetPackageIdPlaceholder);
+        StringAssert.Contains(output, DoctorChecks.WingetPackageId);
         // Every other check still ran and printed -- doctor never short-circuits.
         StringAssert.Contains(output, "api:");
         StringAssert.Contains(output, "developer mode");
@@ -157,6 +158,67 @@ public sealed class DoctorTests
 
         Assert.AreEqual(0, exit);
         StringAssert.Contains(h.Stdout.ToString(), "identity: NOT present");
+    }
+
+    // ---- DIST-3 (2026-07-10 amendment): (dev)/(test) build-kind marker ------------
+
+    [TestMethod]
+    public void Doctor_DevBuildKind_HumanOutputShowsDevMarker()
+    {
+        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.Name}-bbbb1168" };
+        var dispatcher = h.BuildDispatcher();
+
+        h.Run(dispatcher, "doctor");
+
+        StringAssert.Contains(h.Stdout.ToString(), "(dev)");
+    }
+
+    [TestMethod]
+    public void Doctor_TestBuildKind_HumanOutputShowsTestMarker()
+    {
+        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.Name}.Test.abcd1234" };
+        var dispatcher = h.BuildDispatcher();
+
+        h.Run(dispatcher, "doctor");
+
+        StringAssert.Contains(h.Stdout.ToString(), "(test)");
+    }
+
+    [TestMethod]
+    public void Doctor_ReleaseBuildKind_HumanOutputHasNoMarker()
+    {
+        using var h = new DispatcherHarness { DoctorPackageName = Branding.Name };
+        var dispatcher = h.BuildDispatcher();
+
+        h.Run(dispatcher, "doctor");
+
+        string output = h.Stdout.ToString();
+        Assert.IsFalse(output.Contains("(dev)", StringComparison.Ordinal));
+        Assert.IsFalse(output.Contains("(test)", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Doctor_Json_DevBuildKind_IncludesBuildKindMarkerField()
+    {
+        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.Name}-bbbb1168" };
+        var dispatcher = h.BuildDispatcher(json: true);
+
+        h.Run(dispatcher, "doctor");
+
+        using var doc = JsonDocument.Parse(h.Stdout.ToString());
+        Assert.AreEqual("(dev)", doc.RootElement.GetProperty("buildKindMarker").GetString());
+    }
+
+    [TestMethod]
+    public void Doctor_Json_ReleaseBuildKind_BuildKindMarkerFieldIsNull()
+    {
+        using var h = new DispatcherHarness { DoctorPackageName = Branding.Name };
+        var dispatcher = h.BuildDispatcher(json: true);
+
+        h.Run(dispatcher, "doctor");
+
+        using var doc = JsonDocument.Parse(h.Stdout.ToString());
+        Assert.AreEqual(JsonValueKind.Null, doc.RootElement.GetProperty("buildKindMarker").ValueKind);
     }
 
     [TestMethod]

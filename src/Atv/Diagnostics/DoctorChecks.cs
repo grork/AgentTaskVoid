@@ -19,7 +19,18 @@ public sealed record DoctorProbes(
     /// <summary>Windows Developer Mode (dev-facing only: loose-layout dev/test loop registration, INFRA-17 -- irrelevant to a properly-installed release package).</summary>
     Func<bool> DeveloperModeEnabled,
     /// <summary>LIFE-18 watchdog liveness (informational only) -- see <see cref="Atv.Watchdog.EnsureWatchdog.IsRunning"/>.</summary>
-    Func<bool> WatchdogRunning);
+    Func<bool> WatchdogRunning,
+    /// <summary>
+    /// DIST-3's 2026-07-10 amendment: mirrors <c>Package.Current.Id.Name</c> (the
+    /// declared Identity Name -- distinct from <see cref="PackageFullName"/>/the PFN,
+    /// which also folds in the publisher hash), fed to <see cref="BuildKindResolver"/>
+    /// to produce <see cref="DoctorReport.BuildKindMarker"/>. Optional/trailing with a
+    /// <see langword="null"/> default so existing callers that predate this probe keep
+    /// compiling unchanged; a <see langword="null"/> probe (or one returning
+    /// <see langword="null"/>) resolves to <see cref="BuildKind.NoIdentity"/> --
+    /// no marker, documented, matches "no identity -> no build-kind info to show."
+    /// </summary>
+    Func<string?>? PackageName = null);
 
 /// <summary>Everything <c>doctor</c> needs beyond the four probes above: the ERGO-26 paths to surface. Bundled so <see cref="Atv.Cli.Verbs.DoctorVerb"/> takes one parameter instead of four.</summary>
 public sealed record DoctorContext(
@@ -46,7 +57,14 @@ public sealed record DoctorReport(
     string AppDataFolder,
     string SidecarDir,
     string LogPath,
-    string? Remedy);
+    string? Remedy,
+    /// <summary>
+    /// DIST-3's 2026-07-10 amendment: the unambiguous <c>(dev)</c>/<c>(test)</c>
+    /// console/log marker (<see cref="BuildKindResolver"/>) -- <see langword="null"/>
+    /// for a Release build (deliberately unmarked ship output) or when no package
+    /// identity Name was available to classify.
+    /// </summary>
+    string? BuildKindMarker = null);
 
 /// <summary>
 /// The individual, injected-probe-driven checks behind `doctor`
@@ -61,14 +79,16 @@ public sealed record DoctorReport(
 public static class DoctorChecks
 {
     /// <summary>
-    /// PLACEHOLDER winget package id (DIST-4) -- phase 12 finalizes the real
-    /// published id and swaps this out. Derived from <see cref="Branding"/>
-    /// (plan/README.md standing invariant #2: never re-literal the brand)
-    /// rather than a second hardcoded "Agentaskvoid" string; kept as a
-    /// single, clearly-marked source so no other file needs to know it
-    /// changed.
+    /// Finalized winget package id (DIST-4, phase 12): <c>Agentaskvoid.Atv</c>.
+    /// Derived from <see cref="Branding"/> (plan/README.md standing invariant
+    /// #2: never re-literal the brand) rather than a second hardcoded
+    /// "Agentaskvoid" string; kept as a single, clearly-marked source so no
+    /// other file needs to know it changed. MUST match
+    /// <c>PackageIdentifier</c> in every file under
+    /// <c>build/winget/manifests/.../</c> exactly -- doctor's remedy line is
+    /// this codebase's other copy of the published package id.
     /// </summary>
-    public static readonly string WingetPackageIdPlaceholder = $"{Branding.Name}.{char.ToUpperInvariant(Branding.Command[0])}{Branding.Command[1..]}";
+    public static readonly string WingetPackageId = $"{Branding.Name}.{char.ToUpperInvariant(Branding.Command[0])}{Branding.Command[1..]}";
 
     public static DoctorReport Run(DoctorContext context)
     {
@@ -80,15 +100,16 @@ public static class DoctorChecks
         bool apiSupported = context.Probes.ApiSupported();
         bool devModeEnabled = context.Probes.DeveloperModeEnabled();
         bool watchdogRunning = context.Probes.WatchdogRunning();
+        string? buildKindMarker = BuildKindResolver.Marker(context.Probes.PackageName?.Invoke());
 
         string? remedy = identityPresent
             ? null
-            : $"Nothing installed/registered -- winget install {WingetPackageIdPlaceholder} (PLACEHOLDER package id; phase 12/DIST-4 finalizes the real published id).";
+            : $"Nothing installed/registered -- winget install {WingetPackageId}";
 
         return new DoctorReport(
             identityPresent, pfn, apiSupported, devModeEnabled, watchdogRunning,
             context.ConfigPath, context.AppDataFolder, context.SidecarDir, context.LogPath,
-            remedy);
+            remedy, buildKindMarker);
     }
 
     /// <summary>

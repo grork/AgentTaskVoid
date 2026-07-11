@@ -3,7 +3,7 @@ using Atv.LogicTests.Persistence;
 
 namespace Atv.LogicTests.Diagnostics;
 
-/// <summary>FAIL-1/FAIL-3: the durable failure log, its {timestamp, verb, handle, error} shape, size/age rotation, and the hard "never throws" requirement (phase-06 AC3).</summary>
+/// <summary>FAIL-1/FAIL-3: the durable failure log, its {timestamp, verb, handle, error, buildKind} shape (the trailing marker field is DIST-3's 2026-07-10 amendment), size/age rotation, and the hard "never throws" requirement (phase-06 AC3).</summary>
 [TestClass]
 public sealed class FailureLogTests
 {
@@ -23,6 +23,34 @@ public sealed class FailureLogTests
         Assert.AreEqual("step", entries[0].Verb);
         Assert.AreEqual("h1", entries[0].Handle);
         Assert.AreEqual("boom", entries[0].Error);
+    }
+
+    // ---- DIST-3 (2026-07-10 amendment): the (dev)/(test) build-kind marker --------
+
+    [TestMethod]
+    public void Append_NoBuildKindMarkerSupplied_DefaultsToNull_BackwardCompatible()
+    {
+        using var dir = new TempDirectory();
+        var log = new FailureLog(Path.Combine(dir.Path, "atv.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
+
+        log.Append("step", "h1", "boom", Now);
+
+        Assert.IsNull(log.ReadAll()[0].BuildKind);
+    }
+
+    [TestMethod]
+    public void Append_BuildKindMarkerSupplied_StampsEveryEntry()
+    {
+        using var dir = new TempDirectory();
+        var log = new FailureLog(Path.Combine(dir.Path, "atv.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14), buildKindMarker: "(dev)");
+
+        log.Append("start", "h1", "e1", Now);
+        log.Append("step", "h2", "e2", Now.AddSeconds(1));
+
+        var entries = log.ReadAll();
+        Assert.HasCount(2, entries);
+        Assert.AreEqual("(dev)", entries[0].BuildKind);
+        Assert.AreEqual("(dev)", entries[1].BuildKind);
     }
 
     [TestMethod]

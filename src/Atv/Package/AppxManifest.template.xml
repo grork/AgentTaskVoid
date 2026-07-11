@@ -3,15 +3,23 @@
   AppxManifest TEMPLATE for Agentaskvoid (atv).
   See build/Atv.Package.targets and questions/distribution/DIST-7-release-full-package-manifest.md.
 
-  Only the Identity element's Name and Version attributes below are stamped at build
-  time (per-worktree/output-path hash + NBGV's 4-part $(BuildVersion)), via a plain
-  token substitution, so this comment deliberately avoids spelling out those two
-  token strings verbatim (build/Atv.Package.targets' replace is a blunt whole-file
-  substitution and would rewrite them here too). Every other field below is static,
-  hand-authored to match the ERGO-18 ("The shipped command name") brand decision:
-  rename the brand there and update the literal strings here to match; DIST-7
-  explicitly settled that build-time-parameterizing every field is unneeded
-  complexity.
+  The Identity element's Name and Version attributes, plus the AppExecutionAlias's
+  Alias attribute below, are stamped at build time - via a plain token substitution,
+  so this comment deliberately avoids spelling out those three token strings verbatim
+  (build/Atv.Package.targets' replace is a blunt whole-file substitution and would
+  rewrite them here too). Every other field below is static, hand-authored to match
+  the ERGO-18 ("The shipped command name") brand decision: rename the brand there and
+  update the literal strings here to match; DIST-7 explicitly settled that
+  build-time-parameterizing every field is unneeded complexity.
+
+  DIST-3's 2026-07-10 amendment made Name/alias stamping BUILD-KIND-AWARE (see
+  build/Atv.Package.targets' AtvStampAppxManifest for the branching): dev
+  (default) keeps `<brand>-<pathhash>` + alias `atv`, UNCHANGED; release stamps a
+  clean pathhash-free `<brand>` + alias `atv`; a throwaway "-reltest" smoke variant
+  (`AtvVerifyIdentity=true`) stamps `<brand>-reltest` + alias `atv-reltest`, so a
+  release-on-dev-box smoke install can coexist with the dev pool without clobbering
+  its `atv` alias. This is what makes DIST-3's three-pool isolation structural,
+  independent of the still-static Publisher.
 
   This one template serves BOTH the dev loose-layout (`winapp run`, via the
   RID-unqualified obj/ copy) and the release pack (`winapp package`, via the
@@ -69,10 +77,12 @@
             Id="Agentaskvoid.AppTaskProvider"
             DisplayName="AppTaskProvider for Agentaskvoid" />
         </uap3:Extension>
-        <!-- Puts `atv` on PATH (ERGO-18, DIST-7). -->
+        <!-- Puts the build-kind-aware alias on PATH (ERGO-18, DIST-7; DIST-3's
+             2026-07-10 amendment - `atv` for dev/release, `atv-reltest` for the
+             phase-12 smoke variant; see build/Atv.Package.targets). -->
         <uap5:Extension Category="windows.appExecutionAlias">
           <uap5:AppExecutionAlias>
-            <uap5:ExecutionAlias Alias="atv.exe" />
+            <uap5:ExecutionAlias Alias="{ExecutionAlias}" />
           </uap5:AppExecutionAlias>
         </uap5:Extension>
         <!--

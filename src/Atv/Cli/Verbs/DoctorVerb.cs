@@ -39,8 +39,9 @@ public static class DoctorVerb
 
     private static IEnumerable<string> FormatHuman(DoctorReport r)
     {
+        string markerSuffix = r.BuildKindMarker is null ? "" : $" {r.BuildKindMarker}";
         yield return r.IdentityPresent
-            ? $"identity: present (PFN: {r.PackageFullName})"
+            ? $"identity: present (PFN: {r.PackageFullName}){markerSuffix}"
             : "identity: NOT present -- this process is unpackaged/unregistered.";
 
         yield return r.ApiSupported

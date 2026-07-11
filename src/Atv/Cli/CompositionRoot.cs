@@ -71,7 +71,8 @@ public static class CompositionRoot
             PackageFullName: TryGetPackageFullName,
             ApiSupported: b.Store.IsSupported,
             DeveloperModeEnabled: IsDeveloperModeEnabled,
-            WatchdogRunning: () => EnsureWatchdog.IsRunning(watchdogMutexName));
+            WatchdogRunning: () => EnsureWatchdog.IsRunning(watchdogMutexName),
+            PackageName: TryGetPackageName);
         var doctorContext = new DoctorContext(doctorProbes, b.Paths.ConfigPath, b.Paths.Root, b.Paths.SidecarDir, b.Paths.LogPath);
 
         var dispatcher = new Dispatcher(
@@ -140,7 +141,11 @@ public static class CompositionRoot
         SettingsLoadResult loadResult = SettingsLoader.Load(flagOverrides, ReadProcessEnvironment(), paths.ConfigPath);
         Settings settings = loadResult.Settings;
 
-        var log = new FailureLog(paths.LogPath, settings.LogMaxBytes, settings.LogMaxAge);
+        // DIST-3 (2026-07-10 amendment): computed once here, not per-Append-call --
+        // the (dev)/(test) marker stamped onto every durable failure-log entry so
+        // traces are self-identifying (operator's explicit ask).
+        string? buildKindMarker = BuildKindResolver.Marker(TryGetPackageName());
+        var log = new FailureLog(paths.LogPath, settings.LogMaxBytes, settings.LogMaxAge, buildKindMarker);
         foreach (string warning in loadResult.Warnings)
             log.Append("settings", null, warning, bootTime);
 
@@ -207,6 +212,22 @@ public static class CompositionRoot
     private static string? TryGetPackageFullName()
     {
         try { return Package.Current.Id.FullName; }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// DIST-3's 2026-07-10 amendment: the declared Identity Name
+    /// (<c>Package.Current.Id.Name</c> -- distinct from
+    /// <see cref="TryGetPackageFullName"/>'s PFN, which also folds in the
+    /// publisher hash), fed to <see cref="BuildKindResolver"/> to classify
+    /// this process as Release/Dev/Test for the <c>(dev)</c>/<c>(test)</c>
+    /// console/log marker. Shared by <see cref="DoctorProbes.PackageName"/>
+    /// and the durable <see cref="FailureLog"/>'s marker, so there is exactly
+    /// one place this WinRT call is made.
+    /// </summary>
+    private static string? TryGetPackageName()
+    {
+        try { return Package.Current.Id.Name; }
         catch (Exception) { return null; }
     }
 

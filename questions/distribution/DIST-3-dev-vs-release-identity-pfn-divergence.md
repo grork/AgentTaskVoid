@@ -1,6 +1,38 @@
 # DIST-3: Dev vs release identity (PFN) divergence
-**Status:** DECIDED
-**Decision:** Accept PFN divergence as deliberate isolation. There are three identity pools
+**Status:** DECIDED (mechanism corrected + isolation made structural, 2026-07-10, phase 12)
+
+**Amendment 2026-07-10 (ratified, phase 12) — the original mechanism claim below is WRONG; the three-pool GOAL stands and is now structurally enforced.**
+A PFN is `<Name>_<PublisherId>`, and `PublisherId` is a hash of the manifest's declared
+`Identity/@Publisher` STRING — NOT the signing certificate (Microsoft Learn, "Package
+Identity"). So dev and release do NOT diverge merely by being signed with different certs;
+they diverge only when a declared identity STRING differs. As built through phase 11,
+dev-interactive and the dev-cert release share the same template → same Name
+(`Agentaskvoid-<pathhash>`) AND same Publisher (`CN=AppTaskInfoCli`) → the IDENTICAL PFN
+`Agentaskvoid-bbbb1168_016qghrny08mj` (confirmed by computing the PublisherId hash of
+`CN=AppTaskInfoCli`, 2026-07-10 — it equals the live dev PFN). Isolation was therefore NOT
+structural: it leaned entirely on the DEFERRED DIST-2 real-cert Publisher edit.
+
+Fix (ratified): make manifest stamping **build-kind-aware** (the mechanism INFRA-16 already
+uses for the test pool):
+- **Release** stamps a CLEAN, pathhash-free `Identity/@Name = <brand>` (e.g. `Agentaskvoid`)
+  and owns the bare `atv` alias. A shipped identity must not encode the developer's build
+  directory path.
+- **Dev-interactive** keeps `<brand>-<pathhash>` and also owns `atv` (on a dev box the
+  primary `atv` = the working copy — convenient and correct).
+- **Test** keeps `<brand>.Test.<hash>` + the suffixed alias `atv-test-<hash>` (unchanged).
+Different Names → different PFNs → **structural** isolation, independent of publisher/cert.
+**No `atv-dev` daily command** (rejected: it would tax every future in-repo invocation with a
+"which am I running?" ambiguity to solve a coexistence case that only arises in the
+artificial release-on-dev-box test). Dev and release collide on the bare `atv` only when both
+are installed on one machine — normally they are not (dev box → dev; user box → release); the
+phase-12 release-on-dev **smoke uses a distinct throwaway identity + alias (`atv-reltest`)**,
+exactly as the test pool already coexists.
+Additional (operator, 2026-07-10): the dev/test build must **mark itself `(dev)`/`(test)`** in
+console/log/trace output so identity is never ambiguous when reading traces.
+
+---
+
+**Original decision (mechanism superseded above; the isolation intent it records still holds):** Accept PFN divergence as deliberate isolation. There are three identity pools
 by design -- release (real cert publisher), dev-interactive (dev/winapp publisher), and
 per-worktree test (Name + build-path hash, INFRA-16, "Test-time identity provisioning and
 deep isolation") -- and each gets its own `tasks.json`, write mutex (INFRA-6), and sidecar

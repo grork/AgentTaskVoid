@@ -131,7 +131,7 @@ public static class Capability
 
         if (!hasIdentity())
             return VerbResult.Failure(FailureKind.IdentityNotRegistered,
-                "No package identity -- AppTaskInfo requires a registered sparse package (see Register-Identity.ps1).");
+                $"No package identity -- AppTaskInfo requires the installed package (winget install {DoctorChecks.WingetPackageId}).");
 
         if (!isSupported())
             return VerbResult.Failure(FailureKind.ApiUnavailable,

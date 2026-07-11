@@ -77,5 +77,9 @@
   <Import Project="..\..\build\Atv.Package.targets" />
   <!-- INFRA-20: pre-build reap of a stale dev watchdog holding this worktree's exe open. -->
   <Import Project="..\..\build\Atv.DevReap.targets" />
+  <!-- Phase 12: release packaging (publish x64+arm64 -> winapp pack -> winapp sign).
+       Adds the AtvRelease/AtvReleaseWinX64/AtvReleaseWinArm64 targets; never runs
+       automatically (not hooked to Build/BeforeBuild), only via explicit -t:. -->
+  <Import Project="..\..\build\Atv.Release.targets" />
 
 </Project>

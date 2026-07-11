@@ -1,3 +1,4 @@
+using Atv;
 using Atv.Cli;
 using Atv.Config;
 using Atv.Diagnostics;
@@ -62,6 +63,18 @@ internal sealed class DispatcherHarness : IDisposable
     /// <summary>Backing field for <c>doctor</c>'s identity probe -- independent of <see cref="HasIdentity"/> (which gates lifecycle verbs/list/clear via <see cref="Diagnostics.Capability"/>) so doctor tests can flip identity presence without touching the rest of the pipeline.</summary>
     public string? DoctorPackageFullName { get; set; } = "Agentaskvoid-test_1.0.0.0_neutral";
 
+    /// <summary>
+    /// Backing field for <c>doctor</c>'s DIST-3 build-kind probe
+    /// (<see cref="Diagnostics.DoctorProbes.PackageName"/>) -- the declared
+    /// Identity Name (distinct from <see cref="DoctorPackageFullName"/>'s
+    /// PFN). Defaults to a dev-shaped name (<c>"&lt;brand&gt;-testhash"</c>,
+    /// resolving to <see cref="Diagnostics.BuildKind.Dev"/>) so the default
+    /// harness exercises the <c>(dev)</c> marker path unless a test
+    /// overrides it to a clean <see cref="Branding.Name"/> (Release, no
+    /// marker) or a <c>&lt;brand&gt;.Test.*</c> name (Test).
+    /// </summary>
+    public string? DoctorPackageName { get; set; } = $"{Branding.Name}-testhash";
+
     /// <summary>Backing field for <c>doctor</c>'s dev-facing Developer Mode probe.</summary>
     public bool DoctorDeveloperModeEnabled { get; set; } = true;
 
@@ -119,7 +132,8 @@ internal sealed class DispatcherHarness : IDisposable
             PackageFullName: () => DoctorPackageFullName,
             ApiSupported: () => Store.IsSupported(),
             DeveloperModeEnabled: () => DoctorDeveloperModeEnabled,
-            WatchdogRunning: () => DoctorWatchdogRunning);
+            WatchdogRunning: () => DoctorWatchdogRunning,
+            PackageName: () => DoctorPackageName);
         var doctorContext = new DoctorContext(
             doctorProbes,
             ConfigPath: Path.Combine(_appDataDir.Path, "atv-config.json"),
