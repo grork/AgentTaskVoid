@@ -33,3 +33,5 @@ identifying and updating tasks, cleanup, input modeling, grouping, and wrapping.
 - [`ERGO-26`: Config file location and format](./ERGO-26-config-file-location-and-format.md) -- DECIDED
 - [`ERGO-27`: The consolidated v1 command surface](./ERGO-27-consolidated-v1-command-surface.md) -- DECIDED
 - [`ERGO-28`: Theme-awareness of the icon provided to the platform](./ERGO-28-theme-awareness-of-the-provided-icon.md) -- OPEN
+- [`ERGO-29`: Caller-supplied (external) icons -- bring-your-own image, and extraction from an exe/app](./ERGO-29-caller-supplied-external-icons.md) -- OPEN
+- [`ERGO-30`: A repo-scoped defaults file the tool auto-discovers (icons, titles, glomming)](./ERGO-30-repo-scoped-defaults-config.md) -- OPEN
