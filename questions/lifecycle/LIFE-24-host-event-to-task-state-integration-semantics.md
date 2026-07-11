@@ -10,6 +10,11 @@ field addition or a state-enum split; it is a layer of integration that needs it
 pass, probably grounded in the **union / common patterns across hosts** (Claude Code, Copilot
 CLI, Codex) rather than any one host's event names.
 
+Additionally, in trying to address this it's unclear if the solution should be something that
+rolls directly into this app -- atv -- directly, of if as part of building the integration
+into hosts there should be an additional scripts as part of the hook configuration that is
+unique to that host and does the minimal translation into the atv verbs etc.
+
 ## Why this surfaced
 The phase-13 Claude Code integration dogfood (2026-07-10, first real end-to-end hook run).
 The shipped `integrations/claude-code/` mapping (LIFE-10, "Host-agnostic CLI abstraction hook
