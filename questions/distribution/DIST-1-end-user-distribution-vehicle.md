@@ -1,5 +1,6 @@
 # DIST-1: The end-user distribution vehicle
 **Status:** DECIDED
+**Plan:** phase-01
 **Decision:** One signed **full MSIX** containing the NativeAOT `atv.exe` (plus an
 `AppExecutionAlias` putting `atv` on PATH), delivered via **winget**. Built and signed
 with Microsoft's **winapp CLI** (`winapp pack` / `winapp sign`) -- the same tool that

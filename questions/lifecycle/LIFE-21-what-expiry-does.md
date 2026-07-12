@@ -1,5 +1,6 @@
 # LIFE-21: What expiry does
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** Expiry `Remove()`s the card (it vanishes -- no visible tombstone) AND moves a
 minimal restore-record into a cold "recycle-bin" folder in package app-data. The recycle bin
 is NEVER enumerated on the hot path; it is consulted ONLY on the miss path -- an update whose

@@ -1,5 +1,6 @@
 # LIFE-18: Watchdog single-instance enforcement
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** A named mutex `Local\<brand>-<PFN>-watchdog` (the INFRA-6, "Whether CLI
 read-modify-write sequences need cross-process serialization", naming scheme), held for the
 watchdog's whole lifetime. Startup race: two first-creates may both spawn; both watchdogs try

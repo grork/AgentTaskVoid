@@ -1,5 +1,6 @@
 # ERGO-9: Overall command-surface shape for content input
 **Status:** DECIDED
+**Plan:** phase-02
 **Decision:** Verb-per-operation subcommands mapping to lifecycle moments:
 `start`, `step`, `state`, `done`, `fail`, `attention`, `remove` (+ `list`). Not
 one-command-many-flags, not JSON-on-stdin. Content shapes narrow to what those

@@ -1,5 +1,6 @@
 # INFRA-16: Test-time identity provisioning and deep isolation
 **Status:** DECIDED
+**Plan:** phase-03
 **Decision:** Only the real-API adapter suite (INFRA-9, "Integration-test harness over
 tasks.json") needs identity; the fake logic suite (INFRA-11) needs none. The real suite is a
 **Microsoft.Testing.Platform (MTP) exe** -- it IS the identity-carrying process -- holding a

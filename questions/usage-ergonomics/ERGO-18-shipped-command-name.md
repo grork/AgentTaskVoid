@@ -1,5 +1,6 @@
 # ERGO-18: The shipped command name
 **Status:** DECIDED
+**Plan:** all-phases
 **Decision:** Command/binary name: `atv`. Product/brand: "Agentaskvoid" (a
 contraction of "agent task" + the operator's standard "void" suffix). Not a
 one-way door -- reversible later. Hard requirement: the brand is PARAMETERIZED

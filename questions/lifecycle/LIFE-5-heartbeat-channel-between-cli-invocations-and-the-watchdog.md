@@ -1,5 +1,6 @@
 # LIFE-5: Heartbeat channel between CLI invocations and the watchdog
 **Status:** DECIDED
+**Plan:** phase-04
 **Decision:** No IPC. The watchdog is a poller of files the CLI already writes:
 the CLI-owned sidecar (ERGO-7) for per-handle liveness (a lastUpdate timestamp
 stamped on every write, under the mutex) to drive idle expiry, and tasks.json

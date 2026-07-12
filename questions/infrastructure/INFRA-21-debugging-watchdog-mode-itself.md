@@ -1,5 +1,6 @@
 # INFRA-21: Debugging watchdog mode itself
 **Status:** DECIDED
+**Plan:** phase-09
 **Parent:** INFRA-18
 **Decision:** The watchdog is ONE shared logic core behind a thin hosting seam, so
 spawned-process, in-proc-thread, and test hosts all run identical logic:

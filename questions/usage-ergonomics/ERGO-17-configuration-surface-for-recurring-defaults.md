@@ -1,5 +1,6 @@
 # ERGO-17: Configuration surface for recurring defaults
 **Status:** DECIDED
+**Plan:** phase-06
 **Decision:** Support all three with precedence `flags > env var > config file >
 built-in default`. A config file carries per-host recurring defaults (e.g. a
 shipped host config sets its icon there); env vars for machine-wide overrides;

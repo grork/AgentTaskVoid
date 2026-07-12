@@ -1,5 +1,6 @@
 # ERGO-10: Guarding unsupported state x content x mutator combinations
 **Status:** DECIDED
+**Plan:** phase-05
 **Decision:** The CLI only ever emits combinations from the documented safe set,
 and hard-rejects anything outside it (refuse + log, non-disruptively per FAIL-1)
 -- crashing explorer.exe is unacceptable. The safe set is encoded as a validation

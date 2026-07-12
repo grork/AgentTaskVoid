@@ -1,5 +1,6 @@
 # LIFE-22: Idle-period defaults per state, and configurability
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** Per-state idle periods (relative-expiry from `lastUpdate`), not one number --
 concrete starting defaults, all build-phase tunable and layered per ERGO-17 ("Configuration
 surface for recurring defaults") -- env/config only, NO per-task flag [AMENDED 2026-07-05, ERGO-27

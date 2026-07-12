@@ -1,5 +1,6 @@
 # LIFE-11: Whether we ship per-host integration artifacts
 **Status:** DECIDED
+**Plan:** phase-13
 **Decision:** Yes -- v1 ships per-host integration artifacts (ready-made hook
 configs/plugins that translate each host's events into `atv` verbs via the LIFE-10
 mapping), not docs-only. Claude Code + Copilot prioritized, Codex lowest (LIFE-8).

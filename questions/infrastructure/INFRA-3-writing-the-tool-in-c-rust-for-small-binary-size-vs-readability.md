@@ -1,5 +1,6 @@
 # INFRA-3: Writing the tool in C++/Rust for small binary size vs. readability
 **Status:** DECIDED
+**Plan:** phase-01
 **Decision:** Stay in C# and target NativeAOT, gated on an early spike whose
 make-or-break criterion is the release-AOT on-disk binary size. Rust/C++ reopens
 only if that gate fails.

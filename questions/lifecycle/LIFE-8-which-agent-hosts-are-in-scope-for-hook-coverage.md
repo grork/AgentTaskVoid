@@ -1,5 +1,6 @@
 # LIFE-8: Which agent hosts are in scope for hook coverage
 **Status:** DECIDED
+**Plan:** phase-13
 **Decision:** v1 targets exactly three hosts -- Claude Code, GitHub Copilot CLI,
 Codex (Codex lowest priority). Criterion for adding a host later: (a) it exposes
 a usable hook/notification surface the host-agnostic CLI can wire to without

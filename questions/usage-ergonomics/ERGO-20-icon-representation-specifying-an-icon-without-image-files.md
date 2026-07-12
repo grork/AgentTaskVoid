@@ -1,5 +1,6 @@
 # ERGO-20: Icon representation -- specifying an icon without image files
 **Status:** DECIDED
+**Plan:** phase-07
 **Decision:** Two built-in icon vocabularies, both specified by token and
 rendered to a PNG by the CLI: (1) **emoji** -- because agents/LLMs know them well
 and can pick an apt one unprompted; (2) a **curated subset of Segoe MDL2 / Segoe

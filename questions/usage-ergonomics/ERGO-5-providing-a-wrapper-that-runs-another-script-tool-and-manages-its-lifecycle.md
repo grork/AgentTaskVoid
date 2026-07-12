@@ -1,5 +1,6 @@
 # ERGO-5: Providing a wrapper that runs another script/tool and manages its lifecycle
 **Status:** DECIDED
+**Plan:** phase-11
 **Decision:** Yes -- v1 includes a minimal `run` verb:
 `atv run --title "Build" -- <command...>`. It launches the command, drives a task
 from its lifecycle, and stays transparent (child stdout/stderr still stream to the

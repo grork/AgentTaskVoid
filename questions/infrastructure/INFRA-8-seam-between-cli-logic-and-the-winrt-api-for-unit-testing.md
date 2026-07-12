@@ -1,5 +1,6 @@
 # INFRA-8: The seam between CLI logic and the WinRT API for unit testing
 **Status:** DECIDED
+**Plan:** all-phases
 **Decision:** A hand-rolled `IAppTaskStore` seam -- a Repository over the platform's
 durable task store: id-addressed, DTO-in/DTO-out so no projected WinRT type crosses
 it. One real adapter (`AppTaskStore`) is the SOLE importer of

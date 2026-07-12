@@ -1,5 +1,6 @@
 # FAIL-1: Failure posture toward the host caller
 **Status:** DECIDED
+**Plan:** all-phases
 **Decision:** Three-tier. Default = non-disruptive: on any failure the CLI
 no-ops and exits 0 so it can never break the host caller. A durable failure log
 is always written even on the silent path, for post-hoc analysis after the hook

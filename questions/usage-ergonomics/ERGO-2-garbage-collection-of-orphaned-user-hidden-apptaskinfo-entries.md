@@ -1,5 +1,6 @@
 # ERGO-2: Garbage collection of orphaned / user-hidden AppTaskInfo entries
 **Status:** DECIDED
+**Plan:** phase-08
 **Decision:** User-hidden (`HiddenByUser`) tasks are swept and `Remove()`'d on
 every `create` and `remove` invocation; truly-orphaned/dead-session cleanup is
 the watchdog's job (LIFE-4).

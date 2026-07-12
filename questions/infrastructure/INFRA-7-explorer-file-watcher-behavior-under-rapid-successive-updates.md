@@ -1,5 +1,6 @@
 # INFRA-7: Explorer file-watcher behavior under rapid successive updates
 **Status:** DECIDED
+**Plan:** phase-04
 **Decision:** Explorer keeps up. Empirically (this machine, 2026-07-02): rapid
 single-task updates at ~20/sec and ~5/sec both rendered cleanly -- no crash, no
 blank card, no freeze. It coalesces to the latest state (caught mid-burst it

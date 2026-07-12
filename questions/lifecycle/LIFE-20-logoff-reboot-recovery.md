@@ -1,5 +1,6 @@
 # LIFE-20: Logoff/reboot recovery
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** No task is valid across a reboot -- the premise is surfacing what a LIVE agent
 harness/script is doing, and nothing that could own a task survives a reboot. So recovery is
 not per-task reasoning, it is an unconditional clear. A self-disabling boot-recovery startup

@@ -1,5 +1,6 @@
 # LIFE-13: GitHub Copilot CLI hook surface inventory
 **Status:** DECIDED
+**Plan:** phase-13
 **Decision:** Formal 13-event hook system (best session-end of the three).
 Session id: YES (`sessionId`/`session_id`, also on disk under
 `~/.copilot/session-state/<id>/`). Session-END: RELIABLE-ISH (`sessionEnd` with

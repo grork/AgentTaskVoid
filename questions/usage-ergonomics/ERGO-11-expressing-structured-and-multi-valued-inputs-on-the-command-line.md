@@ -1,5 +1,6 @@
 # ERGO-11: Expressing structured and multi-valued inputs on the command line
 **Status:** DECIDED
+**Plan:** phase-08
 **Decision:** v1 has no multi-valued CLI inputs. The completedSteps array is
 built server-side by the advance model (ERGO-8), not passed; buttons/text-input
 are deferred with the interaction round-trip (INTER-*); `--assets` is deferred

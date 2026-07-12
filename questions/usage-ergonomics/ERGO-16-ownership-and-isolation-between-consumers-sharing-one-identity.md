@@ -1,5 +1,6 @@
 # ERGO-16: Ownership and isolation between consumers sharing one identity
 **Status:** DECIDED
+**Plan:** phase-10
 **Decision:** No ownership/consumer layer in v1. Everyday cleanup is targeted
 `remove <handle>` (needs no ownership). `list` and `clear` are inherently
 identity-global (one identity = one pool the API can't partition). `clear` was

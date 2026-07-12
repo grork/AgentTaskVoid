@@ -1,5 +1,6 @@
 # INFRA-17: Dogfood/run ergonomics without a load-bearing script
 **Status:** DECIDED
+**Plan:** phase-01
 **Decision:** Adopt the full-package MSIX identity model and take a dependency on
 Microsoft's **winapp CLI**. `dotnet run` and VS / VS Code F5 gain package identity
 automatically via the build-time NuGet package `Microsoft.Windows.SDK.BuildTools.WinApp`

@@ -1,5 +1,6 @@
 # ERGO-21: The sidecar store design
 **Status:** DECIDED
+**Plan:** phase-04
 **Decision:** The sidecar is an INDEX, not an allowlist. A directory of PER-HANDLE
 files in package app-data, each mapping `handle -> {id, lastUpdate, schemaVersion}`,
 written by atomic temp-file+rename. Invocation-time reconciliation against

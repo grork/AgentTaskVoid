@@ -1,5 +1,6 @@
 # DIST-7: The release full-package manifest
 **Status:** DECIDED (Name/alias stamping made build-kind-aware, 2026-07-10 — see DIST-3)
+**Plan:** phase-01
 **Parent:** DIST-5
 
 **Amendment 2026-07-10 (phase 12, ratified with [[DIST-3]]):** the stamp is NO LONGER

@@ -1,5 +1,6 @@
 # INFRA-6: Whether CLI read-modify-write sequences need cross-process serialization
 **Status:** DECIDED
+**Plan:** all-phases
 **Decision:** Yes, and the lock must be GLOBAL (per-identity), not per-handle.
 INFRA-5 proved contention is file-wide -- concurrent writes to *different* tasks
 already lose data -- so a per-handle lock is insufficient. Every CLI write

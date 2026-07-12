@@ -1,5 +1,6 @@
 # ERGO-25: `start` on an already-live handle (re-entrancy semantics)
 **Status:** DECIDED
+**Plan:** phase-05
 **Decision:** `start` is upsert/idempotent -- a `start` on a live (or recycle-bin, LIFE-21
 "What expiry does") handle adopts that card, re-applies title/subtitle/state, and PRESERVES
 step history; it never errors. `--reset` (or explicit `remove` then `start`) forces a clean

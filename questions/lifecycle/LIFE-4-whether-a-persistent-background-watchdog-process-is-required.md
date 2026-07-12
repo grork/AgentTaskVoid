@@ -1,5 +1,6 @@
 # LIFE-4: Whether a persistent background watchdog process is required
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** Yes -- an idle-expiry watchdog is required. Opportunistic sweep alone
 cannot catch a session that posts a task and dies before any further invocation
 runs to sweep it. Not a fixed timer. Design decomposes into LIFE-5 (channel),

@@ -1,5 +1,6 @@
 # DIST-6: Package upgrade while the watchdog is running
 **Status:** DECIDED
+**Plan:** phase-12
 **Decision:** No upgrade-specific handling in the watchdog -- decision unchanged; reasoning
 CORRECTED 2026-07-05 with researched servicing behavior (the original force-kill-vs-block
 framing below was speculative, and its block branch misstated LIFE-19, "Watchdog shutdown

@@ -1,5 +1,6 @@
 # DIST-9: Uninstall behavior with live tasks and a running watchdog
 **Status:** DECIDED
+**Plan:** phase-12
 **Decision:** No mitigation needed -- the Shell self-cleans. Empirically (2026-07-05) removing
 the package deletes its app-data tree (including `tasks.json` at the standard package-relative
 `SystemAppData\AppTasks\` location) AND explorer.exe immediately drops the rendered card. The

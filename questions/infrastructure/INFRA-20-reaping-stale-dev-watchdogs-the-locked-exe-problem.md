@@ -1,5 +1,6 @@
 # INFRA-20: Reaping stale dev watchdogs / the locked-exe problem
 **Status:** DECIDED
+**Plan:** phase-09
 **Parent:** INFRA-18
 **Decision:** Two layers. (1) The INFRA-19 ("Inner-loop watchdog suppression") default
 launch profile sets `WATCHDOG_MODE=off`, so IDE launches (F5 / Ctrl+F5) and `dotnet run`

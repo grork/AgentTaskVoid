@@ -1,5 +1,6 @@
 # DIST-4: Posture for the zero-pre-install script consumer
 **Status:** DECIDED
+**Plan:** phase-12
 **Decision:** No independent posture to decide -- fully subsumed by DIST-1 ("The end-user
 distribution vehicle"), FAIL-1 ("Failure posture toward the host caller"), and FAIL-3
 ("Diagnosability when nothing shows on the taskbar"). Not-installed is OS command-not-found

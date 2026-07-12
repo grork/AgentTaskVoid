@@ -1,5 +1,6 @@
 # ERGO-6: The identifier a caller holds to address a task across invocations
 **Status:** DECIDED
+**Plan:** phase-08
 **Decision:** A caller-supplied handle (Fork B). Agent harnesses pass their own
 session id; scripts pass their own string. **[AMENDED 2026-07-05 (ERGO-27, "The consolidated
 v1 command surface"): the earlier "or omit it to address a single shared global default task"

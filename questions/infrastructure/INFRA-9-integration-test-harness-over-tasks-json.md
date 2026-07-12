@@ -1,5 +1,6 @@
 # INFRA-9: Integration-test harness over tasks.json
 **Status:** DECIDED
+**Plan:** phase-03
 **Decision:** Two suites split by purpose. (1) A fake-backed LOGIC suite (all code
 above the INFRA-8 seam) runs everywhere, always, in parallel -- each test owns a
 `FakeAppTaskStore` and asserts via its `FindAll()`. (2) A small, data-driven, SERIAL

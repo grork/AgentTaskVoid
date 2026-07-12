@@ -1,5 +1,6 @@
 # ERGO-19: Should `update` invocations also trigger the user-hidden GC sweep?
 **Status:** DECIDED
+**Plan:** phase-08
 **Decision:** No. `update` (the hot path -- every `step`) does not sweep. Rely on
 the create/remove sweeps (ERGO-2) plus the watchdog, which polls tasks.json and
 catches user-hidden tasks during a long-running session. Keeps the most frequent

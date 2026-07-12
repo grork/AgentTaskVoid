@@ -1,5 +1,6 @@
 # INFRA-19: Inner-loop watchdog suppression
 **Status:** DECIDED
+**Plan:** phase-01
 **Parent:** INFRA-18
 **Decision:** A single `watchdog-mode` setting -- `spawn` | `inproc` | `off` -- resolved
 through ERGO-17 ("Configuration surface for recurring defaults") precedence (flags > env >

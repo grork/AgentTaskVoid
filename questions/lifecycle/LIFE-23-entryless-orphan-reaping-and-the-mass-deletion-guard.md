@@ -1,5 +1,6 @@
 # LIFE-23: Entryless-orphan reaping and the mass-deletion guard
 **Status:** DECIDED
+**Plan:** phase-09
 **Parent:** LIFE-7
 **Decision:** Reap ALL entryless tasks, unconditionally -- NO mass-deletion guard. Entryless
 tasks are scoped to our own package identity (per-identity `FindAll`; DIST-3, "Dev vs release

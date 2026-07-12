@@ -38,5 +38,16 @@ Reloaded at the beginning of each session. Files are the system of record, and n
 - If the question is too complex, mark as NEEDS-EXPANSION for handling during a discovery session
 - DEFERRED should be used when the boundary of scope is found making it clear what is or isn't applicable to our current project scope. Check scope before answering, and if not in scope, defer with reasoning.
 
+# Planning Sessions
+- The execution plan (`plan/`) is built by consuming DECIDED questions into implementation phases. A phase can only be planned once the questions it depends on are DECIDED (or explicitly DEFERRED / out of scope).
+- Every DECIDED question carries a `**Plan:**` line (immediately under `**Status:**`) recording whether it has been consumed into the plan yet:
+  - `**Plan:** phase-NN` -- consumed into that phase. Permanent: it stays even when later questions revisit the same surface. That later work is a NEW question with its own future phase, not a re-opening of this one (e.g. a v2 verb contract does not un-plan the v1 phase that shipped).
+  - `**Plan:** all-phases` -- consumed as a standing invariant (the list in `plan/README.md`) that applies to every phase, rather than being delivered by a single one.
+  - `**Plan:** unplanned` -- DECIDED but not yet turned into plan work. These are the queue a planning session works from.
+- DEFERRED, EXPANDED, OPEN, and BLOCKED questions carry NO `**Plan:**` line. DEFERRED is out of scope; EXPANDED is decomposed into children that carry their own disposition; OPEN/BLOCKED are not yet decided, so there is nothing to plan.
+- To extend the plan, a planning session plans exactly the DECIDED questions stamped `unplanned`: it writes the new phase file(s) and re-stamps those questions `phase-NN`. Questions already stamped `phase-NN` / `all-phases` are done -- never re-plan them. That stamp is how a session discerns, without re-deriving it, which decisions are already in the plan.
+- A DECIDED question with NO `**Plan:**` line is a bug (an un-triaged decision), not a state -- stamp it.
+- Consumption is not build status. Whether a planned phase has actually been *implemented* is tracked separately in `progress.md`; the `**Plan:**` stamp only records that a decision was folded into the plan.
+
 # Completion
 When there are no OPEN or NEEDS-EXPANSION or BLOCKED questions left, we have reached a full set of information & scope that we need to build this product.

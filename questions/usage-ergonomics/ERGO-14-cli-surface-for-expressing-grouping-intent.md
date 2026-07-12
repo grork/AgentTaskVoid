@@ -1,5 +1,6 @@
 # ERGO-14: The CLI surface for expressing grouping intent
 **Status:** DECIDED
+**Plan:** phase-07
 **Decision:** v1 has no grouping knob. Every session is its own taskbar icon,
 keyed on the handle (ERGO-15). Glomming multiple sessions under one icon is
 deferred -- addable later as an optional `--group <key>` override with zero

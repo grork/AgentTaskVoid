@@ -1,5 +1,6 @@
 # ERGO-15: Default grouping when the consumer specifies nothing
 **Status:** DECIDED
+**Plan:** phase-07
 **Decision:** Separate by default, keyed on the session handle (ERGO-6) -- each
 session gets its own taskbar icon. Glomming multiple sessions under one icon is
 NOT the default (rarely wanted); it is at most opt-in, and whether that mechanism

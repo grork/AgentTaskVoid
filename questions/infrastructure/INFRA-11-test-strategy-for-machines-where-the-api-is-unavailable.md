@@ -1,5 +1,6 @@
 # INFRA-11: Test strategy for machines where the API is unavailable
 **Status:** DECIDED
+**Plan:** phase-02
 **Decision:** Two suites split by purpose (see INFRA-9). The fake-backed LOGIC suite
 (all code above the INFRA-8 seam) runs everywhere, always, in parallel, asserting via
 the store's `FindAll()` -- no `tasks.json` emission. The real-API ADAPTER suite (small,

@@ -1,5 +1,6 @@
 # DIST-3: Dev vs release identity (PFN) divergence
 **Status:** DECIDED (mechanism corrected + isolation made structural, 2026-07-10, phase 12)
+**Plan:** all-phases
 
 **Amendment 2026-07-10 (ratified, phase 12) — the original mechanism claim below is WRONG; the three-pool GOAL stands and is now structurally enforced.**
 A PFN is `<Name>_<PublisherId>`, and `PublisherId` is a hash of the manifest's declared

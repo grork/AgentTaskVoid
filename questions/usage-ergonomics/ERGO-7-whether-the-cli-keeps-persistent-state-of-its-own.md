@@ -1,5 +1,6 @@
 # ERGO-7: Whether the CLI keeps persistent state of its own
 **Status:** DECIDED
+**Plan:** phase-04
 **Decision:** Yes -- a small persisted `handle -> AppTaskInfo.Id` (+ metadata)
 sidecar, reconciled against `FindAll()` each invocation; the API remains source
 of truth for existence. Details below.

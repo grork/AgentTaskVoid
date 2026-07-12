@@ -1,5 +1,6 @@
 # LIFE-16: Watchdog granularity / scope
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** One watchdog per package identity (PFN), not per handle -- a single,
 stateless-over-disk poller. Each tick it re-derives all liveness state from disk (per-handle
 `lastUpdate` in the sidecar directory + `HiddenByUser` in `tasks.json`) and holds no

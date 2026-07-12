@@ -1,5 +1,6 @@
 # INFRA-13: Windows build compatibility strategy for an experimental API
 **Status:** DECIDED
+**Plan:** phase-06
 **Decision:** Don't version-pin -- detect capability at runtime (`IsSupported()` +
 identity, wrapped for the CLASS_E_CLASSNOTAVAILABLE COMException) and degrade
 non-disruptively (FAIL-1, "Failure posture toward the host caller"). Document a soft

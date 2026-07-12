@@ -1,5 +1,6 @@
 # FAIL-2: Output and exit-code contract
 **Status:** DECIDED
+**Plan:** phase-06
 **Decision:** stdout = data, stderr = diagnostics. Mutating verbs print nothing on
 the happy path (no id returned; caller owns the handle, ERGO-6); `list` prints
 human-readable, `--json` for machines. Default mode always exits 0 (FAIL-1);

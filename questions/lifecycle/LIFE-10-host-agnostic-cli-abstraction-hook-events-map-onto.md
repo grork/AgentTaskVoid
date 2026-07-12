@@ -1,5 +1,6 @@
 # LIFE-10: The host-agnostic CLI abstraction hook events map onto
 **Status:** DECIDED
+**Plan:** phase-13
 **Decision:** The verb set from ERGO-9 -- `start` / `step` / `state` / `done` /
 `fail` / `attention` / `remove` -- is the host-agnostic abstraction. Every
 in-scope host's events map onto these verbs with no host-specific logic in the

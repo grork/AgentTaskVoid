@@ -1,5 +1,6 @@
 # INFRA-5: Empirical behavior of concurrent API calls from separate processes
 **Status:** DECIDED
+**Plan:** phase-04
 **Decision:** The API does NOT serialize cross-process writes. Empirically (this
 machine, Win11 26100, 2026-07-02): 4 processes x 100 concurrent `Create`s against
 one identity yielded 37 of 400 tasks -- ~91% silent lost writes -- with NO file

@@ -1,5 +1,6 @@
 # LIFE-19: Watchdog shutdown conditions
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** The watchdog exits when the supervised set is empty after a reconciliation poll
 (every task removed, expired, or user-hidden), with a short anti-flap idle-grace so a quick
 `start->done->remove` burst does not thrash spawn/exit; the Completed-linger (LIFE-22,

@@ -1,5 +1,6 @@
 # ERGO-12: Defaults for parameters that are secretly required
 **Status:** DECIDED
+**Plan:** phase-08
 **Decision:** Casual callers supply neither. `iconUri` defaults to a built-in
 default glyph (ERGO-20) rendered to the per-handle path (ERGO-15); `deepLink`
 defaults to a benign placeholder -- its meaningful click behavior is deferred

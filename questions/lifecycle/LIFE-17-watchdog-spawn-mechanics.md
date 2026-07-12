@@ -1,5 +1,6 @@
 # LIFE-17: Watchdog spawn mechanics
 **Status:** DECIDED
+**Plan:** phase-09
 **Decision:** Every write-path invocation (`start`/`step`/`state`/...) ensures a watchdog is
 live and spawns one only if absent. The liveness check is a cheap `OpenMutex` on the LIFE-18
 ("Watchdog single-instance enforcement") named object, placed in the INVOKER as the primary

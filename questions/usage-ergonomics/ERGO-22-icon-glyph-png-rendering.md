@@ -1,5 +1,6 @@
 # ERGO-22: Icon glyph -> PNG rendering
 **Status:** DECIDED
+**Plan:** phase-07
 **Decision:** Render glyph -> PNG with DirectWrite + Direct2D + WIC via a SOFTWARE WIC
 bitmap render target (zero-GPU: no D3D device, no driver dependency, deterministic),
 using source-generated COM interop for NativeAOT (INFRA-3, "Writing the tool in C#

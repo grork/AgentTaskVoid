@@ -1,5 +1,6 @@
 # ERGO-24: The default deepLink URI value
 **Status:** DECIDED
+**Plan:** phase-08
 **Decision:** Default `deepLink` = a `file:` URI to the tool's writable app-data folder
 (`ApplicationData.Current.LocalFolder` / LocalState -- where the FAIL-3 log, the ERGO-26 config,
 and the ERGO-21 sidecar live). Empirically (2026-07-05) a `file:` app-data URI opens File Explorer

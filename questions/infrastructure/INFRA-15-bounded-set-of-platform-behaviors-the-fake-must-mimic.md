@@ -1,5 +1,6 @@
 # INFRA-15: The bounded set of platform behaviors the fake must mimic
 **Status:** DECIDED
+**Plan:** phase-02
 **Decision:** A TIGHT list, gated by "a specific logic test would test the wrong thing
 without it." The fake MUST mimic exactly four: (1) non-atomic whole-store clobber /
 last-writer-wins with a deterministic interleave hook (INFRA-5, "Empirical behavior of

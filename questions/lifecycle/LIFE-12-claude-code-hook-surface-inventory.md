@@ -1,5 +1,6 @@
 # LIFE-12: Claude Code hook surface inventory
 **Status:** DECIDED
+**Plan:** phase-13
 **Decision:** Rich hook system. Session id: YES (`session_id`, changes on
 `--resume`). Session-END signal: UNRELIABLE (`SessionEnd` fires on clean/explicit
 exit only, not Ctrl+C/kill/closed terminal). (Sonnet host research, 2026-07-02.)

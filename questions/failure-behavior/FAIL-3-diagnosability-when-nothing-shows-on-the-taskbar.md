@@ -1,5 +1,6 @@
 # FAIL-3: Diagnosability when nothing shows on the taskbar
 **Status:** DECIDED
+**Plan:** phase-06
 **Decision:** Three diagnostics. (1) Durable log in the PACKAGE-RELATIVE app-data
 location (`ApplicationData.Current.LocalFolder` -- leveraging package-identity
 isolation, the same container as tasks.json and the ERGO-7 sidecar), NOT

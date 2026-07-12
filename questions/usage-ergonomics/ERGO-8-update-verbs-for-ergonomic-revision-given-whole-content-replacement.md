@@ -1,5 +1,6 @@
 # ERGO-8: Update verbs for ergonomic revision given whole-content replacement
 **Status:** DECIDED
+**Plan:** phase-05
 **Decision:** The "advance" model: `step <h> "X"` archives the previous executing
 step into `completedSteps` and sets the new executing step -- the caller never
 manages the array. `completedSteps` is a FIFO capped at 10 (oldest drops off).

@@ -1,5 +1,6 @@
 # ERGO-26: Config file location and format
 **Status:** DECIDED
+**Plan:** phase-06
 **Decision:** Config lives in package app-data (`ApplicationData.Current.LocalFolder`); format is
 JSON via `System.Text.Json` (source-generated). TOML was preferred for editability but rejected:
 no in-box .NET TOML support, and a TOML library conflicts with INFRA-2 ("Minimizing the on-disk

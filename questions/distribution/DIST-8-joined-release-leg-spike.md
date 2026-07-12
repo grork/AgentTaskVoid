@@ -1,5 +1,6 @@
 # DIST-8: The joined release-leg spike
 **Status:** DECIDED
+**Plan:** phase-12
 **Parent:** DIST-5
 **Decision:** Do NOT run a dedicated spike -- accept the joined release leg as sound on
 inspection. DIST-7's full-package manifest resolves the `0x80073CF9` sparse-vs-full wall,

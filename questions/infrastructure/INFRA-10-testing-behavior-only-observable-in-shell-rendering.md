@@ -1,5 +1,6 @@
 # INFRA-10: Testing behavior only observable in Shell rendering
 **Status:** DECIDED
+**Plan:** phase-05
 **Decision:** The ERGO-10 validator ("Guarding unsupported state x content x mutator
 combinations") is our own logic -- the platform API validates nothing -- so it's
 covered by the STANDARD test suite, no special category and no real API. A data-driven

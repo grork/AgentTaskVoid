@@ -1,5 +1,6 @@
 # LIFE-14: Codex hook surface inventory
 **Status:** DECIDED
+**Plan:** phase-13
 **Decision:** Two systems -- legacy single-event `notify` + a modern hooks
 framework -- but NO session-end hook at all. Session id: YES (`session_id` /
 legacy `thread-id`, survives `codex resume`). Session-END: NONE (no

@@ -1,5 +1,6 @@
 # INFRA-2: Minimizing the on-disk size of the tool
 **Status:** DECIDED
+**Plan:** phase-01
 **Decision:** Accept the NativeAOT single-file self-contained exe -- **~3.0-3.5 MB**
 (~2.5 MB after free size levers), delivered inside the ~5 MB MSIX (compressed payload
 ~1.5 MB on the wire). Judged acceptable ("download and rock it"). Bank the free

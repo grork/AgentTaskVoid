@@ -1,5 +1,6 @@
 # ERGO-13: Empirical: is grouping keyed on the exact icon URI string?
 **Status:** DECIDED
+**Plan:** phase-07
 **Decision:** Operator assertion (2026-07-02): grouping is keyed on the icon URI
 string/path, NOT image bytes. So byte-identical icons at two different paths
 produce two separate taskbar icons -- the CLI can force separation while keeping
