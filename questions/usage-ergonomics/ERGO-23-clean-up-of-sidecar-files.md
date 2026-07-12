@@ -1,5 +1,6 @@
 # ERGO-23: Clean up of sidecar files
-**Status**: DECIDED
+**Status:** DECIDED
+**Plan:** phase-07
 **Decision:** Option A -- single-owner "move" model; ownership is positional, no refcounting.
 - Per-handle index file + its icon copy are lifecycle-twinned: the copy is reaped on the same
   events that drop the index entry (`remove` / `clear` / user-hide / reconciliation-drop,

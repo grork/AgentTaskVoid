@@ -1,5 +1,6 @@
 # LIFE-15: Handling tasks that have timed out, but get 'resurrected'
-**Status**: DECIDED
+**Status:** DECIDED
+**Plan:** phase-05
 **Decision:** Resurrection = the LIFE-21 ("What expiry does") recycle-bin miss path. A
 post-expiry update whose handle is gone from the live sidecar checks the recycle bin; found
 within the ~1-day TTL -> re-create the card from the stored restore-record (title, subtitle,

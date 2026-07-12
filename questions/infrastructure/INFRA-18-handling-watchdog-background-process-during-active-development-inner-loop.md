@@ -1,5 +1,5 @@
 # INFRA-18: Handling 'Watchdog' background process during active development & inner loop
-**Status**: EXPANDED
+**Status:** EXPANDED
 **Expanded into:** INFRA-19, INFRA-20, INFRA-21
 
 Expansion (ratified 2026-07-04): bundled several independent suppression mechanisms,
