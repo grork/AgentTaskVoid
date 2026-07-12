@@ -1,5 +1,17 @@
 # LIFE-25: Should host hooks invoke the `atv` exe directly instead of via a PowerShell wrapper?
-**Status:** OPEN
+**Status:** DECIDED (2026-07-11, as part of the LIFE-24 conduit/translator drill-down)
+**Plan:** unplanned
+**Decision:** No direct exec — something must parse the host payload, and it can never be
+`atv` (LIFE-10's no-host-specifics invariant; option 2's `atv hook` adapter is LIFE-24's
+rejected `atv ingest` by another name, and option 3's per-host compiled shim was rejected in
+LIFE-24's layer placement). Both phase-13 pain points are fixed instead by the LIFE-24
+artifact shape: the hook line becomes a plain program+args invocation of a real script file
+(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File translate.ps1 -Event <name>`),
+which parses identically under bash/cmd/PowerShell — the `"shell": "powershell"` selection
+footgun and the embedded-one-liner escaping layer are both gone. Per-event process churn
+stays and is accepted (async hides it; LIFE-24 accepted trade (b)). Artifact shape, tech
+choice, and the translator disciplines live in LIFE-24 ("The host-event → task-state
+integration semantics").
 
 ## Question
 The shipped Claude Code hooks run a **PowerShell one-liner** that reads the host's JSON payload

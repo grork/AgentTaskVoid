@@ -28,3 +28,10 @@ aims.
 - [`INFRA-20`: Reaping stale dev watchdogs / the locked-exe problem](./INFRA-20-reaping-stale-dev-watchdogs-the-locked-exe-problem.md) -- DECIDED
 - [`INFRA-21`: Debugging watchdog mode itself](./INFRA-21-debugging-watchdog-mode-itself.md) -- DECIDED
 - [`INFRA-22`: GUI-subsystem exe + AttachConsole for flash-free OS-launched instances](./INFRA-22-gui-subsystem-exe-attachconsole-for-flash-free-os-launched-instances.md) -- DEFERRED
+- [`INFRA-23`: The host-event behavior recorder (diagnostics tooling, separate from atv)](./INFRA-23-host-event-behavior-recorder.md) -- EXPANDED
+- [`INFRA-24`: Recorder tool architecture & repo placement](./INFRA-24-recorder-tool-architecture-and-repo-placement.md) -- DECIDED
+- [`INFRA-25`: Host-event log envelope schema](./INFRA-25-host-event-log-envelope-schema.md) -- DECIDED
+- [`INFRA-26`: Safe per-event hook coverage pass](./INFRA-26-safe-per-event-hook-coverage-pass.md) -- DECIDED
+- [`INFRA-27`: Observer posture vs teardown blocking budget](./INFRA-27-observer-posture-vs-teardown-blocking-budget.md) -- DECIDED
+- [`INFRA-28`: Capture scenario design & session driver](./INFRA-28-capture-scenario-design-and-session-driver.md) -- DECIDED
+- [`INFRA-29`: Recorder lifecycle & maintenance model](./INFRA-29-recorder-lifecycle-and-maintenance-model.md) -- DECIDED

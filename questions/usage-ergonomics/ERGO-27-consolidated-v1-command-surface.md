@@ -1,5 +1,6 @@
 # ERGO-27: The consolidated v1 command surface
 **Status:** DECIDED
+**Plan:** all-phases
 **Decision:** The single v1 surface for `atv` (ERGO-18, "The shipped command name") is the spec
 below -- one binary, seven lifecycle verbs + four data/util verbs + one hidden mode, a fixed set of
 global options, and per-verb flags. Two collisions the union surfaced were ratified 2026-07-05:
@@ -9,6 +10,11 @@ no longer prompts or gates -- an explicit invocation executes immediately (C4). 
 caller-supplied handle is REQUIRED on every lifecycle verb -- no omit-to-default, `start` with no id
 is an error (C3). The rest resolved to documented defaults (below). This spec is the input the
 execution plan consumes.
+
+**Successor note (2026-07-11):** ERGO-31 ("The v2 semantic verb contract"), spawned from
+LIFE-24's ("The host-event → task-state integration semantics") conduit/translator drill-down,
+is expected to supersede this surface when answered. This record stays DECIDED as the shipped
+v1 spec until then.
 
 ---
 
