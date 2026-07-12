@@ -1,6 +1,6 @@
 # INFRA-27: Observer posture vs teardown blocking budget
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-14
 **Parent:** INFRA-23
 **Decision:** Async by default; synchronous only on teardown-adjacent events, mirroring
 the shipped phase-13 `SessionEnd`-sync finding. Per host: Claude Code/Copilot async with
@@ -37,3 +37,12 @@ teardown events it exists to observe — the highest-value, hardest-to-reproduce
 4. **Coherence with INFRA-26.** Because INFRA-26 skips the replacement class entirely, the
    recorder never has to *do work* inside a hook to stay safe — the only reason blocking is
    ever accepted here is the teardown race, nothing else.
+
+## Amendment (2026-07-12, phase-14 planning)
+pi's "no spawn cost" phrasing above described hook DELIVERY (in-process), not the recorder
+invocation: INFRA-24/25's one-shared-write-path rule means pi's extension still spawns the
+recorder exe per event rather than appending JSONL itself (TS has no named-mutex
+primitive). Posture is therefore the same as every other host — fire-and-forget for
+in-turn events, awaited only on `session_shutdown`. The teardown-only blocking rule is
+unchanged. For pi, "verbatim" means the conduit's single serialization of the in-process
+event object at delivery (no host-produced bytes exist); it is never re-serialized after.

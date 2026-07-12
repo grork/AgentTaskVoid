@@ -2,7 +2,9 @@
 
 **Depends on:** phases 09/10 (stable verb surface + doctor); phase 12 for install
 instructions (docs can draft against it in parallel).
-**Unblocks:** nothing — final phase.
+**Unblocks:** nothing downstream in the v1 build. (2026-07-12: the deferred
+Copilot CLI/Codex legs of this phase now run AFTER phase 14 — their mappings are
+verified through the recorder's captures.)
 
 ## Goal
 

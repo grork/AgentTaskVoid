@@ -1,6 +1,6 @@
 # INFRA-24: Recorder tool architecture & repo placement
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-14
 **Parent:** INFRA-23
 **Decision:** A compiled C# console tool at `tools/host-event-recorder/`, a member of
 `AppTaskInfoCli.slnx` but referencing no atv project and carrying no brand/identity

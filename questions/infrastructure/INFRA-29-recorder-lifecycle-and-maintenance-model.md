@@ -1,6 +1,6 @@
 # INFRA-29: Recorder lifecycle & maintenance model
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-14
 **Parent:** INFRA-23
 **Decision:** Durable and maintained: each finding in `docs/host-events/<host>.md` is
 stamped with the host version + capture date (reusing the `integrations/claude-code/`

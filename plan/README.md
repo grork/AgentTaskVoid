@@ -1,7 +1,8 @@
 # Execution Plan
 
 Built 2026-07-07 from `brief.md`, `requirements.md`, and every DECIDED question under
-`questions/` (per `process.md`, discovery and answering are complete). DEFERRED
+`questions/` (per `process.md`, discovery and answering are complete); extended
+2026-07-12 with phase 14 (INFRA-23's expansion, INFRA-24..29). DEFERRED
 questions are OUT of this build's scope: the whole interaction round-trip (INTER-1..4),
 DIST-2 (signing-cert acquisition), INFRA-12 (latency budget), INFRA-22 (GUI-subsystem
 exe / AttachConsole), LIFE-3 (wire-transport observation).
@@ -58,7 +59,14 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 11 | [`run` wrapper](phase-11-run-wrapper.md) | 08, 09 |
 | 12 | [Release packaging & distribution verification](phase-12-release-packaging.md) | 09, 10, 11 |
 | 13 | [Per-host integration artifacts + docs](phase-13-host-integrations-and-docs.md) | 09, 10 (12 for install docs) |
+| 14 | [Host-event behavior recorder + findings corpus](phase-14-host-event-recorder.md) | — (atv-independent tooling) |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run
 parallel with 09.
+
+Phase 14 (added 2026-07-12) is atv-independent diagnostics tooling with no build
+dependency on any other phase. It is sequenced after the shipped phase-13 Claude
+Code leg and BEFORE the deferred phase-13 Copilot CLI/Codex legs — those legs'
+mappings are verified through its captures (LIFE-24 mapping rule 7) — and before
+any LIFE-24 v2 work lands in atv.

@@ -1,6 +1,6 @@
 # INFRA-26: Safe per-event hook coverage pass
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-14
 **Parent:** INFRA-23
 **Decision:** A per-host safe/care/skip matrix lives in `docs/host-events/<host>.md`,
 classified by one axis — "does camping this event suppress or replace a default host

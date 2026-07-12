@@ -1,6 +1,6 @@
 # INFRA-28: Capture scenario design & session driver
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-14
 **Parent:** INFRA-23
 **Decision:** Decided at the approach level (concrete driver scripts are plan-phase work):
 ratify LIFE-24's scenario-beat list as the host-agnostic corpus (with per-host
@@ -19,7 +19,10 @@ deterministically and repeatably than a human following a checklist by hand.
 ## Decision (operator + Claude Code, answer session, 2026-07-12)
 Scope: this question is settled at the **approach** level; the concrete per-host driver
 scripts are built in the recorder's plan phase (phase 14), consistent with how other
-questions fix the shape and leave implementation to phases.
+questions fix the shape and leave implementation to phases. (Amended 2026-07-12,
+phase-14 planning, operator: phase 14 builds only the Claude Code driver — the sole
+testable host on this box; each other host's driver is built by the future pass that
+can test that host.)
 
 1. **Scenario beats — the shared, host-agnostic corpus** (from LIFE-24, ratified here):
    fresh start → first prompt → tool calls → parallel subagent fan-out (≥2 concurrent) →

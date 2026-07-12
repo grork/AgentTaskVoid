@@ -1,6 +1,6 @@
 # INFRA-25: Host-event log envelope schema
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-14
 **Parent:** INFRA-23
 **Decision:** One JSONL file per capture session, named-mutex-serialized appends (line
 order is the authoritative sequence — no seq field); each record is `{ts, host, event,
