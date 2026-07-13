@@ -2,6 +2,11 @@
 **Status:** DECIDED
 **Plan:** phase-14
 **Parent:** INFRA-23
+> **Rollout:** phase-14 instantiates this for **Claude Code only** — the integration that
+> validates the shared core (INFRA-30, recorder rollout & harness integration). Building the
+> Copilot / Codex / pi legs is a future per-host phase each, not yet run through the process
+> (INFRA-31, OPEN); the design here is not re-decided per host.
+
 **Decision:** Decided at the approach level (concrete driver scripts are plan-phase work):
 ratify LIFE-24's scenario-beat list as the host-agnostic corpus (with per-host
 subtractions); drive it with a per-host thin harness over each host's own scripting

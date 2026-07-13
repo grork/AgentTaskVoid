@@ -2,6 +2,11 @@
 **Status:** DECIDED
 **Plan:** phase-14
 **Parent:** INFRA-23
+> **Rollout:** phase-14 instantiates this for **Claude Code only** — the integration that
+> validates the shared core (INFRA-30, recorder rollout & harness integration). Building the
+> Copilot / Codex / pi legs is a future per-host phase each, not yet run through the process
+> (INFRA-31, OPEN); the design here is not re-decided per host.
+
 **Decision:** A per-host safe/care/skip matrix lives in `docs/host-events/<host>.md`,
 classified by one axis — "does camping this event suppress or replace a default host
 action?"; passive log-and-exit-0 is safe even on decision-capable events (it declines to

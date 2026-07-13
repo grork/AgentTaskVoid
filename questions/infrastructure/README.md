@@ -35,3 +35,5 @@ aims.
 - [`INFRA-27`: Observer posture vs teardown blocking budget](./INFRA-27-observer-posture-vs-teardown-blocking-budget.md) -- DECIDED
 - [`INFRA-28`: Capture scenario design & session driver](./INFRA-28-capture-scenario-design-and-session-driver.md) -- DECIDED
 - [`INFRA-29`: Recorder lifecycle & maintenance model](./INFRA-29-recorder-lifecycle-and-maintenance-model.md) -- DECIDED
+- [`INFRA-30`: Recorder rollout & harness integration](./INFRA-30-recorder-rollout-and-harness-integration.md) -- DECIDED
+- [`INFRA-31`: Recorder legs for the not-yet-testable hosts (Copilot / Codex / pi)](./INFRA-31-recorder-legs-for-not-yet-testable-hosts.md) -- OPEN

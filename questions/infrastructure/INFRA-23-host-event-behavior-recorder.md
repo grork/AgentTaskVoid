@@ -1,6 +1,6 @@
 # INFRA-23: The host-event behavior recorder (diagnostics tooling, separate from atv)
 **Status:** EXPANDED
-**Expanded into:** INFRA-24, INFRA-25, INFRA-26, INFRA-27, INFRA-28, INFRA-29
+**Expanded into:** INFRA-24, INFRA-25, INFRA-26, INFRA-27, INFRA-28, INFRA-29 (+ INFRA-30, INFRA-31, added 2026-07-12)
 
 ## Question
 Design the standalone "real-world event behaviour" diagnostics tool for agent-CLI
@@ -47,6 +47,15 @@ per-host translators (LIFE-24) get regression-tested against — was raised and 
 declined by the operator as a separate question (2026-07-11): the relationship stays as
 already documented in LIFE-24 (rule 7, "Open empirical items"), consumed by whoever
 authors a translator, not a formal pipeline.
+
+Later additions (2026-07-12, phase-14 planning) — surfaced when phase-14 was scoped to
+Claude Code only:
+- [`INFRA-30`: Recorder rollout & harness integration](./INFRA-30-recorder-rollout-and-harness-integration.md)
+  — DECIDED, consumed by phase-14: the core is proven only by a live host integration, and
+  rollout is one host per phase gated on testability.
+- [`INFRA-31`: Recorder legs for the not-yet-testable hosts](./INFRA-31-recorder-legs-for-not-yet-testable-hosts.md)
+  — OPEN: whether/how the Copilot/Codex/pi legs get built. Catalogued so the remaining
+  rollout can't be silently dropped; its disposition is a future session's call.
 
 ## Relationship to the plan
 Once the children above are DECIDED, this becomes a new plan phase (phase 14) executed

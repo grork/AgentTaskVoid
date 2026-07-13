@@ -2,6 +2,11 @@
 **Status:** DECIDED
 **Plan:** phase-14
 **Parent:** INFRA-23
+> **Rollout:** phase-14 instantiates this for **Claude Code only** — the integration that
+> validates the shared core (INFRA-30, recorder rollout & harness integration). Building the
+> Copilot / Codex / pi legs is a future per-host phase each, not yet run through the process
+> (INFRA-31, OPEN); the design here is not re-decided per host.
+
 **Decision:** Async by default; synchronous only on teardown-adjacent events, mirroring
 the shipped phase-13 `SessionEnd`-sync finding. Per host: Claude Code/Copilot async with
 their session-end equivalent sync; Codex all-async (no session-end hook to protect); pi
