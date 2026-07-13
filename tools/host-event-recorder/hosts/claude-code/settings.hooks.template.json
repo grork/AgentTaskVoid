@@ -1,0 +1,94 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "SessionStart"], "async": true, "timeout": 10 } ] }
+    ],
+    "Setup": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "Setup"], "async": true, "timeout": 10 } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "UserPromptSubmit"], "async": true, "timeout": 10 } ] }
+    ],
+    "UserPromptExpansion": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "UserPromptExpansion"], "async": true, "timeout": 10 } ] }
+    ],
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PreToolUse"], "async": true, "timeout": 10 } ] }
+    ],
+    "PermissionRequest": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PermissionRequest"], "async": true, "timeout": 10 } ] }
+    ],
+    "PermissionDenied": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PermissionDenied"], "async": true, "timeout": 10 } ] }
+    ],
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PostToolUse"], "async": true, "timeout": 10 } ] }
+    ],
+    "PostToolUseFailure": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PostToolUseFailure"], "async": true, "timeout": 10 } ] }
+    ],
+    "PostToolBatch": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PostToolBatch"], "async": true, "timeout": 10 } ] }
+    ],
+    "Notification": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "Notification"], "async": true, "timeout": 10 } ] }
+    ],
+    "MessageDisplay": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "MessageDisplay"], "async": true, "timeout": 10 } ] }
+    ],
+    "SubagentStart": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "SubagentStart"], "async": true, "timeout": 10 } ] }
+    ],
+    "SubagentStop": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "SubagentStop"], "async": true, "timeout": 10 } ] }
+    ],
+    "TaskCreated": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "TaskCreated"], "async": true, "timeout": 10 } ] }
+    ],
+    "TaskCompleted": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "TaskCompleted"], "async": true, "timeout": 10 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "Stop"], "async": true, "timeout": 10 } ] }
+    ],
+    "StopFailure": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "StopFailure"], "async": true, "timeout": 10 } ] }
+    ],
+    "TeammateIdle": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "TeammateIdle"], "async": true, "timeout": 10 } ] }
+    ],
+    "InstructionsLoaded": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "InstructionsLoaded"], "async": true, "timeout": 10 } ] }
+    ],
+    "ConfigChange": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "ConfigChange"], "async": true, "timeout": 10 } ] }
+    ],
+    "CwdChanged": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "CwdChanged"], "async": true, "timeout": 10 } ] }
+    ],
+    "FileChanged": [
+      {
+        "matcher": ".env|.envrc",
+        "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "FileChanged"], "async": true, "timeout": 10 } ]
+      }
+    ],
+    "WorktreeRemove": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "WorktreeRemove"], "async": true, "timeout": 10 } ] }
+    ],
+    "PreCompact": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PreCompact"], "async": true, "timeout": 10 } ] }
+    ],
+    "PostCompact": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "PostCompact"], "async": true, "timeout": 10 } ] }
+    ],
+    "Elicitation": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "Elicitation"], "async": true, "timeout": 10 } ] }
+    ],
+    "ElicitationResult": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "ElicitationResult"], "async": true, "timeout": 10 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "__RECORDER_EXE_PATH__", "args": ["--host", "claude-code", "--event", "SessionEnd"], "async": false, "timeout": 10 } ] }
+    ]
+  }
+}

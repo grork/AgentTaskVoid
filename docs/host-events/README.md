@@ -109,7 +109,10 @@ results) reach a per-host doc under `docs/host-events/` (e.g.
 
 ## Status
 
-Part A (this recorder core) is built and gated (Gate A). Part B (the Claude
-Code leg -- safe/skip matrix, driver, live capture, findings) is tracked
-separately; `docs/host-events/claude-code.md` does not exist until that
-work lands.
+Part A (this recorder core) is built and gated (Gate A). Part B's Claude Code
+artifacts are built too: the safe/skip matrix, the conduit template, and the
+stage/driver/cue harness live under `docs/host-events/claude-code.md` and
+`tools/host-event-recorder/hosts/claude-code/`. What remains is the
+operator-supervised **live capture** run and the confirmed findings it
+produces -- the "Findings" section of `claude-code.md` is scaffolded as
+pending until that run lands.
