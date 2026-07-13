@@ -69,4 +69,7 @@ Phase 14 (added 2026-07-12) is atv-independent diagnostics tooling with no build
 dependency on any other phase. It is sequenced after the shipped phase-13 Claude
 Code leg and BEFORE the deferred phase-13 Copilot CLI/Codex legs — those legs'
 mappings are verified through its captures (LIFE-24 mapping rule 7) — and before
-any LIFE-24 v2 work lands in atv.
+any LIFE-24 v2 work lands in atv. It builds the recorder core once plus the Claude
+Code leg only — the integration that proves the core (INFRA-30). The remaining per-host
+legs (Copilot CLI, Codex, pi) are each a future phase, not yet run through the process
+(INFRA-31, OPEN), to be planned when their host becomes testable.
