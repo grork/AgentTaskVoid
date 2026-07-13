@@ -41,7 +41,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 11 | `run` wrapper | ✅ | 1 | PASS (1st) |
 | 12 | Release packaging & distribution verification | ✅ | 1 | build-half PASS (committed 4a84daa); supervised smoke RENDERED ✅ 2026-07-10 |
 | 13 | Per-host integration artifacts + docs | 🔄 | 1 | Claude Code leg + all docs: PASS (1st). Copilot + Codex = deferred discrete follow-ups (operator 2026-07-10) |
-| 14 | Host-event behavior recorder + Claude Code findings | 🔄 | — | Part A (core, Gate A) → Part B artifacts subagent-driven; Part B live capture (AC5/AC6) = operator-supervised |
+| 14 | Host-event behavior recorder + Claude Code findings | 🔄 | — | Subagent-executable work DONE + committed (14A fc5785b, 14B-artifacts 1eef442). BLOCKED on operator-supervised live capture (AC5/AC6). |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -49,7 +49,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 |-----|-------|--------|----------|---------|
 | 14A | Recorder core + Gate A (AC1–3) | ✅ | 1 | PASS (1st). Reviewer independently reproduced 0/0 build, 47/47 ×3, clean AOT + byte-exact standalone smoke, separation both ways. |
 | 14B-artifacts | Matrix (AC4) + conduit template + driver/stage harness + cue script | ✅ | 1 | PASS (1st). 30-event matrix (only WorktreeCreate skip); recorder proven stdout-silent; staged-conduit smoke byte-faithful; cue disable/restore authored-not-run. |
-| 14B-capture | Live Claude Code capture (AC5) + findings (AC6) | ⬜ | — | operator-supervised — not subagent-able |
+| 14B-capture | Live Claude Code capture (AC5) + findings (AC6) | ⏸️ | — | BLOCKED on operator: supervised run via `tools/host-event-recorder/hosts/claude-code/cue-script.ps1`. Not subagent-able (human at terminal, no PTY automation v1). |
 
 ## Checkpoint C1 — manual taskbar dogfood (after Phase 10, before Phase 11) ✅ RENDERED
 
