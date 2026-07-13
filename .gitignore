@@ -6,6 +6,11 @@ obj/
 # signing cert) -- build/Atv.Release.targets; never checked in.
 artifacts/
 
+# Phase 14 host-event recorder: raw captures may carry prompts, cwd paths,
+# tool inputs -- possibly secrets. Only distilled findings (docs/host-events/)
+# are ever committed.
+tools/host-event-recorder/captures/
+
 # User-specific files
 *.user
 *.suo

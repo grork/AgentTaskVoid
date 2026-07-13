@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Host-agnostic, atv-independent capture core (INFRA-24,
+    plan/phase-14-host-event-recorder.md Part A). Deliberately isolated from
+    src/Atv: no ProjectReference in either direction, no Atv.* namespace, no
+    $(AtvBrandName)/$(AtvCommandName) consumption; standing invariant #2
+    inverts for this tool (see CLAUDE.md and the plan's "Invariant note").
+
+    Plain net10.0 (no -windows10.0.26100.0 suffix): named mutexes need no
+    Windows-specific surface, and the absence of the Windows TFM reinforces
+    the separation criterion. src/Atv targets the Windows TFM only because
+    of its WinRT (Windows.UI.Shell.Tasks) surface, which this tool has none
+    of. A vanilla console exe: no AppxManifest, no winapp redirect, no
+    package identity, no CsWinRT.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HostEventRecorder</RootNamespace>
+    <AssemblyName>host-event-recorder</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

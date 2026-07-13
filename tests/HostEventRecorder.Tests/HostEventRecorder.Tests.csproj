@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Mirrors tests/Atv.LogicTests's MTP/MSTest convention (EnableMSTestRunner,
+    Exe output, no dotnet-test/VSTest plumbing needed) while referencing ONLY
+    HostEventRecorder: no Atv project, no Windows TFM (INFRA-24
+    separation). Plain net10.0, same TFM as the project under test.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>HostEventRecorder.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\host-event-recorder\HostEventRecorder.csproj" />
+  </ItemGroup>
+
+</Project>

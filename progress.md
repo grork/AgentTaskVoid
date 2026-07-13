@@ -41,6 +41,15 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 11 | `run` wrapper | ✅ | 1 | PASS (1st) |
 | 12 | Release packaging & distribution verification | ✅ | 1 | build-half PASS (committed 4a84daa); supervised smoke RENDERED ✅ 2026-07-10 |
 | 13 | Per-host integration artifacts + docs | 🔄 | 1 | Claude Code leg + all docs: PASS (1st). Copilot + Codex = deferred discrete follow-ups (operator 2026-07-10) |
+| 14 | Host-event behavior recorder + Claude Code findings | 🔄 | — | Part A (core, Gate A) → Part B artifacts subagent-driven; Part B live capture (AC5/AC6) = operator-supervised |
+
+### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
+
+| Sub | Scope | Status | Attempts | Outcome |
+|-----|-------|--------|----------|---------|
+| 14A | Recorder core + Gate A (AC1–3) | ✅ | 1 | PASS (1st). Reviewer independently reproduced 0/0 build, 47/47 ×3, clean AOT + byte-exact standalone smoke, separation both ways. |
+| 14B-artifacts | Matrix (AC4) + conduit template + driver/stage harness + cue script | ⬜ | — | — |
+| 14B-capture | Live Claude Code capture (AC5) + findings (AC6) | ⬜ | — | operator-supervised — not subagent-able |
 
 ## Checkpoint C1 — manual taskbar dogfood (after Phase 10, before Phase 11) ✅ RENDERED
 
@@ -170,5 +179,13 @@ Everything above is committed. Do NOT re-run the executors. The only remaining p
 - **Reviewer (independent Sonnet/xhigh) PASS:** re-fetched the hooks docs and independently confirmed both orchestrator fixes correct; cross-checked `docs/configuration.md`'s 11 tunables against `Settings.cs`/`SettingsLoader.cs` (every default matches); AC5/AC6 met; AC1/AC4 met; AC2 met-live (artifact internally consistent with the dogfood record); invariant #2 clean. **LogicTests 494/494** (foreground, single run, machine stable, ~4.4s). No defects.
 - **LIFE-24 filed (OPEN, dogfood learning):** "The host-event → task-state integration semantics (the mapping layer)" — the operator's observation that the event→state/step mapping is semantically loose (running-at-start; overloaded idle: turn-done vs paused vs tool-permission vs question; review ALL events; subagents maybe → own cards glomming by icon; raw-JSON step passthrough nuance; two-way looming but NOT reopened yet). Framed as a semantic *integration layer*, explicitly not the earlier A/B field/state options. Post-v1, does not change this build.
 - **⏭️ Remaining Phase 13 work (discrete follow-up steps, NOT this session):** (1) **Copilot CLI** integration artifact + doc-verified/live-verified surface (host not installed on this box — verify against docs + a machine that has it); (2) **Codex** integration artifact (lowest priority; no session-end event → watchdog-only cleanup). Each is its own executor→reviewer pass. The AC1 "verify against installed version" caveat applies to each when tackled. Until both land, Phase 13 is NOT fully ✅ and the plan is NOT fully complete.
+
+### Phase 14A — Recorder core + Gate A ✅ (signed off 1st attempt; lean mode)
+- **Files:** created `tools/host-event-recorder/{HostEventRecorder.csproj, Constants.cs, ArgvParser.cs, Envelope.cs, MutexNaming.cs, GuardedAppender.cs, PathResolution.cs, SessionResolution.cs, Recorder.cs, Program.cs}`; `tests/HostEventRecorder.Tests/*` (13 files, MTP/MSTest, references ONLY the recorder — no Atv ref, plain `net10.0`); `docs/host-events/README.md` (conventions + pinned-name mirror). Modified `AppTaskInfoCli.slnx` (+2 members), `.gitignore` (+`tools/host-event-recorder/captures/`).
+- **Standing-invariant inversion honored:** recorder consumes no brand constant / no `Atv.*` / no `Windows.UI.Shell` / no package identity; plain `net10.0` (no Windows TFM); vanilla console exe.
+- **Pinned plumbing names** (`Constants.cs`, mirrored in README): env vars `HOSTREC_SESSION` (session id; `--session` overrides) and `HOSTREC_CAPTURE_DIR` (capture dir; `--capture-dir` overrides); filename `session-{id}.jsonl`; fallback path basis = `AppContext.BaseDirectory` + `captures/` (never cwd); fallback session id `adhoc-{yyyy-MM-dd}` UTC; mutex name `Local\HostEventRecorder-{sha256-hex-of-normalized-path}`.
+- **Result:** build 0/0 with both new projects; LogicTests-style suite **47/47** green ×3 (stable); AOT publish clean (arm64, single 1.82 MB native exe); standalone smoke appended a byte-exact 6-field envelope (non-ASCII/quote/newline round-tripped identically through the escaped `payload` string). Envelope = exactly `{ts,host,event,pid,session,payload}`; `payload` stored as opaque STJ-escaped string, never re-parsed (proven by a non-normalization test).
+- **Review:** PASS (independent; reviewer re-ran build/tests ×3/AOT publish + own standalone smoke with tricky payload + separation greps both ways). All 3 Gate A criteria reproduced. **Deviations all ACCEPTABLE:** (1) argv>env precedence for both `--session` and `--capture-dir` (consistent with the one explicit session-tier rule); (2) 40-real-thread concurrency proof (a named OS `Mutex` is arbitrated identically across threads and processes; the suite also has a real-subprocess default-path test) — reviewer judged adequate, flagged a real multi-process append test as optional future defense-in-depth; (3) session-id filename sanitization (invalid FS chars→`_`, tested, low-risk).
+- **Non-blocking note:** `EnvelopeRoundTripTests` doc comment overstates that `RecorderCaptureTests` re-proves the tricky payloads through disk (it only runs ASCII through disk) — cosmetic; the AOT standalone smoke covers the real tricky-payload disk path. Tighten when next touched.
 
 _(Further per-phase notes appended below as phases execute.)_
