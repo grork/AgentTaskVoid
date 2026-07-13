@@ -117,49 +117,158 @@ cleanup/log line never lands. Because `WorktreeCreate` (the only event where the
 recorder would need to do real work) is skipped, the teardown race is the only
 reason any event blocks.
 
-## Findings (pending supervised live capture)
+## Findings
 
-**Nothing below is filled in yet.** AC5/AC6 — real Claude Code captures, the
-did-not-fire results, and the LIFE-24 empirical answers — come from an
-operator-supervised run using `tools/host-event-recorder/hosts/claude-code/cue-script.ps1`
-(interactive beats) and `driver-scripted.ps1` (the `-p` beats), staged by
-`stage.ps1`. This section is the scaffold that run fills in; do not treat
-anything here as confirmed until a stamp and session id are attached.
+**Verified against:** Claude Code `2.1.207` (installed on the capture machine,
+`claude --version`) — captured `2026-07-12`/`2026-07-13`, sessions
+`cc-20260712-212159` (scripted, `-p`), `cc-interactive-1`, `cc-interactive-2`,
+`cc-interactive-3` (supervised interactive). These are the recorder
+*capture-file* ids (`HOSTREC_SESSION`); each maps to one Claude-Code host
+`session_id` inside the payloads (e.g. `cc-20260712-212159` →
+`1d17eebc-3060-4494-8238-a22f4ac7bacb`, `cc-interactive-1` →
+`4b8f7eec-9c33-4929-bdd3-1df2b2ec17d0`).
 
-### Stamp format
+Four captures, split by what each surface can reach:
 
-```
-**Verified against:** Claude Code `<version>` (installed on the capture
-machine, `claude --version`) — captured `<yyyy-MM-dd>`, session(s)
-`<session-id, session-id, …>`.
-```
-(Reuses `integrations/claude-code/README.md`'s "Verified against:" convention —
-INFRA-29.)
+- **`cc-20260712-212159` (scripted, `driver-scripted.ps1` → `claude -p … --permission-mode bypassPermissions`, 23 records):**
+  fresh start → first prompt → tool calls (`Bash`, `Read`) → parallel subagent
+  fan-out (2 concurrent, via the `Agent` tool) → clean exit. Bypass mode, so no
+  permission dialog.
+- **`cc-interactive-1` (supervised interactive, 50 records):** first prompt → a
+  real main-thread permission prompt (a `Bash` command) → a **subagent-originated**
+  permission prompt (a subagent `Write`) → a user interrupt *during text
+  generation* → `/exit`.
+- **`cc-interactive-2` (supervised interactive, 9 records):** the interrupt beat
+  redone to land *during a tool call* — `bash slow.sh` (a 25 s sleep) interrupted
+  mid-execution. (Its idle window was invalidated by the operator — the session
+  sat open overnight — so only its interrupt datum is used.)
+- **`cc-interactive-3` (supervised interactive, 7 records):** a clean idle test —
+  one prompt, turn completes, then a controlled idle wait (focused, then
+  unfocused) → `/exit`.
 
-### Per-event capture results — UNFILLED
+### Per-event capture results
 
-| Event | Result | Session id(s) | Notes |
+Result ∈ **Fired** (observed) · **Did not fire** (a beat targeted it, absent) ·
+**Not exercised** (no beat reached its preconditions this capture). In the
+Session column, **"both"** = the two comprehensive captures (`cc-20260712-212159`
+scripted + `cc-interactive-1`); `cc-interactive-2`/`-3` were narrow single-purpose
+runs (interrupt-during-tool, clean idle) cited explicitly where they contribute.
+
+| Event | Result | Session(s) | Notes |
 |---|---|---|---|
-| *(one row per event in the matrix above)* | *(Confirmed fired / Did not fire / Not exercised this capture)* | | |
+| `SessionStart` | Fired | both | `source:"startup"`. Carries `session_id`, `transcript_path`, `cwd`. |
+| `Setup` | Not exercised | — | CI `--init-only`/`--maintenance` flow, no beat. |
+| `UserPromptSubmit` | Fired | both | Carries `prompt`, `permission_mode`. |
+| `UserPromptExpansion` | Not exercised | — | No slash-command beat. |
+| `PreToolUse` | Fired | both | Carries `tool_name`/`tool_input`/`tool_use_id`; **`agent_id` present only when the tool call is subagent-scoped** (empty on main thread). A tool call **interrupted mid-execution** fires `PreToolUse` with **no matching `PostToolUse`/`PostToolUseFailure`** — it is orphaned (see finding 6). |
+| `PermissionRequest` | Fired | `cc-interactive-1` | Fired for both the main-thread `Bash` prompt (no `agent_id` key) and the subagent `Write` prompt (**`agent_id` + `agent_type` present**, matching the raising subagent). Carries `permission_suggestions`, `tool_input`, `permission_mode`. **This — not `Notification` — is the event that attributes a permission prompt to a specific subagent.** |
+| `PermissionDenied` | Not exercised | — | Requires `permission_mode:auto`. |
+| `PostToolUse` | Fired | both | Carries `tool_response`, `duration_ms`; `agent_id` when subagent-scoped. |
+| `PostToolUseFailure` | Fired | `cc-interactive-1` | Fires when a tool **fails on its own** — observed once, a subagent's auto-approved `git log` exiting 128 in the empty scratch repo. Carries `error`, `tool_name`, `agent_id`, `is_interrupt` (`false` here). It does **NOT** fire on a user interrupt: in `cc-interactive-2` a `bash slow.sh` call interrupted mid-run produced no `PostToolUseFailure` at all (finding 6), so `is_interrupt:true` was never observed. |
+| `PostToolBatch` | Fired | both | Fires after each resolved tool batch; carries `tool_calls`; `agent_id` when subagent-scoped. |
+| `Notification` | Fired | `cc-interactive-1`, `cc-interactive-3` | Two subtypes observed. `permission_prompt` (message `"Claude needs your permission"`, `cc-interactive-1`) — **carries NO `agent_id`**, even for a subagent-originated prompt (attribution is on `PermissionRequest` instead). `idle_prompt` (message `"Claude is waiting for your input"`, `cc-interactive-3`) — fired ~60 s after the turn completed (see item 3). Both are the two types the shipped phase-13 integration maps to `attention`. |
+| `MessageDisplay` | Fired | both | Fires per streamed assistant message; carries `message_id`, `turn_id`, `delta`, `final`. Not targeted by a beat — fires incidentally every turn. |
+| `SubagentStart` | Fired | both | Carries `agent_id` + `agent_type` (`general-purpose`). One per spawned subagent; **`agent_id` distinct per parallel spawn** (see item 2). |
+| `SubagentStop` | Fired | both | `agent_id` matches its `SubagentStart`; adds `agent_transcript_path`, `last_assistant_message`. |
+| `TaskCreated` | Did not fire | both | Subagent fan-out surfaced as `SubagentStart`/`SubagentStop` + `Agent`-tool `Pre/PostToolUse`, **not** `TaskCreated`/`TaskCompleted`. Those two appear to belong to a different "task" concept (not the subagent/`Agent`-tool lifecycle) and never fired here. |
+| `TaskCompleted` | Did not fire | both | Same as `TaskCreated`. |
+| `Stop` | Fired | both | Once per turn; `last_assistant_message`, `stop_hook_active:false`. **No `Stop` carried any interrupt/cancel marker** (see interrupt finding). |
+| `StopFailure` | Not exercised | — | Requires an API error; not induced. |
+| `TeammateIdle` | Not exercised | — | Agent-team feature. |
+| `InstructionsLoaded` | Did not fire | both | Scratch project had no `CLAUDE.md`/`.claude/rules/*` to load. |
+| `ConfigChange` | Not exercised | — | No config-edit beat. |
+| `CwdChanged` | Not exercised | — | No `cd` beat. |
+| `FileChanged` | Not exercised | — | Matcher is `.env|.envrc`; the subagent `Write` created `cat.txt`, which the matcher doesn't cover. |
+| `WorktreeCreate` | N/A (skipped) | — | Not camped (replacement class). |
+| `WorktreeRemove` | Not exercised | — | No `--worktree` beat. |
+| `PreCompact` | Not exercised | — | No `/compact` beat. |
+| `PostCompact` | Not exercised | — | Same. |
+| `Elicitation` | Not exercised | — | No MCP-elicitation beat — the "lower confidence" safe classification stays unconfirmed. |
+| `ElicitationResult` | Not exercised | — | Same. |
+| `SessionEnd` | **Fired** | both | **The sync-at-teardown proof.** Captured on BOTH exits — `reason:"other"` on the `-p` one-shot exit, `reason:"prompt_input_exit"` on the interactive `/exit`. Two corrections it forces below. |
 
-Every expected-but-absent event must land here as an explicit **did-not-fire**
-finding citing its session id — including `SessionEnd`, which is the row that
-proves the sync-at-teardown posture actually works (the phase-13 bug this
-recorder exists to catch again if it regresses).
+### Key structural findings
 
-### LIFE-24 open empirical item 2 — UNANSWERED
+1. **`SessionEnd` is captured — the synchronous posture works.** It landed as the
+   final record of **every** captured session (all four). The phase-13 async-loss
+   bug (an async teardown hook killed before it completes) does not recur with
+   `async:false` + `timeout:10`. This is the single most important row: the
+   recorder exists partly to catch this regressing again.
+2. **`SessionEnd`'s field is `reason`, not `exit_reason`.** This contradicts the
+   phase-13 executor note recorded in `integrations/claude-code/README.md`
+   ("SessionEnd carries `exit_reason` not `reason`"). Live payloads on 2.1.207 use
+   **`reason`** (values seen: `other`, `prompt_input_exit`). *(Not editing the
+   shipped phase-13 doc from this phase — the atv hook reads only `session_id`, so
+   its behavior is unaffected; flagged here for whoever revises that doc.)*
+3. **`-p` DOES fire `SessionEnd`.** `driver-scripted.ps1`'s header assumed the
+   one-shot `-p` lifecycle "never reaches a `SessionEnd`" — the scripted capture
+   disproves it (`reason:"other"`). Harmless (the scripted run got a bonus
+   teardown proof); the header comment overstates the limitation.
+4. **`agent_id` is the subagent tag across a subagent's whole tool lifecycle.**
+   The events that carry a non-empty `agent_id` when subagent-scoped:
+   `SubagentStart`, `SubagentStop`, `PreToolUse`, `PostToolUse`, `PostToolBatch`,
+   `PostToolUseFailure`, **and `PermissionRequest`**. Main-thread instances of the
+   same events carry an empty/absent `agent_id`. So "is this event from a subagent,
+   and which one?" is answerable on all of them.
+5. **A permission prompt's subagent origin is on `PermissionRequest`, not
+   `Notification`.** `Notification:"permission_prompt"` never carries `agent_id`;
+   the paired `PermissionRequest` does. Any future atv work that wants to attribute
+   a permission prompt to a specific subagent card (the LIFE-24 "subagents → own
+   cards" idea) must read `PermissionRequest`, not the `Notification` the shipped
+   phase-13 integration currently maps.
+6. **A user interrupt fires no distinguishing hook event — tested both ways.**
+   (a) Interrupting *during text generation* (`cc-interactive-1`, no tool in
+   flight) produced no `PostToolUseFailure`, no `StopFailure`, and no
+   interrupt/cancel flag on any `Stop` — indistinguishable from an ordinary turn
+   end. (b) Interrupting *during a tool call* (`cc-interactive-2`, `bash slow.sh`
+   mid-sleep) fired the `PreToolUse` but then **nothing** — no `PostToolUse` and,
+   crucially, **no `PostToolUseFailure`**. The tool call is simply *orphaned* at
+   the hook layer (a `PreToolUse` with no completion event of any kind). So the
+   `is_interrupt` field on `PostToolUseFailure` belongs to tools that fail on their
+   own, **not** to user interrupts — an interrupt raises no event a hook can key
+   off. (Implication for atv: a `run`-style wrapper cannot detect a user interrupt
+   of a tool via hooks; only the missing `PostToolUse` — an absence — signals it.)
 
-*Which event types actually fire inside subagents; `agent_id` uniqueness across
-PARALLEL spawns; whether a subagent-triggered `Notification: permission_prompt`
-carries the `agent_id`.*
+### LIFE-24 empirical item 2 — ANSWERED
 
-Targeted by the fan-out beat (scripted, ≥2 concurrent subagents) and the added
-subagent-permission beat (supervised — a subagent task requiring a
-not-pre-authorized tool). Pending capture.
+*Which event types fire inside subagents; `agent_id` uniqueness across parallel
+spawns; whether a subagent-triggered `Notification:permission_prompt` carries the
+`agent_id`.*
 
-### LIFE-24 open empirical item 3 — UNANSWERED
+- **Events fired for/inside subagents:** `SubagentStart`, `SubagentStop`, and the
+  subagent's own `PreToolUse`/`PostToolUse`/`PostToolBatch`/`PostToolUseFailure`/
+  `PermissionRequest` — all carrying that subagent's `agent_id` + `agent_type`
+  (finding 4). `TaskCreated`/`TaskCompleted` do **not** fire for subagents.
+- **`agent_id` uniqueness across PARALLEL spawns: yes.** Scripted fan-out →
+  `a98cf7c791c5ca991` + `abec8786ede5ae2dc`; interactive → `a72aee33467652aa4` +
+  `a7f043e61ee0d6fa0`. All four distinct; each threads consistently from its
+  `SubagentStart` through its tool calls to its `SubagentStop`, and the
+  subagent-originated `PermissionRequest` (`a7f043e61ee0d6fa0`) matches its
+  `SubagentStart`.
+- **Does `Notification:permission_prompt` carry `agent_id`? No** (finding 5). The
+  attribution lives on `PermissionRequest` instead.
+
+### LIFE-24 empirical item 3 — ANSWERED
 
 *Does `idle_prompt` fire after a user interrupt, and on what timing/repetition?*
 
-Targeted by the supervised interrupt beat followed immediately by the idle-wait
-beat. Pending capture.
+- **`idle_prompt` fires ~60 s after a turn completes, once.** In the clean idle
+  test (`cc-interactive-3`): `Stop` at `07:53:00` → `Notification`
+  `notification_type:"idle_prompt"` (message `"Claude is waiting for your input"`)
+  at `07:54:00`, i.e. **exactly 60 s** after the turn ended. It fired **once** and
+  did **not** repeat across the ~39 minutes the session then sat idle before
+  `/exit`.
+- **It is NOT focus-gated.** The `idle_prompt` fired while the terminal was still
+  **focused** (the operator's focused-then-unfocused window straddled the 60 s
+  mark and the notification landed in the focused portion). This **corrects** the
+  earlier inference from the phase-13 dogfood that idle depended on
+  unfocusing/backgrounding — that was coincidental timing, not a causal gate.
+- **The "after an interrupt" sub-question stays only weakly answered.** In
+  `cc-interactive-1` (interrupt then idle) no `idle_prompt` fired — but that
+  session's longest post-`Stop` idle window was **47.6 s** (under the ~60 s
+  threshold), and its one longer (~151 s) window was immediately pre-`/exit`. So
+  the absence there is consistent with "never idle long enough after a clean
+  turn", not proven interrupt-suppression. A clean interrupt-then-wait-past-60 s
+  test was not isolated; recorded as attempted, per INFRA-29's organic-recapture
+  posture. The firm result is the baseline: **~60 s after a normal turn end, once,
+  focus-independent.**

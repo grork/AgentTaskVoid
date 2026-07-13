@@ -109,10 +109,12 @@ results) reach a per-host doc under `docs/host-events/` (e.g.
 
 ## Status
 
-Part A (this recorder core) is built and gated (Gate A). Part B's Claude Code
-artifacts are built too: the safe/skip matrix, the conduit template, and the
-stage/driver/cue harness live under `docs/host-events/claude-code.md` and
-`tools/host-event-recorder/hosts/claude-code/`. What remains is the
-operator-supervised **live capture** run and the confirmed findings it
-produces -- the "Findings" section of `claude-code.md` is scaffolded as
-pending until that run lands.
+Phase-14 is **complete**. Part A (the recorder core) is built and gated (Gate A).
+The Claude Code leg is built AND proven by a real supervised capture (INFRA-30):
+the safe/skip matrix, conduit template, and stage/driver/cue harness live under
+`docs/host-events/claude-code.md` and `tools/host-event-recorder/hosts/claude-code/`,
+and that doc's **Findings** section holds the confirmed results from four real
+captures (2026-07-12/13, Claude Code 2.1.207), including the `SessionEnd`
+sync-at-teardown proof and answers to LIFE-24 empirical items 2 and 3. Future host
+legs (Copilot CLI, Codex, pi -- INFRA-31, OPEN) follow the conventions above from
+this doc.
