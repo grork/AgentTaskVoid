@@ -117,6 +117,17 @@ cleanup/log line never lands. Because `WorktreeCreate` (the only event where the
 recorder would need to do real work) is skipped, the teardown race is the only
 reason any event blocks.
 
+## Staleness check (phase 18, 2026-07-14)
+
+Phase 18's AC3 gate: the installed Claude Code on the build machine at the
+time was **2.1.209** (`claude --version`), against this document's **2.1.207**
+stamp below — a two-point-release gap. Per the phase's own instructions, an
+unattended executor does not attempt a live re-capture on a version mismatch
+(that requires a supervised interactive session); this is flagged for the
+orchestrator to weigh before the live dogfood (AC5/AC6) runs, per INFRA-29's
+organic-recapture posture. No re-capture ran; the findings below are
+unchanged from the original 2.1.207 capture.
+
 ## Findings
 
 **Verified against:** Claude Code `2.1.207` (installed on the capture machine,

@@ -10,7 +10,14 @@ If you are building a new host integration, read this document top to
 bottom once, then use it as reference. The per-host translator artifacts
 (conduit config + translator script + extraction table) live under
 `integrations/<host>/`; this document does not describe any one host's event
-names — only what `atv` itself accepts and guarantees.
+names — only what `atv` itself accepts and guarantees. For a worked example
+of a translator built against this exact contract, see the first-party
+Claude Code plugin: [`integrations/claude-code/`](../integrations/claude-code/)
+(phase 18, DIST-11/LIFE-25) — its `translate.ps1` and
+`integrations/claude-code/README.md`'s event-mapping table show every
+mechanism this document describes (the `-` stdin convention, `--cwd`
+forwarding, the closed kind/reason vocabularies, fan-out) applied to one
+real host.
 
 **Status note (2026-07-13):** this document describes the ERGO-31/LIFE-24
 v2 semantic engine as built in plan phase 15 (split into 15A and 15B for the

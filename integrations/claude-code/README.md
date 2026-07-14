@@ -1,156 +1,193 @@
-# Claude Code integration
+# Claude Code integration (v2 plugin)
 
 Wires a [Claude Code](https://code.claude.com/docs/en/hooks) session to `atv`
-(brand **Agentaskvoid**) taskbar task cards: one card per Claude Code session,
-appearing/updating/disappearing as the session starts, works, needs your
-input, finishes a turn, and ends.
+(brand **Agentaskvoid**) taskbar task cards: one card per Claude Code
+session, appearing/updating/disappearing as the session works, needs your
+input, finishes a turn, fails, or ends — with fanned-out subagents getting
+their own glomming child cards.
+
+This is a native **Claude Code plugin** (DIST-11), superseding the phase-13
+`settings.hooks.json` one-liner fragment. It bundles the hooks declaration
+and the translator script together, so installing the plugin delivers the
+files *and* wires the hooks in one step — no hand-editing `settings.json`.
 
 This artifact is host-agnostic on the `atv` side — every hook line below
-calls only the documented verb set (`start`/`step`/`state`/`attention`/`done`/
-`remove`). All Claude-Code-specific logic (event names, payload field names,
-matchers) lives here, in this integration, never in the `atv` binary itself.
+calls only the [v2 semantic verb set](../../docs/integration-api.md)
+(`working`/`activity`/`blocked`/`ready`/`broken`/`agent-started`/
+`agent-stopped`/`session-ended`, ERGO-31). All Claude-Code-specific logic
+(event names, payload field names, matchers) lives here, in this plugin,
+never in the `atv` binary itself (LIFE-10).
 
-**Verified against:** Claude Code **2.1.207** (installed on the build
-machine, `claude --version`) and the official hooks reference at
-<https://code.claude.com/docs/en/hooks> (fetched 2026-07-10 — note this URL is
-where `docs.claude.com/en/docs/claude-code/hooks` now redirects; the docs site
-moved since the phase's original 2026-07-02 research). Every field the hook
-commands actually read (`session_id`, `cwd`, `tool_name`, `tool_input`,
-`message`) plus the `Notification` matcher key (`notification_type`) is quoted
-from that fetch, not carried over from memory. Note: `Stop` exposes **no**
-`stop_reason` field and supports **no** matcher (the docs list it among the
-events where "a `matcher` field is silently ignored") — see the mapping table.
+## Layout
+
+```
+integrations/claude-code/
+├── .claude-plugin/marketplace.json     # a local marketplace listing the one plugin below
+├── plugins/atv-integration/
+│   ├── .claude-plugin/plugin.json      # the plugin manifest
+│   ├── hooks/hooks.json                # the hooks declaration (11 events)
+│   ├── translate.ps1                   # the real translator script
+│   └── map.json                        # first-party event/tool -> verb/kind table (atv never reads this)
+└── README.md                           # this file
+```
 
 ## Install
 
-1. Open (or create) your Claude Code settings file:
-   - User-wide (recommended — fires for every project you work in):
-     `~/.claude/settings.json` (Windows: `%USERPROFILE%\.claude\settings.json`)
-   - Project-only (shareable, commit to the repo): `.claude/settings.json`
-2. Merge the `hooks` object from [`settings.hooks.json`](settings.hooks.json)
-   in this folder into your settings file. If you already have a `hooks`
-   block, merge event-by-event (arrays of matcher-groups) rather than
-   overwriting — Claude Code merges matching hooks and runs them in parallel,
-   so duplicated events would double-fire.
-3. Make sure `atv` is on `PATH` (a normal install via `winget install
-   Agentaskvoid.Atv`, or the dev-loop `AppExecutionAlias`, both put it there).
-   No further setup — every hook command guards on `Get-Command atv
-   -ErrorAction SilentlyContinue` and is a silent no-op if `atv` isn't
-   installed yet, so it's safe to install this hook config before installing
-   `atv` itself.
-4. Start (or resume) a Claude Code session in any project. A taskbar card
-   should appear titled "Claude Code".
+**Verified against:** Claude Code **2.1.209** installed on the build
+machine (`claude --version`); the reference doc stamp this integration was
+authored against is Claude Code **2.1.207** (`docs/host-events/claude-code.md`,
+phase 14's capture). This is a minor point-release gap (209 vs 207), not a
+material drift — no re-capture was run for this pass; see "Capture staleness"
+below.
 
-No script files to copy — each hook is a single-line PowerShell command
-embedded directly in the JSON `command` field (`"shell": "powershell"`), so
-installing is exactly "paste this JSON block into your settings."
+Every field/schema claim in this README and in `hooks.json`/`plugin.json`
+was verified against a **live fetch** of the current primary docs during
+this build (`code.claude.com/docs/en/plugins-reference`,
+`.../discover-plugins`, `.../plugin-marketplaces`, `.../hooks`, `.../settings`)
+— not carried over from training-data memory (the phase-13 lesson: a
+memory-authored hook config looked right and was subtly wrong).
+
+Two ways to install, both **local/path-based** (marketplace publication is
+explicitly out of scope for this build — DIST-11):
+
+### Option A — skills-directory plugin (zero `settings.json` edits, zero commands)
+
+Drop (or symlink) the `plugins/atv-integration/` folder itself under a
+skills directory Claude Code already scans:
+
+- **Personal, every project:** `~/.claude/skills/atv-integration/`
+- **This repo only, shared with collaborators once trusted:**
+  `<repo>/.claude/skills/atv-integration/`
+
+On the next Claude Code session, it loads automatically as
+`atv-integration@skills-dir` — no marketplace, no install step, and (per the
+current plugin docs) genuinely **no `settings.json` entry at all**. Confirm
+it loaded with `claude plugin list` or `/plugin` → **Installed**.
+
+### Option B — local marketplace + explicit install
+
+```
+/plugin marketplace add integrations/claude-code
+/plugin install atv-integration@agentaskvoid
+```
+
+(or the non-interactive form: `claude plugin install atv-integration@agentaskvoid`,
+after adding the marketplace). This writes a normal `enabledPlugins` entry to
+your chosen scope's settings file (`user`/`project`/`local` — pass `--scope`)
+— still no *hand*-editing: the CLI writes it for you.
+
+Either way, after install: `atv doctor` should report identity present +
+API supported, and a "Claude Code" card should appear within ~1s of your
+next prompt.
+
+### Uninstall
+
+- Option A: delete the folder (or `claude plugin disable atv-integration@skills-dir`
+  — there's no marketplace install to remove).
+- Option B: `/plugin uninstall atv-integration@agentaskvoid` (or
+  `claude plugin uninstall atv-integration@agentaskvoid --scope <scope>`),
+  then optionally `/plugin marketplace remove agentaskvoid`.
+
+No hooks fire once disabled/uninstalled — the hooks live entirely inside the
+plugin bundle, nothing is left behind in `settings.json` to hand-clean.
 
 ## Event → verb mapping
 
-| Claude Code event | Matcher | `atv` call | Why |
+| Claude Code event | Matcher | `atv` call | Notes |
 |---|---|---|---|
-| `SessionStart` | *(all sources: `startup`, `resume`, `clear`, `compact`)* | `atv start <session_id> --title "Claude Code" --subtitle <folder> --icon Robot` | Upsert (ERGO-25) — safe to re-fire on every source, including `resume`, without duplicating or resetting an existing card. |
-| `PostToolUse` | *(all tools)* | `atv state <session_id> running` then `atv step <session_id> "<tool>: <input>"` | The state reset runs **every time**, ahead of the step, specifically to undo a prior `attention` (see caveat below) — chaining it into the same hook line avoids depending on a second event firing in the right order. |
-| `Notification` | `permission_prompt`, `idle_prompt` | `atv attention <session_id> "<message>"` | These two notification types are the "needs a human" moments; the other six (`auth_success`, `elicitation_*`, `agent_needs_input`, `agent_completed`) are left unmapped — auth/elicitation/subagent chatter isn't "this session needs you" in the same sense. |
-| `Stop` | *(none — `Stop` doesn't support matchers)* | `atv done <session_id>` | Fires on **every** turn completion (turn-done semantics). Claude Code doesn't fire `Stop` on a user interrupt, so no matcher is needed (and none is possible — a `matcher` on `Stop` is silently ignored). See caveat below. |
-| `SessionEnd` | *(all reasons)* | `atv remove <session_id>` | Best-effort cleanup on `clear`/`resume`/`logout`/`prompt_input_exit`/`bypass_permissions_disabled`/`other`. Not fired on a hard kill/crash/closed-terminal — the watchdog's idle reap is the backstop for those (LIFE-17/18). **This is the one hook that is deliberately *synchronous* (no `async`)** — see below. |
+| `SessionStart` | *(all sources)* | *(no-op, except `source:"compact"` → `activity <sid> --kind compacting`)* | No session-start verb exists (ERGO-31). |
+| `UserPromptSubmit` | *(none)* | `working <sid> --goal -` | Prompt text via stdin. |
+| `PreToolUse` / `PostToolUse` | *(none)* | `activity <sid> --kind <map> --label -` (+ `--agent`/`--name` when the payload carries them) | `Agent` (subagent spawn) is suppressed — no activity line, ever (agent-started/-stopped own that). `TodoWrite` composes a `(n/m) <item>` plan label in code. An unmapped tool falls to `--kind tool --name <tool_name> --label -`. |
+| `PermissionRequest` | *(none)* | `blocked <sid> --question -` (+ `--agent` when present) | Attribution keys off `PermissionRequest`, **not** `Notification` (phase-14 capture finding 5). |
+| `Notification` | `idle_prompt` only | `ready <sid>` | `permission_prompt` is a deliberate no-op — `PermissionRequest` already owns Blocked. Fires ~60s post-turn, once, focus-independent (phase-14 finding). |
+| `Stop` | *(none — unsupported)* | `ready <sid> --summary -` | `last_assistant_message` via stdin. |
+| `StopFailure` | *(none)* | `broken <sid> --reason <map> --detail -` | **Never captured live** (phase 14: "not induced") — best-effort field reading, flagged below. |
+| `SubagentStart` | *(none)* | `agent-started <sid> --agent <id> --name <type>` | |
+| `SubagentStop` | *(none)* | `agent-stopped <sid> --agent <id>` | |
+| `SessionEnd` | *(none)* | `session-ended <sid> --reason finished` | The **one** synchronous hook (`timeout: 10`, no `async`) — the phase-13 teardown-race lesson (INFRA-27). `reason` field confirmed by the phase-14 capture (not `exit_reason`); both observed values (`other`/`prompt_input_exit`) map to `finished`. |
 
-None of the five hook lines ever pass `--strict` — every `atv` invocation
-stays on the non-disruptive exit-0-always posture (FAIL-1), which matters
-most for `PostToolUse`: a `preToolUse`-style fail-closed host would be a
-correctness risk here, but Claude Code's `PostToolUse` hooks have no decision
-control at all (per the docs: "cannot block; already ran"), and even so, exit
-0 is used throughout for consistency and to keep every hook's stderr/exit
-code out of your transcript.
+Every hook line is a plain **program+args exec-form** invocation —
+`command: powershell.exe`, `args: [..., "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1", "-Event", "<Name>", ...]`
+— never an embedded one-liner, never a `shell` selection (LIFE-25). Every
+non-terminal event also passes `-ProjectDir "${CLAUDE_PROJECT_DIR}"`, the
+literal placeholder Claude Code substitutes before spawning; `translate.ps1`
+forwards it as `--cwd` on every upserting call (ERGO-30), letting a repo's
+own `.atv.json` brand its cards with zero hook edits (phase 17). `SessionEnd`
+alone carries no `-ProjectDir` (`session-ended` takes no `--cwd`, no upsert).
 
-## The state-reset-after-`attention` caveat (phase 05, ratified 2026-07-07)
+No hook line ever passes `--strict` (FAIL-1's non-disruptive posture).
 
-`step` **preserves** the card's current state. If a card is sitting in
-`NeedsAttention` (because a `Notification` fired `atv attention`) and the very
-next `PostToolUse` just called `atv step` directly, the write would be
-refused non-disruptively (silently, exit 0, nothing shown) — `step` rebuilds
-`SequenceOfSteps` content with no question attached, and
-`(SequenceOfSteps, NeedsAttention, no question)` is outside the ERGO-10 safe
-combination matrix (`src/Atv/Operations/SafeCombinationMatrix.cs`).
+## Deliberately no identity flags (`--title`/`--subtitle`/`--icon`)
 
-This artifact resolves it by chaining `atv state <session_id> running` ahead
-of every `step` call, unconditionally, inside the same `PostToolUse` hook
-line. `state running` is valid from **any** current state — including
-`NeedsAttention` and `Completed` — because `TaskOperations.SetState` rebuilds
-content from the readable steps and drops any pending question rather than
-gating on the task's prior state. The extra `atv state` call on every tool
-use is a deliberate simplicity/robustness trade: it costs one extra fast
-process launch per tool call, in exchange for never depending on hook
-firing order across two different Claude Code events (e.g. assuming
-`UserPromptSubmit` always fires between a permission-prompt `attention` and
-the next tool call — it doesn't necessarily, since approving a permission
-dialog can resume the *same* tool call without a fresh user prompt).
+Unlike the phase-13 v1 artifact, `translate.ps1` never passes
+`--title`/`--subtitle`/`--icon` on any call. This is intentional:
+`SemanticEngine.ApplyRepoDefaults` (`src/Atv/Semantics/SemanticEngine.cs`)
+resolves title/subtitle/icon with `--flag > env > repo (.atv.json) > user
+config > default` precedence — a caller-supplied flag **always** wins over a
+repo's `title-template`/`subtitle`/`icon`. A translator that hard-coded
+`--title "Claude Code"` on every call would permanently block phase 17's
+repo-branding feature for every repo using this plugin. Leaving these unset
+lets `.atv.json` (or, absent that, `atv`'s own defaults — the Robot glyph,
+an empty title) resolve them instead. A repo with no `.atv.json` therefore
+gets an empty-titled card by design (a pre-existing engine trade-off, not
+introduced here) — add a `.atv.json` to brand it.
 
-## The `Stop`-is-"turn-done"-not-"task-done" caveat
+## Assumptions flagged (never captured live in phase 14)
 
-`Stop` fires at the end of **every** assistant turn, not just when the whole
-session's work is finished — a single Claude Code session can turn `done`
-(Completed) and then `running` again (via the next `PostToolUse`'s chained
-state reset) many times over its life. This is intentional, matches the
-phase design ("turn-done" semantics), and is harmless: a `Completed` card
-only actually disappears if it lingers idle past its configured period
-(`idle-completed`, ~10 minutes by default) with no further activity, or the
-session truly ends (`SessionEnd` → `remove`). An actively-worked session
-never sits idle long enough to be reaped between turns.
+Three payload shapes in the table above were never exercised by the phase-14
+recorder capture (`docs/host-events/claude-code.md`'s Findings section marks
+each "Not exercised"). Each is implemented as the most reasonable reading of
+ERGO-31/the current hooks docs, and should be double-checked against a real
+capture if one becomes available:
 
-## Verified live vs. verified-against-docs
+- **`StopFailure`** — no real payload was ever observed (requires an
+  induced API error). `translate.ps1` reads a `reason` field (falling back
+  to `error_type`), maps it through `map.json`'s `brokenReason` table
+  (`rate_limit`/`overloaded`/`api_error`/`timeout` → the ERGO-31 tokens),
+  and defaults to `fatal` for anything else; `--detail` comes from an
+  `error` or `message` field if present.
+- **`SessionStart` with `source:"compact"`** — no `/compact` beat was in the
+  phase-14 corpus. Implemented per `docs/integration-api.md`'s own
+  documented optional row.
+- **`TodoWrite`** (via `PreToolUse`/`PostToolUse`) — no beat exercised it.
+  `translate.ps1` composes `(n/m) <item>` from the tool's `todos` array
+  (picking the first `in_progress` item, or a position derived from how many
+  are already `completed` if none is in progress) — per ERGO-31 §3's own
+  documented composition guidance.
 
-- **Verified against docs + a local functional smoke test (this build):**
-  every event/field name below was fetched fresh from
-  `code.claude.com/docs/en/hooks` (not recalled from training data), and
-  every embedded PowerShell command was syntax-checked
-  (`[System.Management.Automation.Language.Parser]::ParseInput`) and
-  functionally exercised against representative mock JSON stdin + a stub
-  `atv` — confirming JSON parsing, positional-argument passing (including a
-  space-containing `--subtitle`), the truncation logic, and the two-call
-  `state`-then-`step` chain all produce the expected `atv` invocations.
-- **NOT yet verified:** a real, live Claude Code session driving this hook
-  config end-to-end against the real `atv` binary (a real taskbar card
-  appearing/stepping/needing-attention/completing without perturbing the
-  session). That is the supervised dogfood the orchestrator + operator run
-  next — see the phase report for the exact steps.
+## Capture staleness (AC3)
 
-## Suggested live dogfood steps (for the supervised run)
+Installed Claude Code on the build machine: **2.1.209** (`claude --version`).
+The phase-14 capture findings this plugin's mapping is built from are stamped
+**2.1.207**. This is a two-point-release gap; per the phase file's own
+staleness-gate instructions, this pass did **not** attempt a live re-capture
+(that requires a supervised interactive session, out of an unattended
+executor's safety-constrained scope) — flagged here for the orchestrator to
+decide whether a fresh INFRA-29 organic re-capture is warranted before the
+live dogfood (AC5) runs.
 
-1. Install this hook config user-wide (`~/.claude/settings.json`) and confirm
-   `atv doctor` reports identity present + API supported.
-2. Start a fresh Claude Code session in any project directory. Expect a
-   "Claude Code" card to appear within ~1s of the prompt.
-3. Ask Claude to run a couple of tool calls (e.g. "list the files in this
-   directory, then read one"). Expect the card's step text to update after
-   each `PostToolUse` fires.
-4. Trigger a real permission prompt (e.g. ask for a `Bash` command in
-   `default` permission mode, if not already auto-approved) and confirm the
-   card flips to "needs attention" showing the prompt text, then confirm a
-   subsequent tool call's step text lands correctly (proving the
-   `state running` reset worked).
-5. Let Claude finish responding; confirm the card shows Completed
-   momentarily, then (if you send another prompt) flips back to Running.
-6. End the session cleanly (`/exit` or closing the terminal via the normal
-   path, not a hard kill) and confirm the card disappears
-   (`atv list --json` returns `[]`, or the icon vanishes from the taskbar).
+## Verified live vs. verified-against-docs vs. verified-offline
 
-Throughout: watch for any hook error surfaced in Claude Code's own UI/debug
-log (`claude --debug`), and confirm no perceptible latency was added to tool
-calls or turn completion (the four in-session hooks — `SessionStart`,
-`PostToolUse`, `Notification`, `Stop` — are all `"async": true`, so they never
-block the session).
-
-## Why `SessionEnd` is synchronous (a dogfood finding, 2026-07-10)
-
-`SessionEnd` is the **only** hook here that is NOT `async`. During the first
-live dogfood, an `async` `SessionEnd` hook left the card behind on `/exit`: an
-async hook "runs in the background without blocking" (per the Claude Code
-hooks docs), so as the session process tears down, the fire-and-forget
-`atv remove` child was killed before it finished — no removal, no log entry.
-The docs' recommended pattern for cleanup-on-exit is a **synchronous** hook,
-which Claude Code awaits (up to its `timeout`) before exiting. Making
-`SessionEnd` synchronous (`timeout: 10`) fixed it: `atv remove` completes and
-the card disappears on a clean exit. The imperceptible teardown delay (a
-sub-second `atv remove`) is the correct trade for reliable cleanup; unclean
-deaths still fall through to the watchdog's idle reap regardless.
+- **Verified against live docs + real phase-14 captures (this build):**
+  the plugin manifest schema, the hooks declaration shape (exec form, no
+  `shell`, `${CLAUDE_PLUGIN_ROOT}`, matcher semantics), and every payload
+  field this translator reads were checked against a fresh fetch of the
+  current primary docs and/or the raw phase-14 capture JSONL
+  (`tools/host-event-recorder/captures/session-cc-*.jsonl`).
+- **Verified offline (this build):** `translate.ps1` was driven under real
+  Windows PowerShell 5.1 against a stub `atv` (never the real binary) with
+  payloads built from the real captures — every routing row, the UTF-8
+  torture-payload byte-fidelity claim, and the unmapped-tool fallback are
+  covered by `tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs`.
+  The plugin's local-install wiring (zero `settings.json` edits) was verified
+  structurally in a throwaway scratch directory (`${CLAUDE_PLUGIN_ROOT}`
+  authored correctly, resulting config shapes inspected) — not by launching
+  a real Claude Code session.
+- **NOT yet verified — deferred to an operator-supervised session (this
+  plugin's own AC5/AC6):** a real Claude Code session driving the card
+  through Working (goal + activity lines) / Blocked (a real permission
+  prompt) / Ready (turn summary) / fan-out (≥2 parallel subagents) /
+  removal on `/exit`, and a repo's `.atv.json` branding a card through the
+  real conduit. Doc-only/offline verification is explicitly insufficient on
+  its own (the phase-13 precedent: both its real live bugs — a hallucinated
+  matcher and an async teardown race — were invisible on paper).

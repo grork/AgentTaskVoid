@@ -1,0 +1,10 @@
+{
+  "name": "atv-integration",
+  "displayName": "Agentaskvoid Claude Code Integration",
+  "description": "Drives Agentaskvoid (atv) taskbar task cards from Claude Code session events -- Working/Blocked/Ready/Broken states, activity lines, and subagent fan-out. Superseded the phase-13 settings.hooks.json fragment (v2 semantic verb surface, ERGO-31/LIFE-24/LIFE-25/DIST-11).",
+  "version": "2.0.0",
+  "author": {
+    "name": "Agentaskvoid"
+  },
+  "keywords": ["atv", "agentaskvoid", "taskbar", "task-tracking"]
+}

@@ -1,0 +1,191 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "SessionStart",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "UserPromptSubmit",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "PreToolUse",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "PostToolUse",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "PermissionRequest",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "Notification",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "Stop",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "StopFailure",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "SubagentStart",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "SubagentStop",
+              "-ProjectDir", "${CLAUDE_PROJECT_DIR}"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile", "-ExecutionPolicy", "Bypass",
+              "-File", "${CLAUDE_PLUGIN_ROOT}/translate.ps1",
+              "-Event", "SessionEnd"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

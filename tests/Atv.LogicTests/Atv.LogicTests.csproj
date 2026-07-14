@@ -29,6 +29,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Integrations/TestAssets/StubAtv is its own standalone csproj (a compiled
+      stand in for atv.exe, phase 18's AC2 offline translator tests: see
+      tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorHarness.cs, which
+      builds it via `dotnet build` on demand). It must NOT be picked up by
+      this project's default recursive **/*.cs glob (its own source, and
+      especially its obj/ generated AssemblyInfo/NBGV version files, collide
+      with this project's own assembly-level attributes otherwise).
+    -->
+    <Compile Remove="Integrations\TestAssets\StubAtv\**" />
+    <None Remove="Integrations\TestAssets\StubAtv\**" />
+    <Content Remove="Integrations\TestAssets\StubAtv\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 

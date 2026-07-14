@@ -1,0 +1,41 @@
+{
+  "_comment": "First-party convention consumed only by translate.ps1 -- atv itself never reads this file (docs/integration-api.md is the only real contract). Structural quirks (e.g. the TodoWrite (n/m) plan-label composition) stay as code in translate.ps1; this table never grows into a language.",
+
+  "toolKind": {
+    "Bash": "shell",
+    "Read": "read",
+    "Edit": "edit",
+    "NotebookEdit": "edit",
+    "Write": "write",
+    "Grep": "search",
+    "Glob": "search",
+    "WebFetch": "fetch",
+    "WebSearch": "web-search"
+  },
+
+  "toolLabelField": {
+    "Bash": "command",
+    "Read": "file_path",
+    "Edit": "file_path",
+    "NotebookEdit": "notebook_path",
+    "Write": "file_path",
+    "Grep": "pattern",
+    "Glob": "pattern",
+    "WebFetch": "url",
+    "WebSearch": "query"
+  },
+
+  "suppressedTools": ["Agent"],
+
+  "planTool": "TodoWrite",
+
+  "brokenReason": {
+    "rate_limit": "rate-limit",
+    "overloaded": "overloaded",
+    "api_error": "api-error",
+    "timeout": "timeout"
+  },
+  "defaultBrokenReason": "fatal",
+
+  "sessionEndReasonVerb": "finished"
+}

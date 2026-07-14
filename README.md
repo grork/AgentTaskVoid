@@ -128,27 +128,31 @@ in this repo).
 
 `atv` carries no host-specific logic itself — every agent host gets a
 small, ready-made **integration artifact** that translates that host's own
-events into the verb set above (`start`/`step`/`state`/`attention`/`done`/
-`remove`). Nothing to write yourself.
+events into the [v2 semantic verb surface](docs/integration-api.md)
+(`working`/`activity`/`blocked`/`ready`/`broken`/`agent-started`/
+`agent-stopped`/`session-ended` — ERGO-31; supersedes the retired v1 surface
+`start`/`step`/`state`/`attention`/`done`/`fail`). Nothing to write yourself.
 
 | Host | Status | Artifact |
 |---|---|---|
-| **Claude Code** | Supported now | [`integrations/claude-code/`](integrations/claude-code/) — a `settings.json` hooks fragment + install README |
+| **Claude Code** | Supported now | [`integrations/claude-code/`](integrations/claude-code/) — a native **Claude Code plugin** (bundles the hooks declaration + translator + install/uninstall README; install = add the plugin, zero `settings.json` hand-edits) |
 | GitHub Copilot CLI | Planned | Not yet shipped in this build — see the addition criterion below |
 | Codex | Planned | Not yet shipped in this build — see the addition criterion below |
 
 Claude Code, Copilot CLI, and Codex are the three hosts targeted for v1
 (`questions/lifecycle/LIFE-8-which-agent-hosts-are-in-scope-for-hook-coverage.md`);
 Copilot CLI and Codex are being tackled as discrete follow-up passes, not
-included in this build. The criterion for adding *any* host (these two or a
+included in this build, and will be authored against the v2 surface
+following the phase-18 Claude Code plugin's pattern when their hosts become
+testable (INFRA-31). The criterion for adding *any* host (these two or a
 future one) is the same: it needs a usable hook/notification surface that
 maps onto the verb set above without host-specific branching living inside
 `atv` itself, plus enough demand to justify maintaining the artifact.
 
 To wire up Claude Code right now: read
 [`integrations/claude-code/README.md`](integrations/claude-code/README.md) —
-it covers the exact event mapping, the two-minute install (paste a JSON
-block into your Claude Code settings), and what's verified live vs.
+it covers the plugin's exact event mapping, installing it (a local/path-based
+plugin add, no marketplace publication yet), and what's verified live vs.
 verified-against-docs.
 
 ## Configuration

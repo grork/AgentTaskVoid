@@ -41,6 +41,12 @@ The deliverable is that guide — most likely extending `docs/host-events/README
 current recorder half into the full trace→ship arc, or a new `docs/host-onboarding.md` — with
 Claude Code as the worked reference implementation each step points at.
 
+**Pointer for when this is un-deferred (added phase 18, 2026-07-14):** the "translate" step's
+offline-verification technique already has a worked, kept example — `translate.ps1` is tested
+against a compiled stub `atv` (records argv+stdin, never the real binary or a live host) at
+`tests/Atv.LogicTests/Integrations/{ClaudeCodeTranslatorHarness.cs, TestAssets/StubAtv/}`. Worth
+citing directly rather than re-inventing when this guide's step 3 gets written.
+
 ## Why this surfaced
 Answer session, 2026-07-13, while settling INFRA-31's disposition. INFRA-31 (the specific
 Copilot / Codex / pi recorder legs) defers on host testability, but the operator noted the

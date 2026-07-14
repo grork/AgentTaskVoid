@@ -70,11 +70,20 @@ env/config, applying identity-wide.
 
 ## Per-host recurring defaults (ERGO-17)
 
-A shipped host integration (e.g. `integrations/claude-code/`) passes its own
-recurring values — icon token, title text — directly as `--flag`s on each
-`atv` call baked into the hook config, not through this config file. The
-config file is for *your own* machine-wide overrides (idle periods, watchdog
-mode); per-host presentation choices live in the integration artifact itself,
+The phase-13 v1 artifact passed its own recurring identity values (icon
+token, title text) directly as `--flag`s baked into the hook config. The
+phase-18 v2 Claude Code plugin (`integrations/claude-code/`) deliberately
+does **not**: `translate.ps1` never passes `--title`/`--subtitle`/`--icon` at
+all, so those stay unset (`$null`) on every call — which is exactly what lets
+the `--flag > env > repo file > user config file > default` precedence chain
+below actually reach the repo layer. Since a caller-supplied flag always wins
+over `.atv.json`'s `title-template`/`subtitle`/`icon` (`ApplyRepoDefaults` in
+`src/Atv/Semantics/SemanticEngine.cs`), a translator that hard-coded identity
+flags on every call would permanently block repo branding for that field —
+this is the same "with zero hook edits at all" property phase 17 was built
+for. This config file remains for *your own* machine-wide overrides (idle
+periods, watchdog mode); per-host presentation choices, where a host
+integration chooses to set any, live in the integration artifact itself,
 editable by copying and adjusting that artifact's hook commands — or, since
 phase 17, per-**repo** via `.atv.json` below, with zero hook edits at all.
 

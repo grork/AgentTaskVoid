@@ -1,0 +1,13 @@
+{
+  "name": "agentaskvoid",
+  "owner": {
+    "name": "Agentaskvoid"
+  },
+  "plugins": [
+    {
+      "name": "atv-integration",
+      "source": "./plugins/atv-integration",
+      "description": "Drives Agentaskvoid (atv) taskbar task cards from Claude Code session events: Working/Blocked/Ready/Broken states, activity lines, and subagent fan-out."
+    }
+  ]
+}
