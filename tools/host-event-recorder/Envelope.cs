@@ -1,3 +1,5 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HostEventRecorder;
@@ -29,4 +31,30 @@ public sealed class EventEnvelope
 [JsonSerializable(typeof(EventEnvelope))]
 public sealed partial class EnvelopeJsonContext : JsonSerializerContext
 {
+}
+
+/// <summary>
+/// The single serialization entry point for the envelope (INFRA-25). Uses
+/// <see cref="JavaScriptEncoder.UnsafeRelaxedJsonEscaping"/> so the on-disk
+/// JSONL is greppable -- a payload's inner quotes render as <c>\"</c> and
+/// non-ASCII stays literal UTF-8, rather than STJ's HTML-safe default
+/// (<c>"</c>, <c>é</c>). This is a pure REPRESENTATION change: the
+/// encoder only affects how the string is escaped on the wire, never the
+/// decoded value, so byte-fidelity (the whole point, LIFE-24) is untouched --
+/// the round-trip tests prove it. "Unsafe" denotes HTML-injection safety,
+/// irrelevant for a local diagnostic log. Both <see cref="Recorder.Capture"/>
+/// and the tests go through this one instance so they exercise the identical
+/// wire form. The explicit <see cref="JsonNamingPolicy.CamelCase"/> mirrors the
+/// context attribute (a parameterized context ctor does not inherit it).
+/// </summary>
+public static class EnvelopeSerialization
+{
+    public static readonly EnvelopeJsonContext Context = new(new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    });
+
+    public static string Serialize(EventEnvelope envelope)
+        => JsonSerializer.Serialize(envelope, Context.EventEnvelope);
 }

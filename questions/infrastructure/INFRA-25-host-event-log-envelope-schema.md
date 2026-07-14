@@ -31,6 +31,17 @@ paradigm. An escaped string is byte-faithful and losslessly reversible; the comp
 core (INFRA-24) reads stdin as raw bytes → decodes UTF-8 → JSON-escapes → embeds, so the
 captured bytes survive intact. Non-JSON or malformed payloads are captured just the same.
 
+**Escaping representation — relaxed, for greppability (refinement 2026-07-13).** The envelope
+serializer uses `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, so a payload's inner quotes
+render as `\"` and non-ASCII stays literal UTF-8 (`café`), instead of STJ's HTML-safe default
+(`"`, `é`). This is a pure **representation** change — the encoder only affects how the
+string is escaped on the wire, never the decoded value, so byte-fidelity is untouched (the
+round-trip tests prove it); it just makes the on-disk JSONL readable/greppable by hand. ("Unsafe"
+is HTML-injection safety, irrelevant for a local log.) Centralized in one
+`EnvelopeSerialization.Serialize` entry point that production and tests share, so the wire form
+is single-sourced. Quotes/backslashes inside the payload still escape once (`\"`, `\\`) — inherent
+to string-in-string, unavoidable.
+
 ### File shape & location
 - **One JSONL file per capture session** (the unit of analysis, INFRA-28) — trivial to
   diff, review, or discard a run — with the session id in the filename.

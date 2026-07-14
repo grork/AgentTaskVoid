@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 
 namespace HostEventRecorder;
 
@@ -43,7 +42,7 @@ public static class Recorder
             Payload = payload,
         };
 
-        string json = JsonSerializer.Serialize(envelope, EnvelopeJsonContext.Default.EventEnvelope);
+        string json = EnvelopeSerialization.Serialize(envelope);
         GuardedAppender.Append(filePath, json);
 
         return filePath;

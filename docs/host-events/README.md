@@ -56,7 +56,11 @@ One JSON object per line, exactly six fields, in this order:
   would silently normalize key order, whitespace, and number formatting.
   Malformed-JSON and non-JSON payloads are captured identically -- they are
   still valid UTF-8 text and round-trip losslessly through the escaped
-  string.
+  string. The envelope uses relaxed JSON escaping
+  (`UnsafeRelaxedJsonEscaping`), so inner quotes render as `\"` and non-ASCII
+  stays literal (`café`) rather than `"`/`é` -- a lossless
+  representation choice for greppability (INFRA-25). Serialization is
+  single-sourced through `EnvelopeSerialization.Serialize`.
 
 File line order is the authoritative sequence; there is no `seq` field.
 

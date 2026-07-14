@@ -38,8 +38,8 @@ public sealed class EnvelopeRoundTripTests
             Payload = original,
         };
 
-        string json = JsonSerializer.Serialize(envelope, EnvelopeJsonContext.Default.EventEnvelope);
-        var decoded = JsonSerializer.Deserialize(json, EnvelopeJsonContext.Default.EventEnvelope);
+        string json = EnvelopeSerialization.Serialize(envelope);
+        var decoded = JsonSerializer.Deserialize(json, EnvelopeSerialization.Context.EventEnvelope);
 
         Assert.IsNotNull(decoded);
         Assert.AreEqual(original, decoded.Payload, "the payload string must round-trip through JSON escaping/unescaping byte-for-byte.");
@@ -60,8 +60,8 @@ public sealed class EnvelopeRoundTripTests
         const string original = "{  \"b\": 2,   \"a\":1 }";
 
         var envelope = new EventEnvelope { Ts = "t", Host = "h", Event = "e", Pid = 1, Session = "s", Payload = original };
-        string json = JsonSerializer.Serialize(envelope, EnvelopeJsonContext.Default.EventEnvelope);
-        var decoded = JsonSerializer.Deserialize(json, EnvelopeJsonContext.Default.EventEnvelope);
+        string json = EnvelopeSerialization.Serialize(envelope);
+        var decoded = JsonSerializer.Deserialize(json, EnvelopeSerialization.Context.EventEnvelope);
 
         Assert.AreEqual(original, decoded!.Payload, "verbatim whitespace/key-order must survive -- proves the payload was never parsed-and-re-emitted as JSON.");
     }
@@ -70,7 +70,7 @@ public sealed class EnvelopeRoundTripTests
     public void Serialized_ContainsExactlySixFields_WithExpectedNames()
     {
         var envelope = new EventEnvelope { Ts = "t", Host = "h", Event = "e", Pid = 1, Session = "s", Payload = "p" };
-        string json = JsonSerializer.Serialize(envelope, EnvelopeJsonContext.Default.EventEnvelope);
+        string json = EnvelopeSerialization.Serialize(envelope);
 
         using var doc = JsonDocument.Parse(json);
         var names = doc.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
@@ -83,7 +83,7 @@ public sealed class EnvelopeRoundTripTests
     public void Serialized_FieldValues_AreCorrect()
     {
         var envelope = new EventEnvelope { Ts = "2026-07-12T18:03:44.1912837Z", Host = "claude-code", Event = "PostToolUse", Pid = 41232, Session = "sess-1", Payload = "{\"k\":\"v\"}" };
-        string json = JsonSerializer.Serialize(envelope, EnvelopeJsonContext.Default.EventEnvelope);
+        string json = EnvelopeSerialization.Serialize(envelope);
 
         using var doc = JsonDocument.Parse(json);
         JsonElement root = doc.RootElement;

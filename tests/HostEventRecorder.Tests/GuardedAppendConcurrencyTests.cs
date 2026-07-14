@@ -62,9 +62,8 @@ public sealed class GuardedAppendConcurrencyTests
                     // Exercise GuardedAppender.Append directly too (not only
                     // through Recorder.Capture) against the varied spelling,
                     // for a second, lower-level line on the same file.
-                    GuardedAppender.Append(path, JsonSerializer.Serialize(
-                        new EventEnvelope { Ts = DateTimeOffset.UtcNow.ToString("O"), Host = "direct", Event = "Direct" + index, Pid = index, Session = "concurrent", Payload = payloadDirect },
-                        EnvelopeJsonContext.Default.EventEnvelope));
+                    GuardedAppender.Append(path, EnvelopeSerialization.Serialize(
+                        new EventEnvelope { Ts = DateTimeOffset.UtcNow.ToString("O"), Host = "direct", Event = "Direct" + index, Pid = index, Session = "concurrent", Payload = payloadDirect }));
                 }
                 catch (Exception ex)
                 {
