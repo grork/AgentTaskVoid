@@ -33,7 +33,7 @@ public sealed class RunOrchestratorTests
         child.Exit(0);
 
         int exitCode = RunOrchestrator.Execute(
-            h.Ops, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
+            h.Ops, h.Engine, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
             "run-handle-a", "Build", IconUri, DeepLink, child,
             new MemoryStream(), new MemoryStream(), RunTestHarness.Now);
 
@@ -52,7 +52,7 @@ public sealed class RunOrchestratorTests
         child.Exit(42);
 
         int exitCode = RunOrchestrator.Execute(
-            h.Ops, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
+            h.Ops, h.Engine, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
             "run-handle-b", "Build", IconUri, DeepLink, child,
             new MemoryStream(), new MemoryStream(), RunTestHarness.Now);
 
@@ -68,7 +68,7 @@ public sealed class RunOrchestratorTests
         child.Exit(0);
 
         RunOrchestrator.Execute(
-            h.Ops, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
+            h.Ops, h.Engine, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
             "run-handle-c", "Build", IconUri, DeepLink, child,
             new MemoryStream(), new MemoryStream(), RunTestHarness.Now);
 
@@ -86,7 +86,7 @@ public sealed class RunOrchestratorTests
         child.Exit(0);
 
         RunOrchestrator.Execute(
-            h.Ops, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
+            h.Ops, h.Engine, FastSettings, () => RunTestHarness.Now, sleep: _ => Thread.Sleep(1),
             "run-handle-d", "Build", IconUri, DeepLink, child,
             new MemoryStream(), new MemoryStream(), RunTestHarness.Now);
 

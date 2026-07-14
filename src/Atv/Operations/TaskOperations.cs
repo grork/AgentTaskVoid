@@ -48,24 +48,24 @@ public sealed record OperationOutcome(OutcomeKind Kind, string Handle, string Re
 }
 
 /// <summary>
-/// The verb-independent operation core (phase 05): <c>start</c>/<c>step</c>/
-/// <c>state</c>/<c>done</c>/<c>fail</c>/<c>attention</c>/<c>remove</c>, each
-/// shaped as WriteGate -&gt; reconcile -&gt; miss-path check -&gt; validate -&gt;
-/// store write -&gt; sidecar stamp, ALL inside exactly one
-/// <see cref="WriteGate.TryRun{T}"/> call per public method (AC7).
+/// The phase-05 operation core, now (phase 15) reduced to the surface that
+/// survives the ERGO-31 v2 surface migration: <c>remove</c>, the
+/// identity-global <c>list</c>/<c>clear</c> queries, and the `run` wrapper's
+/// two special-shaped writes (<see cref="ReplaceSteps"/>/<see cref="TouchKeepAlive"/>).
+/// The v1 lifecycle verbs this type used to own (<c>start</c>/<c>step</c>/
+/// <c>state</c>/<c>done</c>/<c>fail</c>/<c>attention</c>) are RETIRED --
+/// their claim-semantics successors (<c>working</c>/<c>activity</c>/
+/// <c>blocked</c>/<c>ready</c>/<c>broken</c>) now live in
+/// <see cref="Atv.Semantics.SemanticEngine"/>, which composes THIS type only
+/// for <c>session-ended --reason finished</c> (== <see cref="Remove"/>).
 ///
-/// Boundary (plan/phase-05-task-operations.md): this type does not parse
-/// arguments, does not know about exit codes or `--json`, and does not
-/// trigger sweeps beyond what phase 04 already scoped (a full
-/// <see cref="Reconciler.ReconcileAll"/> pass on <c>start</c>/<c>remove</c>
-/// only, per ERGO-19 "update never sweeps"). It consumes an already-resolved
-/// <c>iconUri</c> on <c>start</c> -- icon rendering is phase 07's job.
-///
-/// Every content-emitting write in here builds its (content, state) pair,
-/// then calls <see cref="Validator.Validate"/> BEFORE touching the store --
-/// so a refusal is guaranteed to mean zero store writes, including on the
-/// resurrection path (validate happens before the baseline
-/// <see cref="Resurrection.RecreateFromRecord"/> call, not after).
+/// Every write here still runs WriteGate -&gt; reconcile -&gt; miss-path check
+/// (where applicable) -&gt; validate -&gt; store write -&gt; sidecar stamp, all
+/// inside exactly one <see cref="WriteGate.TryRun{T}"/> call per public
+/// method (the phase-05 AC7 shape, still upheld). <see cref="RunUpdateClassVerb"/>
+/// is the one piece of shared v1-era machinery that survives, because
+/// <see cref="ReplaceSteps"/>/<see cref="TouchKeepAlive"/> still need its
+/// per-handle-resolve-then-miss-path-resurrect shape.
 /// </summary>
 public sealed class TaskOperations
 {
@@ -93,176 +93,6 @@ public sealed class TaskOperations
         _recycleBinTtl = recycleBinTtl;
         _log = log ?? (_ => { });
         _icons = icons;
-    }
-
-    // ---- start (ERGO-25 upsert; LIFE-15/21 resurrection) -------------------
-
-    /// <summary>
-    /// Create-or-adopt (ERGO-25): a live handle is adopted in place (title/
-    /// subtitle/deepLink re-applied, state forced to Running,
-    /// <c>completedSteps</c>/<c>executingStep</c> PRESERVED unless
-    /// <paramref name="reset"/>); a handle absent from the live sidecar but
-    /// present in the recycle bin within TTL is resurrected using the fields
-    /// THIS call carries (ERGO-25's recycle-bin caveat: "restored core info +
-    /// whatever start carries" -- since `start` always carries fully-resolved
-    /// title/subtitle/icon/deepLink by the time it reaches this layer, those
-    /// values win); a genuinely new handle is a plain create. A DIFFERENT
-    /// <paramref name="iconUri"/> than a live card's current one forces a
-    /// platform Remove+Create (icon is immutable/the grouping key) -- new Id,
-    /// step history lost, unavoidable.
-    /// </summary>
-    public OperationOutcome Start(
-        string handle, string title, string subtitle, Uri iconUri, Uri deepLink,
-        DateTimeOffset now, bool reset = false, bool unsafeBypass = false)
-    {
-        ValidateHandle(handle);
-
-        OperationOutcome? outcome = null;
-        bool ran = _writeGate.TryRun(() =>
-            outcome = StartCore(handle, title, subtitle, iconUri, deepLink, now, reset, unsafeBypass));
-        return ran ? outcome! : GateUnavailable(handle);
-    }
-
-    private OperationOutcome StartCore(
-        string handle, string title, string subtitle, Uri iconUri, Uri deepLink,
-        DateTimeOffset now, bool reset, bool unsafeBypass)
-    {
-        // Full pass (phase-04 scoping: start/remove use ReconcileAll, never per-handle ResolveHandle).
-        ReapDroppedIcons(Reconciler.ReconcileAll(_store, _sidecar));
-        var entry = _sidecar.Read(handle);
-
-        if (entry is not null)
-        {
-            var live = _store.Find(entry.Id)
-                ?? throw new InvalidOperationException(
-                    $"Reconciliation should guarantee sidecar entry for '{handle}' has a live backing task.");
-            return AdoptLive(handle, entry.Id, live, title, subtitle, iconUri, deepLink, now, reset, unsafeBypass);
-        }
-
-        // Not live -- consult the recycle bin (miss path, read ONLY here).
-        var record = _recycleBin.TryResurrect(handle, now, _recycleBinTtl);
-
-        var content = new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder);
-        var validation = Validator.Validate(content, AppTaskState.Running, unsafeBypass); // always Safe; validated for uniformity/defensiveness
-        if (!validation.Allowed)
-        {
-            LogRefusal(handle, validation.Reason);
-            return new OperationOutcome(OutcomeKind.RefusedUnsafeCombo, handle, validation.Reason);
-        }
-
-        var created = _store.Create(title, subtitle, deepLink, iconUri, content);
-        _sidecar.Write(handle, created.Id, now);
-
-        if (record is not null)
-        {
-            _recycleBin.Remove(handle);
-            // Start always carries its own fully-resolved icon (ERGO-25) --
-            // the recycled copy, if any, is now definitively orphaned (never
-            // moved back), so reap it here rather than leaving it for the
-            // backstop sweep.
-            _icons?.ReapRecycledIcon(handle);
-            string reason = "Resurrected from the recycle bin; re-created using the fields this start carried.";
-            Log($"{handle}: {reason} (tombstoned {record.WhenTombstoned:O}; new id {created.Id})");
-            return new OperationOutcome(OutcomeKind.Resurrected, handle, reason, created);
-        }
-
-        return new OperationOutcome(OutcomeKind.Accepted, handle, "Created.", created);
-    }
-
-    private OperationOutcome AdoptLive(
-        string handle, string id, AppTaskView live, string title, string subtitle, Uri iconUri, Uri deepLink,
-        DateTimeOffset now, bool reset, bool unsafeBypass)
-    {
-        if (live.IconUri != iconUri)
-        {
-            // Icon is immutable per task (it's the grouping key) -- a changed icon
-            // token forces a platform Remove+Create, losing step history
-            // unavoidably (ERGO-25's icon caveat).
-            _store.Remove(id);
-            var recreated = _store.Create(title, subtitle, deepLink, iconUri, new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder));
-            _sidecar.Write(handle, recreated.Id, now);
-            string reason = "Icon token changed -- forced Remove+Create; step history lost.";
-            Log($"{handle}: {reason} (old id {id}, new id {recreated.Id})");
-            return new OperationOutcome(OutcomeKind.Accepted, handle, reason, recreated, IconChanged: true);
-        }
-
-        var content = reset
-            ? new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder)
-            : new AppTaskContentDto.SequenceOfSteps(live.CompletedSteps, live.ExecutingStep);
-
-        var validation = Validator.Validate(content, AppTaskState.Running, unsafeBypass); // always Safe
-        if (!validation.Allowed)
-        {
-            LogRefusal(handle, validation.Reason);
-            return new OperationOutcome(OutcomeKind.RefusedUnsafeCombo, handle, validation.Reason, live);
-        }
-
-        _store.UpdateTitles(id, title, subtitle);
-        _store.UpdateDeepLink(id, deepLink);
-        _store.Update(id, AppTaskState.Running, content);
-        _sidecar.Write(handle, id, now);
-
-        var updated = _store.Find(id)!;
-        string acceptedReason = reset ? "Adopted live handle; --reset cleared step history." : "Adopted live handle; step history preserved.";
-        return new OperationOutcome(OutcomeKind.Accepted, handle, acceptedReason, updated);
-    }
-
-    // ---- step (ERGO-8 advance model) ---------------------------------------
-
-    /// <summary>Advances the executing step (ERGO-8): archives the previous one into <c>completedSteps</c> (FIFO cap 10), sets the new one. PRESERVES the card's current state -- a NeedsAttention card refuses this (no question in the rebuilt content).</summary>
-    public OperationOutcome Step(string handle, string message, DateTimeOffset now, bool unsafeBypass = false)
-    {
-        return RunUpdateClassVerb(handle, now, unsafeBypass,
-            onLive: view => (AdvanceModel.Advance(view.CompletedSteps, view.ExecutingStep, message), view.State),
-            onResurrect: () => (AdvanceModel.Advance([], "", message), AppTaskState.Running));
-    }
-
-    // ---- state (ERGO-9/27: running|paused only) ----------------------------
-
-    /// <summary>Sets Running or Paused (ERGO-9/C7) -- any other <see cref="AppTaskState"/> is refused as an invalid argument, no store write. Rebuilds content from the readable steps, dropping any question (so leaving NeedsAttention this way is never stuck).</summary>
-    public OperationOutcome SetState(string handle, AppTaskState requestedState, DateTimeOffset now, bool unsafeBypass = false)
-    {
-        ValidateHandle(handle);
-        if (requestedState is not (AppTaskState.Running or AppTaskState.Paused))
-        {
-            string reason = $"state accepts only Running or Paused (got {requestedState}); done/fail/attention are their own verbs.";
-            Log($"{handle}: refused -- {reason}");
-            return new OperationOutcome(OutcomeKind.RefusedInvalidArgument, handle, reason);
-        }
-
-        return RunUpdateClassVerb(handle, now, unsafeBypass,
-            onLive: view => (new AppTaskContentDto.SequenceOfSteps(view.CompletedSteps, view.ExecutingStep), requestedState),
-            onResurrect: () => (new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder), requestedState));
-    }
-
-    // ---- done / fail --------------------------------------------------------
-
-    /// <summary>Completed (ERGO-9): bare keeps the current <c>SequenceOfSteps</c>; <paramref name="summary"/> swaps content to <c>TextSummaryResult</c>. Drops any question.</summary>
-    public OperationOutcome Done(string handle, DateTimeOffset now, string? summary = null, bool unsafeBypass = false)
-        => Finish(handle, AppTaskState.Completed, now, summary, unsafeBypass);
-
-    /// <summary>Same shape options as <see cref="Done"/>, targeting <see cref="AppTaskState.Error"/> (the "fail" verb).</summary>
-    public OperationOutcome Fail(string handle, DateTimeOffset now, string? summary = null, bool unsafeBypass = false)
-        => Finish(handle, AppTaskState.Error, now, summary, unsafeBypass);
-
-    private OperationOutcome Finish(string handle, AppTaskState endingState, DateTimeOffset now, string? summary, bool unsafeBypass)
-        => RunUpdateClassVerb(handle, now, unsafeBypass,
-            onLive: view => (BuildFinishContent(summary, view.CompletedSteps, view.ExecutingStep), endingState),
-            onResurrect: () => (BuildFinishContent(summary, [], AdvanceModel.NoStepsYetPlaceholder), endingState));
-
-    private static AppTaskContentDto BuildFinishContent(string? summary, IReadOnlyList<string> completedSteps, string executingStep)
-        => summary is null
-            ? new AppTaskContentDto.SequenceOfSteps(completedSteps, executingStep)
-            : new AppTaskContentDto.TextSummaryResult(summary);
-
-    // ---- attention ------------------------------------------------------------
-
-    /// <summary>NeedsAttention + SetQuestion (ERGO-9/10) -- the one documented-safe question cell. Preserves the readable steps underneath the question.</summary>
-    public OperationOutcome Attention(string handle, string question, DateTimeOffset now, bool unsafeBypass = false)
-    {
-        return RunUpdateClassVerb(handle, now, unsafeBypass,
-            onLive: view => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps(view.CompletedSteps, view.ExecutingStep) { Question = question }), AppTaskState.NeedsAttention),
-            onResurrect: () => ((AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder) { Question = question }), AppTaskState.NeedsAttention));
     }
 
     // ---- remove ---------------------------------------------------------------
@@ -404,7 +234,7 @@ public sealed class TaskOperations
     /// The `run` wrapper's step-stream write: replaces the WHOLE step list
     /// with <paramref name="lines"/> wholesale (last line -&gt; executingStep,
     /// everything before it -&gt; completedSteps) -- NOT the ERGO-8 "advance"
-    /// model <see cref="Step"/> uses. The wrapper owns its rolling buffer
+    /// model <c>Atv.Semantics.SemanticEngine.Activity</c> uses. The wrapper owns its rolling buffer
     /// exclusively (ERGO-5: "no read-back"), so there is nothing to archive;
     /// each call is a full, idempotent snapshot of "the last N lines as of
     /// now". Reuses the same resolve -&gt; validate -&gt; write -&gt; sidecar-stamp
@@ -473,10 +303,12 @@ public sealed class TaskOperations
         return new AppTaskContentDto.SequenceOfSteps(completed, lines[^1]);
     }
 
-    // ---- shared update-class pipeline (step/state/done/fail/attention) -----
+    // ---- shared update-class pipeline (now only ReplaceSteps/TouchKeepAlive) -----
 
     /// <summary>
-    /// The shared pipeline for the five update-class verbs: per-handle
+    /// The shared pipeline the v1 update-class verbs (step/state/done/fail/
+    /// attention -- retired, phase 15) used to share, now used only by
+    /// <see cref="ReplaceSteps"/>/<see cref="TouchKeepAlive"/>: per-handle
     /// resolve (never <see cref="Reconciler.ReconcileAll"/> -- ERGO-19,
     /// "update never sweeps") -&gt; on a live handle, build + validate + write
     /// via <paramref name="onLive"/>; on a miss, consult the recycle bin

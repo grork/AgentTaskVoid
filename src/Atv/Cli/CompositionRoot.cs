@@ -1,9 +1,11 @@
+using System.Text;
 using Atv.Config;
 using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.Operations;
 using Atv.Persistence;
 using Atv.Run;
+using Atv.Semantics;
 using Atv.Store;
 using Atv.Watchdog;
 using Microsoft.Win32;
@@ -56,6 +58,7 @@ public static class CompositionRoot
         var posture = new Posture(b.Log, output, global.Strict, global.Verbose);
 
         var ops = new TaskOperations(b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, msg => b.Log.Append("ops", null, msg, DateTimeOffset.Now), b.Icons);
+        var engine = new SemanticEngine(b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, ops, b.Icons, msg => b.Log.Append("engine", null, msg, DateTimeOffset.Now));
 
         string watchdogMutexName = ResolveWatchdogMutexName();
         Action<string> watchdogLog = msg => b.Log.Append("watchdog", null, msg, DateTimeOffset.Now);
@@ -73,6 +76,7 @@ public static class CompositionRoot
 
         var dispatcher = new Dispatcher(
             ops,
+            engine,
             posture,
             output,
             b.Icons,
@@ -86,7 +90,11 @@ public static class CompositionRoot
             sleep: Thread.Sleep,
             spawnChild: ChildProcess.Start,
             stdoutMirror: Console.OpenStandardOutput(),
-            stderrMirror: Console.OpenStandardError());
+            stderrMirror: Console.OpenStandardError(),
+            // ERGO-31's "-" stdin convention (LIFE-24 S2-walk item 1): explicit UTF-8,
+            // never the console's ambient code-page encoding -- Console.In can silently
+            // mojibake non-ASCII text on a non-UTF-8 console code page.
+            stdin: new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)));
 
         return new RootContext(dispatcher, b.Settings, b.Warnings);
     }

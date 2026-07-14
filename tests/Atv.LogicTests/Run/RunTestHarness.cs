@@ -2,12 +2,16 @@ using Atv.LogicTests.Persistence;
 using Atv.LogicTests.Store;
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Semantics;
 
 namespace Atv.LogicTests.Run;
 
 /// <summary>
 /// Minimal fake-backed rig for phase-11's `Atv.Run` unit tests: a real
-/// <see cref="TaskOperations"/> over a <see cref="CountingAppTaskStore"/>-wrapped
+/// <see cref="TaskOperations"/> + <see cref="SemanticEngine"/> (phase 15's
+/// re-seat -- <see cref="RunOrchestrator"/> now starts/finishes the card via
+/// <see cref="Engine"/>, while <c>StepPublisher</c> still writes through
+/// <see cref="Ops"/>) over a <see cref="CountingAppTaskStore"/>-wrapped
 /// <see cref="FakeAppTaskStore"/> (so a test can assert exactly how many
 /// whole-content writes happened) plus temp-dir sidecar/recycle-bin and an
 /// unnamed per-instance mutex -- same shape as
@@ -28,6 +32,7 @@ internal sealed class RunTestHarness : IDisposable
     public SidecarStore Sidecar { get; }
     public RecycleBin RecycleBin { get; }
     public TaskOperations Ops { get; }
+    public SemanticEngine Engine { get; }
 
     public RunTestHarness()
     {
@@ -36,11 +41,12 @@ internal sealed class RunTestHarness : IDisposable
         RecycleBin = new RecycleBin(_recycleDir.Path);
         var gate = new WriteGate(_mutex);
         Ops = new TaskOperations(Store, Sidecar, RecycleBin, gate, TimeSpan.FromDays(1));
+        Engine = new SemanticEngine(Store, Sidecar, RecycleBin, gate, TimeSpan.FromDays(1), Ops);
     }
 
     /// <summary>Starts a card the way `run` would (bare title/subtitle/deepLink/icon -- content details don't matter to these tests).</summary>
     public void StartCard(string handle, DateTimeOffset now)
-        => Ops.Start(handle, title: "Test Card", subtitle: "", new Uri("file:///icon.png"), new Uri("file:///deep-link"), now);
+        => Engine.Working(handle, title: "Test Card", subtitle: "", new Uri("file:///icon.png"), new Uri("file:///deep-link"), goal: null, now);
 
     public void Dispose()
     {

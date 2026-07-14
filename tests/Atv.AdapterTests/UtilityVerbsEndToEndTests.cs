@@ -1,5 +1,6 @@
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Semantics;
 using Atv.Store;
 
 namespace Atv.AdapterTests;
@@ -10,7 +11,10 @@ namespace Atv.AdapterTests;
 /// <see cref="TaskOperations.ClearAll"/> (what the phase-10 CLI verbs wrap --
 /// see <c>src/Atv/Cli/Verbs/ListVerb.cs</c>/<c>ClearVerb.cs</c>) against the
 /// REAL <see cref="AppTaskStore"/>. Same identity-gate/setup/serial pattern
-/// as <see cref="LifecycleVerbsEndToEndTests"/>.
+/// as <see cref="SemanticVerbsEndToEndTests"/>. Setup now upserts real cards
+/// via <see cref="SemanticEngine.Working"/> (phase 15's successor to the
+/// retired <c>TaskOperations.Start</c>) -- <c>List</c>/<c>ClearAll</c>
+/// themselves are unchanged v1-era <see cref="TaskOperations"/> members.
 /// </summary>
 [TestClass]
 public sealed class UtilityVerbsEndToEndTests
@@ -24,6 +28,7 @@ public sealed class UtilityVerbsEndToEndTests
     private RecycleBin _recycleBin = null!;
     private Mutex _mutex = null!;
     private TaskOperations _ops = null!;
+    private SemanticEngine _engine = null!;
     private string _tempRoot = null!;
 
     [TestInitialize]
@@ -40,6 +45,7 @@ public sealed class UtilityVerbsEndToEndTests
         _mutex = new Mutex(initiallyOwned: false);
         var gate = new WriteGate(_mutex);
         _ops = new TaskOperations(_store, _sidecar, _recycleBin, gate, Ttl);
+        _engine = new SemanticEngine(_store, _sidecar, _recycleBin, gate, Ttl, _ops);
     }
 
     [TestCleanup]
@@ -61,8 +67,8 @@ public sealed class UtilityVerbsEndToEndTests
     public void List_CorrelatesRealCardsWithSidecarHandles()
     {
         var now = DateTimeOffset.Now;
-        _ops.Start("e2e-list-1", "Title One", "Sub", IconUri, DeepLink, now);
-        _ops.Start("e2e-list-2", "Title Two", "Sub", IconUri, DeepLink, now);
+        _engine.Working("e2e-list-1", "Title One", "Sub", IconUri, DeepLink, "goal", now);
+        _engine.Working("e2e-list-2", "Title Two", "Sub", IconUri, DeepLink, "goal", now);
 
         var entries = _ops.List();
 
@@ -77,8 +83,8 @@ public sealed class UtilityVerbsEndToEndTests
     public void Clear_RemovesRealCards_SidecarEntries_AndIsACleanNoOpSecondTime()
     {
         var now = DateTimeOffset.Now;
-        _ops.Start("e2e-clear-1", "T", "S", IconUri, DeepLink, now);
-        _ops.Start("e2e-clear-2", "T", "S", IconUri, DeepLink, now);
+        _engine.Working("e2e-clear-1", "T", "S", IconUri, DeepLink, "goal", now);
+        _engine.Working("e2e-clear-2", "T", "S", IconUri, DeepLink, "goal", now);
 
         var summary = _ops.ClearAll(includeRecycleBin: false);
 

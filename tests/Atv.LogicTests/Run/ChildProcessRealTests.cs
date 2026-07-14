@@ -125,7 +125,7 @@ public sealed class ChildProcessRealTests
         var orchestratorThread = new Thread(() =>
         {
             exitCode = RunOrchestrator.Execute(
-                h.Ops, settings, () => DateTimeOffset.UtcNow, Thread.Sleep,
+                h.Ops, h.Engine, settings, () => DateTimeOffset.UtcNow, Thread.Sleep,
                 "run-ctrlc-handle", "Long Task", new Uri("file:///icon.png"), new Uri("file:///deep-link"),
                 child, Stream.Null, Stream.Null, DateTimeOffset.UtcNow);
         })

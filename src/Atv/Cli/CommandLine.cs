@@ -55,7 +55,16 @@ public static class CommandLine
 {
     private static readonly HashSet<string> PerVerbValueFlags = new(StringComparer.Ordinal)
     {
-        "--title", "--subtitle", "--icon", "--deep-link", "--summary",
+        // Identity flags (ERGO-31 §1 -- every verb except session-ended).
+        "--title", "--subtitle", "--icon", "--deep-link",
+        // v2 semantic-verb flags (ERGO-31 §1-3): free-text-eligible ("-" stdin
+        // sentinel, resolved by the Dispatcher, not this tokenizer) and plain
+        // closed-vocabulary/attribution tokens alike all ride the same
+        // generic per-verb value-flag slot -- this parser does not
+        // distinguish them (matches the existing "flags aren't verb-scoped"
+        // precedent, phase 08 note).
+        "--goal", "--label", "--kind", "--agent", "--name",
+        "--question", "--summary", "--reason", "--detail",
     };
 
     public static ParseResult Parse(IReadOnlyList<string> args)

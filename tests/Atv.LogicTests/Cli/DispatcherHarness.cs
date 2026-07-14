@@ -10,6 +10,7 @@ using Atv.LogicTests.Watchdog;
 using Atv.Operations;
 using Atv.Persistence;
 using Atv.Run;
+using Atv.Semantics;
 using Atv.Watchdog;
 
 namespace Atv.LogicTests.Cli;
@@ -39,7 +40,11 @@ internal sealed class DispatcherHarness : IDisposable
     public RecycleBin RecycleBin { get; }
     public IconService Icons { get; }
     public TaskOperations Ops { get; }
+    public SemanticEngine Engine { get; }
     public FailureLog Log { get; }
+
+    /// <summary>The v2 `-` stdin convention's test seam (ERGO-31, LIFE-24 S2-walk item 1) -- defaults empty; a test that needs a specific piped value sets this before dispatching.</summary>
+    public TextReader Stdin { get; set; } = new StringReader("");
     public StringWriter Stdout { get; } = new();
     public StringWriter Stderr { get; } = new();
     public List<string> WatchdogLogs { get; } = [];
@@ -120,6 +125,7 @@ internal sealed class DispatcherHarness : IDisposable
         Icons = new IconService(_iconsDir.Path, _recycleDir.Path);
         var gate = new WriteGate(_mutex);
         Ops = new TaskOperations(Store, Sidecar, RecycleBin, gate, TimeSpan.FromDays(1), icons: Icons);
+        Engine = new SemanticEngine(Store, Sidecar, RecycleBin, gate, TimeSpan.FromDays(1), Ops, icons: Icons);
         Log = new FailureLog(Path.Combine(_appDataDir.Path, "atv.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
     }
 
@@ -142,6 +148,7 @@ internal sealed class DispatcherHarness : IDisposable
             LogPath: Path.Combine(_appDataDir.Path, "atv.log"));
         return new Dispatcher(
             Ops,
+            Engine,
             posture,
             output,
             Icons,
@@ -162,7 +169,8 @@ internal sealed class DispatcherHarness : IDisposable
                 return child;
             },
             stdoutMirror: StdoutMirror,
-            stderrMirror: StderrMirror);
+            stderrMirror: StderrMirror,
+            stdin: Stdin);
     }
 
     public int Run(Dispatcher dispatcher, params string[] args) => dispatcher.Run(CommandLine.Parse(args), Now);

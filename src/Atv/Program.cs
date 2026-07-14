@@ -62,13 +62,17 @@ static void PrintUsage()
 {
     Console.WriteLine($"Usage: {Branding.Command} <verb> <handle> [options]");
     Console.WriteLine();
-    Console.WriteLine("Lifecycle verbs:");
-    Console.WriteLine($"  {Branding.Command} start <handle> [--title T] [--subtitle S] [--icon TOKEN] [--deep-link URI] [--reset]");
-    Console.WriteLine($"  {Branding.Command} step <handle> <message>");
-    Console.WriteLine($"  {Branding.Command} state <handle> running|paused");
-    Console.WriteLine($"  {Branding.Command} attention <handle> <question>");
-    Console.WriteLine($"  {Branding.Command} done <handle> [--summary TEXT]");
-    Console.WriteLine($"  {Branding.Command} fail <handle> [--summary TEXT]");
+    Console.WriteLine("Semantic verbs (ERGO-31 v2 -- every verb below except session-ended accepts");
+    Console.WriteLine("[--title T] [--subtitle S] [--icon TOKEN] [--deep-link URI] and upserts the card;");
+    Console.WriteLine("a flag value of exactly \"-\" reads that field from stdin, UTF-8, to EOF):");
+    Console.WriteLine($"  {Branding.Command} working <handle> [--goal -]");
+    Console.WriteLine($"  {Branding.Command} activity <handle> --kind read|edit|write|search|shell|fetch|web-search|plan|compacting|tool [--label -] [--agent ID] [--name N]");
+    Console.WriteLine($"  {Branding.Command} blocked <handle> --question - [--agent ID]");
+    Console.WriteLine($"  {Branding.Command} ready <handle> [--summary -]");
+    Console.WriteLine($"  {Branding.Command} broken <handle> --reason rate-limit|overloaded|api-error|timeout|fatal [--detail -]");
+    Console.WriteLine($"  {Branding.Command} agent-started <handle> [--agent ID] [--name N]");
+    Console.WriteLine($"  {Branding.Command} agent-stopped <handle> [--agent ID]");
+    Console.WriteLine($"  {Branding.Command} session-ended <handle> --reason finished|error");
     Console.WriteLine($"  {Branding.Command} remove <handle>");
     Console.WriteLine();
     Console.WriteLine("Data / utility verbs:");
@@ -83,4 +87,5 @@ static void PrintUsage()
     Console.WriteLine($"{Branding.Command} --help       Print this usage text.");
     Console.WriteLine();
     Console.WriteLine($"{Branding.Command} run's exit code is always the wrapped command's exit code (--strict never overrides it).");
+    Console.WriteLine("See docs/integration-api.md for the full verb contract.");
 }

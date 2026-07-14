@@ -3,25 +3,35 @@ using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.Operations;
 using Atv.Run;
+using Atv.Semantics;
 
 namespace Atv.Cli.Verbs;
 
 /// <summary>
 /// Everything <see cref="RunVerb.Run"/> needs, gathered in one place
 /// (mirrors <c>WatchdogDeps</c>'s shape/purpose): the real collaborators
-/// every other verb already uses (<see cref="Ops"/>/<see cref="Icons"/>/
-/// <see cref="Posture"/>/<see cref="HasIdentity"/>/<see cref="IsSupported"/>/
-/// <see cref="EnsureWatchdog"/>/<see cref="DefaultDeepLink"/>), plus what
-/// `run` alone needs on top: resolved <see cref="Settings"/> (debounce/
-/// keepalive/max-length tunables), a live <see cref="Clock"/> and
-/// <see cref="Sleep"/> for the step-publisher loop (test-controllable,
-/// mirrors <c>RunContext</c>), a <see cref="SpawnChild"/> factory (the
-/// AC2 fake-child seam), and the two raw byte sinks the child's stdout/
-/// stderr mirror to (production = the real console's raw streams; tests =
-/// in-memory <see cref="Stream"/>s).
+/// every other verb already uses (<see cref="Ops"/>/<see cref="Engine"/>/
+/// <see cref="Icons"/>/<see cref="Posture"/>/<see cref="HasIdentity"/>/
+/// <see cref="IsSupported"/>/<see cref="EnsureWatchdog"/>/
+/// <see cref="DefaultDeepLink"/>), plus what `run` alone needs on top:
+/// resolved <see cref="Settings"/> (debounce/keepalive/max-length tunables),
+/// a live <see cref="Clock"/> and <see cref="Sleep"/> for the step-publisher
+/// loop (test-controllable, mirrors <c>RunContext</c>), a
+/// <see cref="SpawnChild"/> factory (the AC2 fake-child seam), and the two
+/// raw byte sinks the child's stdout/stderr mirror to (production = the real
+/// console's raw streams; tests = in-memory <see cref="Stream"/>s).
+///
+/// Phase 15 (re-seat onto the v2 engine): <see cref="Ops"/> is STILL needed
+/// -- <see cref="Run.StepPublisher"/>'s debounced step-stream write
+/// (<see cref="TaskOperations.ReplaceSteps"/>/<see cref="TaskOperations.TouchKeepAlive"/>)
+/// keeps its own whole-buffer-replace content model, unrelated to the v2
+/// claim semantics. Only the card's START/FINISH now go through
+/// <see cref="Engine"/> (<c>working</c>/<c>ready</c>/<c>broken</c>
+/// equivalents) instead of the retired <c>TaskOperations.Start/Done/Fail</c>.
 /// </summary>
 public sealed record RunDeps(
     TaskOperations Ops,
+    SemanticEngine Engine,
     IconService Icons,
     Posture Posture,
     Func<bool> HasIdentity,
@@ -109,7 +119,7 @@ public static class RunVerb
         try
         {
             Console.CancelKeyPress += handler;
-            return RunOrchestrator.Execute(deps.Ops, deps.Settings, deps.Clock, deps.Sleep,
+            return RunOrchestrator.Execute(deps.Ops, deps.Engine, deps.Settings, deps.Clock, deps.Sleep,
                 handle, title, iconUri, deps.DefaultDeepLink, child, deps.StdoutMirror, deps.StderrMirror, now);
         }
         finally
@@ -148,15 +158,31 @@ public static class RunVerb
 /// spawned: start the card -&gt; wire the two <see cref="OutputPump"/> reader
 /// threads + one <see cref="StepPublisher"/> loop thread (three independent
 /// threads, per ERGO-5's decoupled reader/updater structure) -&gt; block for
-/// the child's exit -&gt; drain/flush -&gt; map exit code to `done`/`fail` -&gt;
-/// return the exit code verbatim. Takes <see cref="IChildProcess"/> (not a
-/// concrete <see cref="ChildProcess"/>) so a scripted fake child can drive
-/// this exact code path in tests (AC2) with no real process involved.
+/// the child's exit -&gt; drain/flush -&gt; map exit code onto the v2
+/// <c>ready</c>/<c>broken</c> claims -&gt; return the exit code verbatim.
+/// Takes <see cref="IChildProcess"/> (not a concrete <see cref="ChildProcess"/>)
+/// so a scripted fake child can drive this exact code path in tests (AC2)
+/// with no real process involved.
+///
+/// Phase 15 re-seat: the card's start/finish now go through
+/// <see cref="SemanticEngine"/> (a bare <c>working</c> claim at launch --
+/// no goal, the wrapper has none to give; bare <c>ready</c> on exit 0,
+/// preserving the last mirrored output lines exactly like v1's bare
+/// <c>done</c> did; <c>broken --reason fatal</c> on a nonzero exit, the
+/// vocabulary's catch-all -- exactly one <see cref="BrokenReasonToken"/> fits
+/// a generic child-process failure) instead of the retired
+/// <c>TaskOperations.Start/Done/Fail</c>. The step-stream itself
+/// (<see cref="StepPublisher"/>) is UNCHANGED -- still <see cref="TaskOperations.ReplaceSteps"/>/
+/// <see cref="TaskOperations.TouchKeepAlive"/>'s whole-buffer-replace model,
+/// which has nothing to do with the v2 claim semantics. This is the "v2
+/// internals underneath it" the phase-11 observable contract (exit-code
+/// passthrough, debounce, lingering card) is preserved over.
 /// </summary>
 public static class RunOrchestrator
 {
     public static int Execute(
         TaskOperations ops,
+        SemanticEngine engine,
         Settings settings,
         Func<DateTimeOffset> clock,
         Action<TimeSpan> sleep,
@@ -169,7 +195,7 @@ public static class RunOrchestrator
         Stream stderrMirror,
         DateTimeOffset startNow)
     {
-        ops.Start(handle, title, subtitle: "", iconUri, deepLink, startNow);
+        engine.Working(handle, title, subtitle: "", iconUri, deepLink, goal: null, startNow);
 
         var publisher = new StepPublisher(ops, handle, settings.RunKeepAliveInterval, startNow);
 
@@ -208,9 +234,9 @@ public static class RunOrchestrator
         publisher.FlushFinal(endNow); // Never lose the last lines to an in-flight debounce window.
 
         if (exitCode == 0)
-            ops.Done(handle, endNow);
+            engine.Ready(handle, title, subtitle: "", iconUri, deepLink, summary: null, endNow);
         else
-            ops.Fail(handle, endNow);
+            engine.Broken(handle, title, subtitle: "", iconUri, deepLink, BrokenReasonToken.Fatal, detail: null, endNow);
 
         return exitCode;
     }

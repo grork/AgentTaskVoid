@@ -44,8 +44,8 @@ public sealed class ListVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1", "--title", "Title One");
-        h.Run(dispatcher, "start", "h2", "--title", "Title Two");
+        h.Run(dispatcher, "working", "h1", "--title", "Title One");
+        h.Run(dispatcher, "working", "h2", "--title", "Title Two");
 
         h.Run(dispatcher, "list");
 
@@ -61,7 +61,7 @@ public sealed class ListVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher(json: true);
-        h.Run(dispatcher, "start", "h1", "--title", "T");
+        h.Run(dispatcher, "working", "h1", "--title", "T");
         h.Stdout.GetStringBuilder().Clear(); // drop start's own {"ok":..} json line
 
         h.Run(dispatcher, "list");
@@ -99,7 +99,7 @@ public sealed class ListVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher(json: true);
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         h.Store.SeedEntrylessTask("Orphan", "Sub");
         h.Stdout.GetStringBuilder().Clear(); // drop start's own {"ok":..} json line
 
@@ -114,7 +114,7 @@ public sealed class ListVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
 
         h.Run(dispatcher, "list");
         h.Run(dispatcher, "list");

@@ -6,46 +6,47 @@ namespace Atv.LogicTests.Cli;
 /// AC3: "the hook can never break the host" -- a missing/failing platform
 /// (fake configured unavailable, or identity absent) leaves every verb
 /// exit-0-silent by default, with exactly one durable log entry, and NO
-/// store write attempted.
+/// store write attempted. Uses <c>working</c> (v2's create-or-adopt-and-upsert
+/// verb, the successor to v1 `start`) as the representative upserting verb.
 /// </summary>
 [TestClass]
 public sealed class DispatcherPlatformDownTests
 {
     [TestMethod]
-    public void Start_NoIdentity_NonStrict_ExitsZero_Silent_LogsOneEntry_NoWrite()
+    public void Working_NoIdentity_NonStrict_ExitsZero_Silent_LogsOneEntry_NoWrite()
     {
         using var h = new DispatcherHarness { HasIdentity = false };
         var dispatcher = h.BuildDispatcher();
 
-        int exit = h.Run(dispatcher, "start", "h1", "--title", "T");
+        int exit = h.Run(dispatcher, "working", "h1", "--title", "T");
 
         Assert.AreEqual(0, exit);
         Assert.AreEqual("", h.Stdout.ToString());
         Assert.AreEqual("", h.Stderr.ToString());
         Assert.IsEmpty(h.Store.FindAll());
         Assert.HasCount(1, h.Log.ReadAll());
-        Assert.AreEqual("start", h.Log.ReadAll()[0].Verb);
+        Assert.AreEqual("working", h.Log.ReadAll()[0].Verb);
     }
 
     [TestMethod]
-    public void Start_NoIdentity_Strict_ReturnsIdentityNotRegisteredExitCode()
+    public void Working_NoIdentity_Strict_ReturnsIdentityNotRegisteredExitCode()
     {
         using var h = new DispatcherHarness { HasIdentity = false };
         var dispatcher = h.BuildDispatcher(strict: true);
 
-        int exit = h.Run(dispatcher, "start", "h1");
+        int exit = h.Run(dispatcher, "working", "h1");
 
         Assert.AreEqual((int)FailureKind.IdentityNotRegistered, exit);
     }
 
     [TestMethod]
-    public void Start_ApiUnsupported_NonStrict_ExitsZero_Silent_LogsOneEntry_NoWrite()
+    public void Working_ApiUnsupported_NonStrict_ExitsZero_Silent_LogsOneEntry_NoWrite()
     {
         using var h = new DispatcherHarness();
         h.Store.Supported = false;
         var dispatcher = h.BuildDispatcher();
 
-        int exit = h.Run(dispatcher, "start", "h1");
+        int exit = h.Run(dispatcher, "working", "h1");
 
         Assert.AreEqual(0, exit);
         Assert.IsEmpty(h.Store.FindAll());
@@ -53,13 +54,13 @@ public sealed class DispatcherPlatformDownTests
     }
 
     [TestMethod]
-    public void Start_ApiUnsupported_Strict_ReturnsApiUnavailableExitCode()
+    public void Working_ApiUnsupported_Strict_ReturnsApiUnavailableExitCode()
     {
         using var h = new DispatcherHarness();
         h.Store.Supported = false;
         var dispatcher = h.BuildDispatcher(strict: true);
 
-        int exit = h.Run(dispatcher, "start", "h1");
+        int exit = h.Run(dispatcher, "working", "h1");
 
         Assert.AreEqual((int)FailureKind.ApiUnavailable, exit);
     }
@@ -77,12 +78,12 @@ public sealed class DispatcherPlatformDownTests
     }
 
     [TestMethod]
-    public void Step_NoIdentity_NonStrict_ExitsZero_Silent()
+    public void Activity_NoIdentity_NonStrict_ExitsZero_Silent()
     {
         using var h = new DispatcherHarness { HasIdentity = false };
         var dispatcher = h.BuildDispatcher();
 
-        int exit = h.Run(dispatcher, "step", "h1", "msg");
+        int exit = h.Run(dispatcher, "activity", "h1", "--kind", "shell", "--label", "npm test");
 
         Assert.AreEqual(0, exit);
         Assert.HasCount(1, h.Log.ReadAll());
@@ -94,7 +95,7 @@ public sealed class DispatcherPlatformDownTests
         using var h = new DispatcherHarness { HasIdentity = false };
         var dispatcher = h.BuildDispatcher(json: true);
 
-        int exit = h.Run(dispatcher, "start", "h1");
+        int exit = h.Run(dispatcher, "working", "h1");
 
         Assert.AreEqual(0, exit);
         StringAssert.Contains(h.Stdout.ToString(), "\"ok\":false");

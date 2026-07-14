@@ -12,6 +12,8 @@ namespace Atv.Persistence;
 /// </summary>
 [JsonSerializable(typeof(SidecarEntry))]
 [JsonSerializable(typeof(RecycleRecord))]
+[JsonSerializable(typeof(EngineMemory))]
+[JsonSerializable(typeof(BlockedLocus))]
 internal partial class PersistenceJsonContext : JsonSerializerContext
 {
 }

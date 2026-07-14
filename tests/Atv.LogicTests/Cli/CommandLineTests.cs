@@ -44,9 +44,9 @@ public sealed class CommandLineTests
     [TestMethod]
     public void Parse_GlobalFlags_BeforeVerb_AllRecognized()
     {
-        var result = CommandLine.Parse(["--json", "--strict", "--verbose", "--unsafe", "start", "h1"]);
+        var result = CommandLine.Parse(["--json", "--strict", "--verbose", "--unsafe", "working", "h1"]);
 
-        Assert.AreEqual("start", result.Verb);
+        Assert.AreEqual("working", result.Verb);
         CollectionAssert.AreEqual(new[] { "h1" }, result.Positionals.ToArray());
         Assert.IsTrue(result.Global.Json);
         Assert.IsTrue(result.Global.Strict);
@@ -58,10 +58,10 @@ public sealed class CommandLineTests
     [TestMethod]
     public void Parse_GlobalFlags_AfterVerbAndPositionals_AllRecognized()
     {
-        var result = CommandLine.Parse(["step", "h1", "message", "--json", "--strict"]);
+        var result = CommandLine.Parse(["activity", "h1", "--json", "--strict"]);
 
-        Assert.AreEqual("step", result.Verb);
-        CollectionAssert.AreEqual(new[] { "h1", "message" }, result.Positionals.ToArray());
+        Assert.AreEqual("activity", result.Verb);
+        CollectionAssert.AreEqual(new[] { "h1" }, result.Positionals.ToArray());
         Assert.IsTrue(result.Global.Json);
         Assert.IsTrue(result.Global.Strict);
     }
@@ -69,12 +69,11 @@ public sealed class CommandLineTests
     [TestMethod]
     public void Parse_GlobalFlags_InterleavedWithPerVerbFlags_AllRecognized()
     {
-        var result = CommandLine.Parse(["start", "h1", "--title", "T", "--json", "--reset", "--unsafe"]);
+        var result = CommandLine.Parse(["working", "h1", "--title", "T", "--json", "--unsafe"]);
 
-        Assert.AreEqual("start", result.Verb);
+        Assert.AreEqual("working", result.Verb);
         CollectionAssert.AreEqual(new[] { "h1" }, result.Positionals.ToArray());
         Assert.AreEqual("T", result.Flags["title"]);
-        Assert.IsTrue(result.Reset);
         Assert.IsTrue(result.Global.Json);
         Assert.IsTrue(result.Global.Unsafe);
     }
@@ -82,24 +81,24 @@ public sealed class CommandLineTests
     [TestMethod]
     public void Parse_WatchdogMode_RecognizedAnywhere_CapturesRawValue()
     {
-        var before = CommandLine.Parse(["--watchdog-mode", "inproc", "start", "h1"]);
+        var before = CommandLine.Parse(["--watchdog-mode", "inproc", "working", "h1"]);
         Assert.AreEqual("inproc", before.Global.WatchdogModeRaw);
 
-        var after = CommandLine.Parse(["start", "h1", "--watchdog-mode", "off"]);
+        var after = CommandLine.Parse(["working", "h1", "--watchdog-mode", "off"]);
         Assert.AreEqual("off", after.Global.WatchdogModeRaw);
     }
 
     [TestMethod]
     public void Parse_WatchdogMode_MissingValue_Errors()
     {
-        var result = CommandLine.Parse(["start", "h1", "--watchdog-mode"]);
+        var result = CommandLine.Parse(["working", "h1", "--watchdog-mode"]);
         Assert.IsNotNull(result.Error);
     }
 
     [TestMethod]
     public void Parse_WaitForDebugger_Recognized()
     {
-        var result = CommandLine.Parse(["--wait-for-debugger", "start", "h1"]);
+        var result = CommandLine.Parse(["--wait-for-debugger", "working", "h1"]);
         Assert.IsTrue(result.Global.WaitForDebugger);
     }
 
@@ -108,76 +107,106 @@ public sealed class CommandLineTests
     [TestMethod]
     public void Parse_PerVerbFlag_BeforeVerb_Errors()
     {
-        var result = CommandLine.Parse(["--title", "T", "start", "h1"]);
+        var result = CommandLine.Parse(["--title", "T", "working", "h1"]);
         Assert.IsNotNull(result.Error);
     }
 
     [TestMethod]
     public void Parse_UnknownFlag_AfterVerb_Errors()
     {
-        var result = CommandLine.Parse(["start", "h1", "--bogus"]);
+        var result = CommandLine.Parse(["working", "h1", "--bogus"]);
         Assert.IsNotNull(result.Error);
     }
 
     [TestMethod]
     public void Parse_PerVerbValueFlag_MissingValue_Errors()
     {
-        var result = CommandLine.Parse(["start", "h1", "--title"]);
+        var result = CommandLine.Parse(["working", "h1", "--title"]);
         Assert.IsNotNull(result.Error);
     }
 
     [TestMethod]
-    public void Parse_StartFlags_AllCaptured()
+    public void Parse_WorkingFlags_AllCaptured()
     {
         var result = CommandLine.Parse([
-            "start", "h1",
+            "working", "h1",
             "--title", "My Title",
             "--subtitle", "My Subtitle",
             "--icon", "Robot",
             "--deep-link", "https://example.com",
-            "--reset",
+            "--goal", "Fix the bug",
         ]);
 
-        Assert.AreEqual("start", result.Verb);
+        Assert.AreEqual("working", result.Verb);
         CollectionAssert.AreEqual(new[] { "h1" }, result.Positionals.ToArray());
         Assert.AreEqual("My Title", result.Flags["title"]);
         Assert.AreEqual("My Subtitle", result.Flags["subtitle"]);
         Assert.AreEqual("Robot", result.Flags["icon"]);
         Assert.AreEqual("https://example.com", result.Flags["deep-link"]);
-        Assert.IsTrue(result.Reset);
+        Assert.AreEqual("Fix the bug", result.Flags["goal"]);
     }
 
     [TestMethod]
-    public void Parse_DoneWithSummary_Captured()
+    public void Parse_ActivityFlags_KindLabelAgentName_AllCaptured()
     {
-        var result = CommandLine.Parse(["done", "h1", "--summary", "All finished."]);
-        Assert.AreEqual("done", result.Verb);
+        var result = CommandLine.Parse(["activity", "h1", "--kind", "edit", "--label", "auth.ts", "--agent", "a1", "--name", "worker"]);
+
+        Assert.AreEqual("activity", result.Verb);
+        Assert.AreEqual("edit", result.Flags["kind"]);
+        Assert.AreEqual("auth.ts", result.Flags["label"]);
+        Assert.AreEqual("a1", result.Flags["agent"]);
+        Assert.AreEqual("worker", result.Flags["name"]);
+    }
+
+    [TestMethod]
+    public void Parse_BlockedFlags_QuestionAndAgent_Captured()
+    {
+        var result = CommandLine.Parse(["blocked", "h1", "--question", "Continue?", "--agent", "a1"]);
+        Assert.AreEqual("Continue?", result.Flags["question"]);
+        Assert.AreEqual("a1", result.Flags["agent"]);
+    }
+
+    [TestMethod]
+    public void Parse_ReadyWithSummary_Captured()
+    {
+        var result = CommandLine.Parse(["ready", "h1", "--summary", "All finished."]);
+        Assert.AreEqual("ready", result.Verb);
         CollectionAssert.AreEqual(new[] { "h1" }, result.Positionals.ToArray());
         Assert.AreEqual("All finished.", result.Flags["summary"]);
+    }
+
+    [TestMethod]
+    public void Parse_BrokenFlags_ReasonAndDetail_Captured()
+    {
+        var result = CommandLine.Parse(["broken", "h1", "--reason", "api-error", "--detail", "connection reset"]);
+        Assert.AreEqual("api-error", result.Flags["reason"]);
+        Assert.AreEqual("connection reset", result.Flags["detail"]);
+    }
+
+    [TestMethod]
+    public void Parse_SessionEndedFlags_Reason_Captured()
+    {
+        var result = CommandLine.Parse(["session-ended", "h1", "--reason", "finished"]);
+        Assert.AreEqual("session-ended", result.Verb);
+        Assert.AreEqual("finished", result.Flags["reason"]);
+    }
+
+    [TestMethod]
+    public void Parse_StdinSentinel_CapturedAsLiteralDashValue()
+    {
+        // CommandLine itself never reads stdin -- the "-" sentinel is just an
+        // ordinary string value at this layer; the Dispatcher resolves it.
+        var result = CommandLine.Parse(["working", "h1", "--goal", "-"]);
+        Assert.AreEqual("-", result.Flags["goal"]);
     }
 
     // ---- positionals for multi-arg verbs -----------------------------------------
 
     [TestMethod]
-    public void Parse_StepPositionals_HandleAndMessage()
+    public void Parse_ActivityPositionals_JustHandle()
     {
-        var result = CommandLine.Parse(["step", "h1", "Working on it"]);
-        Assert.AreEqual("step", result.Verb);
-        CollectionAssert.AreEqual(new[] { "h1", "Working on it" }, result.Positionals.ToArray());
-    }
-
-    [TestMethod]
-    public void Parse_StatePositionals_HandleAndState()
-    {
-        var result = CommandLine.Parse(["state", "h1", "paused"]);
-        CollectionAssert.AreEqual(new[] { "h1", "paused" }, result.Positionals.ToArray());
-    }
-
-    [TestMethod]
-    public void Parse_AttentionPositionals_HandleAndQuestion()
-    {
-        var result = CommandLine.Parse(["attention", "h1", "Continue?"]);
-        CollectionAssert.AreEqual(new[] { "h1", "Continue?" }, result.Positionals.ToArray());
+        var result = CommandLine.Parse(["activity", "h1", "--kind", "shell"]);
+        CollectionAssert.AreEqual(new[] { "h1" }, result.Positionals.ToArray());
     }
 
     [TestMethod]
@@ -191,8 +220,8 @@ public sealed class CommandLineTests
     [TestMethod]
     public void Parse_VerbIsLowercased()
     {
-        var result = CommandLine.Parse(["START", "h1"]);
-        Assert.AreEqual("start", result.Verb);
+        var result = CommandLine.Parse(["WORKING", "h1"]);
+        Assert.AreEqual("working", result.Verb);
     }
 
     // ---- phase 10: list / clear / doctor -----------------------------------------

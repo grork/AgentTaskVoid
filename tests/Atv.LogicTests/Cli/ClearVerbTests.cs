@@ -19,8 +19,8 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
-        h.Run(dispatcher, "start", "h2");
+        h.Run(dispatcher, "working", "h1");
+        h.Run(dispatcher, "working", "h2");
         string iconH1 = h.Store.Find(h.Sidecar.Read("h1")!.Id)!.IconUri.LocalPath;
         string iconH2 = h.Store.Find(h.Sidecar.Read("h2")!.Id)!.IconUri.LocalPath;
 
@@ -39,7 +39,7 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         h.Store.SeedEntrylessTask("Orphan", "Sub");
         Assert.HasCount(2, h.Store.FindAll());
 
@@ -53,7 +53,7 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         h.Run(dispatcher, "remove", "h1"); // ordinary remove doesn't tombstone; use a real recycle write directly
         h.RecycleBin.Tombstone(new Atv.Persistence.RecycleRecord("recycled-h", "T", "S", null, new Uri("https://example.invalid"), DispatcherHarness.Now));
 
@@ -79,7 +79,7 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
 
         h.Run(dispatcher, "clear");
         int secondExit = h.Run(dispatcher, "clear");
@@ -95,7 +95,7 @@ public sealed class ClearVerbTests
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
         // Force a cache render (default glyph) via a real start, then clear.
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         string? cacheFile = Directory.Exists(Path.Combine(h.IconsCacheDir))
             ? Directory.GetFiles(h.IconsCacheDir).FirstOrDefault()
             : null;
@@ -111,7 +111,7 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
 
         int exit = h.Run(dispatcher, "clear");
 
@@ -135,7 +135,7 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher(json: true);
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         h.Stdout.GetStringBuilder().Clear();
 
         h.Run(dispatcher, "clear");

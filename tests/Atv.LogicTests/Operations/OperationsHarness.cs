@@ -2,6 +2,7 @@ using Atv.LogicTests.Persistence;
 using Atv.LogicTests.Store;
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Semantics;
 
 namespace Atv.LogicTests.Operations;
 
@@ -30,6 +31,7 @@ internal sealed class OperationsHarness : IDisposable
     public WriteGate Gate { get; }
     public List<string> Logs { get; } = [];
     public TaskOperations Ops { get; }
+    public SemanticEngine Engine { get; }
 
     public OperationsHarness(TimeSpan? ttl = null)
     {
@@ -37,14 +39,18 @@ internal sealed class OperationsHarness : IDisposable
         RecycleBin = new RecycleBin(_recycleDir.Path);
         Gate = new WriteGate(_mutex, log: Logs.Add);
         Ops = new TaskOperations(Store, Sidecar, RecycleBin, Gate, ttl ?? Ttl, Logs.Add);
+        Engine = new SemanticEngine(Store, Sidecar, RecycleBin, Gate, ttl ?? Ttl, Ops, log: Logs.Add);
     }
 
     /// <summary>A second <see cref="TaskOperations"/> sharing this harness's store/sidecar/recycle-bin but wrapping a NEW <see cref="WriteGate"/> around the SAME underlying mutex -- for AC7's concurrency test, mirroring two independent CLI invocations racing on the one named production mutex.</summary>
     public TaskOperations NewOpsOnSameMutex() => new(Store, Sidecar, RecycleBin, new WriteGate(_mutex, log: Logs.Add), Ttl, Logs.Add);
 
-    /// <summary>Convenience: starts a fresh handle and returns its outcome, using the harness's default fields.</summary>
+    /// <summary>A second <see cref="SemanticEngine"/> sharing this harness's store/sidecar/recycle-bin but wrapping a NEW <see cref="WriteGate"/> around the SAME underlying mutex -- the phase-15 counterpart to <see cref="NewOpsOnSameMutex"/>.</summary>
+    public SemanticEngine NewEngineOnSameMutex() => new(Store, Sidecar, RecycleBin, new WriteGate(_mutex, log: Logs.Add), Ttl, Ops, log: Logs.Add);
+
+    /// <summary>Convenience: upserts a fresh handle into Working (the v2 successor to v1 `start`) and returns its outcome, using the harness's default fields.</summary>
     public OperationOutcome StartNew(string handle, string title = "Title", string subtitle = "Subtitle", Uri? iconUri = null, DateTimeOffset? now = null)
-        => Ops.Start(handle, title, subtitle, iconUri ?? IconUri, DeepLink, now ?? Now);
+        => Engine.Working(handle, title, subtitle, iconUri ?? IconUri, DeepLink, goal: null, now ?? Now);
 
     public void Dispose()
     {

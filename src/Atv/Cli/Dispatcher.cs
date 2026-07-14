@@ -4,39 +4,44 @@ using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.Operations;
 using Atv.Run;
+using Atv.Semantics;
 using Atv.Store;
 
 namespace Atv.Cli;
 
 /// <summary>
 /// Dispatches one already-parsed <see cref="ParseResult"/> to the matching
-/// verb body. The seven lifecycle verbs are inline private methods over an
-/// injected <see cref="TaskOperations"/> core -- the fake-testable half of
-/// the CLI (everything real-only lives in <see cref="CompositionRoot"/>).
-/// The three phase-10 utility verbs (`list`/`clear`/`doctor`) are dedicated
-/// static classes in <see cref="Atv.Cli.Verbs"/> that each own their own
-/// <see cref="Posture"/> call instead -- `list`/`doctor` need
-/// <see cref="Posture.RunQuery"/> (their own `--json` shape, ERGO-27 C5),
-/// not the generic mutating-verb wrapper every lifecycle verb (and `clear`)
-/// uses.
+/// verb body. The eight ERGO-31 v2 semantic verbs are inline private methods
+/// over an injected <see cref="SemanticEngine"/> (the v1 lifecycle verbs --
+/// <c>start</c>/<c>step</c>/<c>state</c>/<c>attention</c>/<c>done</c>/
+/// <c>fail</c> -- are retired, phase 15); <c>remove</c> stays a thin method
+/// over the surviving <see cref="TaskOperations"/> core -- the fake-testable
+/// half of the CLI (everything real-only lives in
+/// <see cref="CompositionRoot"/>). The three phase-10 utility verbs
+/// (`list`/`clear`/`doctor`) are dedicated static classes in
+/// <see cref="Atv.Cli.Verbs"/> that each own their own <see cref="Posture"/>
+/// call instead -- `list`/`doctor` need <see cref="Posture.RunQuery"/>
+/// (their own `--json` shape, ERGO-27 C5), not the generic mutating-verb
+/// wrapper every lifecycle verb (and `clear`) uses.
 ///
 /// Exactly one <see cref="Posture.Run"/>/<see cref="Posture.RunQuery"/> call
 /// per verb invocation wraps: (1) pure argument-shape validation (handle
-/// presence, icon-token/deep-link-URI parsing, the C7 running|paused
-/// restriction) -- runs first and unconditionally, independent of platform
+/// presence, icon-token/deep-link-URI parsing, the closed kind/reason
+/// vocabularies) -- runs first and unconditionally, independent of platform
 /// state; (2) <see cref="Capability.Check"/> (identity, then API support --
 /// skipped entirely by `doctor`, whose whole job is diagnosing exactly that);
 /// (3) the LIFE-17/INFRA-19 <see cref="Atv.Watchdog.EnsureWatchdog.Run"/>
-/// liveness gate on every WRITE-path verb (lifecycle verbs + `clear`, never
-/// `list`/`doctor`); (4) the actual operation. Every failure mode -- bad
-/// args, platform down, ERGO-10 validator refusal, unknown handle --
-/// therefore goes through the identical non-disruptive pipe (ERGO-27: "all
-/// behavior identical... only the logged reason and strict exit code
-/// differ").
+/// liveness gate on every WRITE-path verb (semantic verbs + `remove` +
+/// `clear`, never `list`/`doctor`); (4) the actual operation. Every failure
+/// mode -- bad args, platform down, ERGO-10 validator refusal, unknown
+/// handle -- therefore goes through the identical non-disruptive pipe
+/// (ERGO-27: "all behavior identical... only the logged reason and strict
+/// exit code differ").
 /// </summary>
 public sealed class Dispatcher
 {
     private readonly TaskOperations _ops;
+    private readonly SemanticEngine _engine;
     private readonly Posture _posture;
     private readonly Output _output;
     private readonly IconService _icons;
@@ -51,9 +56,11 @@ public sealed class Dispatcher
     private readonly Func<IReadOnlyList<string>, IChildProcess> _spawnChild;
     private readonly Stream _stdoutMirror;
     private readonly Stream _stderrMirror;
+    private readonly TextReader _stdin;
 
     public Dispatcher(
         TaskOperations ops,
+        SemanticEngine engine,
         Posture posture,
         Output output,
         IconService icons,
@@ -67,9 +74,11 @@ public sealed class Dispatcher
         Action<TimeSpan> sleep,
         Func<IReadOnlyList<string>, IChildProcess> spawnChild,
         Stream stdoutMirror,
-        Stream stderrMirror)
+        Stream stderrMirror,
+        TextReader stdin)
     {
         _ops = ops;
+        _engine = engine;
         _posture = posture;
         _output = output;
         _icons = icons;
@@ -84,6 +93,7 @@ public sealed class Dispatcher
         _spawnChild = spawnChild;
         _stdoutMirror = stdoutMirror;
         _stderrMirror = stderrMirror;
+        _stdin = stdin;
     }
 
     /// <summary>Dispatches one lifecycle-verb invocation. Callers must have already handled <see cref="ParseResult.ShowHelp"/>/<see cref="ParseResult.ShowVersion"/>/a bare (no-verb) invocation -- those never reach here (Program.cs's job, needs no identity/platform/Posture at all).</summary>
@@ -97,12 +107,14 @@ public sealed class Dispatcher
 
         return parsed.Verb switch
         {
-            "start" => _posture.Run("start", FirstOrNull(parsed.Positionals), () => StartBody(parsed, now), now),
-            "step" => _posture.Run("step", FirstOrNull(parsed.Positionals), () => StepBody(parsed, now), now),
-            "state" => _posture.Run("state", FirstOrNull(parsed.Positionals), () => StateBody(parsed, now), now),
-            "attention" => _posture.Run("attention", FirstOrNull(parsed.Positionals), () => AttentionBody(parsed, now), now),
-            "done" => _posture.Run("done", FirstOrNull(parsed.Positionals), () => DoneBody(parsed, now), now),
-            "fail" => _posture.Run("fail", FirstOrNull(parsed.Positionals), () => FailBody(parsed, now), now),
+            "working" => _posture.Run("working", FirstOrNull(parsed.Positionals), () => WorkingBody(parsed, now), now),
+            "activity" => _posture.Run("activity", FirstOrNull(parsed.Positionals), () => ActivityBody(parsed, now), now),
+            "blocked" => _posture.Run("blocked", FirstOrNull(parsed.Positionals), () => BlockedBody(parsed, now), now),
+            "ready" => _posture.Run("ready", FirstOrNull(parsed.Positionals), () => ReadyBody(parsed, now), now),
+            "broken" => _posture.Run("broken", FirstOrNull(parsed.Positionals), () => BrokenBody(parsed, now), now),
+            "agent-started" => _posture.Run("agent-started", FirstOrNull(parsed.Positionals), () => AgentStartedBody(parsed, now), now),
+            "agent-stopped" => _posture.Run("agent-stopped", FirstOrNull(parsed.Positionals), () => AgentStoppedBody(parsed, now), now),
+            "session-ended" => _posture.Run("session-ended", FirstOrNull(parsed.Positionals), () => SessionEndedBody(parsed, now), now),
             "remove" => _posture.Run("remove", FirstOrNull(parsed.Positionals), () => RemoveBody(parsed, now), now),
             "list" => ListVerb.Run(_output, _posture, _hasIdentity, _isSupported, _ops, now),
             "clear" => ClearVerb.Run(_posture, _hasIdentity, _isSupported, _ensureWatchdog, _ops, parsed.IncludeRecycleBin, now),
@@ -113,16 +125,17 @@ public sealed class Dispatcher
         };
     }
 
-    // ---- start ------------------------------------------------------------------
+    // ---- working ------------------------------------------------------------------
 
-    private VerbResult StartBody(ParseResult p, DateTimeOffset now)
+    private VerbResult WorkingBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
 
-        string title = p.Flags.GetValueOrDefault("title", "");
-        string subtitle = p.Flags.GetValueOrDefault("subtitle", "");
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? goal = ResolveFreeText(p, "goal");
 
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
@@ -130,40 +143,164 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _ops.Start(handle, title, subtitle, iconUri, deepLink, now, reset: p.Reset, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.Working(handle, title, subtitle, iconUri, deepLink, goal, now, unsafeBypass: p.Global.Unsafe);
         return MapOutcome(outcome);
     }
 
-    // ---- step ---------------------------------------------------------------------
+    // ---- activity -------------------------------------------------------------------
 
-    private VerbResult StepBody(ParseResult p, DateTimeOffset now)
+    private VerbResult ActivityBody(ParseResult p, DateTimeOffset now)
     {
-        if (!TryGetHandleAndOne(p, "message", out string handle, out string message, out var err)) return err!.Value;
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveKind(p, out ActivityKind kind, out var kindErr)) return kindErr!.Value;
+
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? label = ResolveFreeText(p, "label");
+        string? agentId = p.Flags.GetValueOrDefault("agent");
+        string? name = p.Flags.GetValueOrDefault("name");
 
         var cap = Capability.Check(_hasIdentity, _isSupported);
         if (!cap.Ok) return cap;
 
         _ensureWatchdog();
 
-        return MapOutcome(_ops.Step(handle, message, now, unsafeBypass: p.Global.Unsafe));
+        Uri iconUri = _icons.Place(handle, token);
+        var outcome = _engine.Activity(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass: p.Global.Unsafe);
+        return MapOutcome(outcome);
     }
 
-    // ---- state (C7: running|paused only) ------------------------------------------
+    // ---- blocked --------------------------------------------------------------------
 
-    private VerbResult StateBody(ParseResult p, DateTimeOffset now)
+    private VerbResult BlockedBody(ParseResult p, DateTimeOffset now)
     {
-        if (!TryGetHandleAndOne(p, "state", out string handle, out string stateArg, out var err)) return err!.Value;
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
 
-        AppTaskState? state = stateArg.ToLowerInvariant() switch
-        {
-            "running" => AppTaskState.Running,
-            "paused" => AppTaskState.Paused,
-            _ => null,
-        };
-        if (state is null)
+        string? question = ResolveFreeText(p, "question");
+        if (string.IsNullOrWhiteSpace(question))
+            return VerbResult.Failure(FailureKind.InvalidArguments, "blocked requires a non-empty --question (platform-enforced: NeedsAttention requires SetQuestion).");
+
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? agentId = p.Flags.GetValueOrDefault("agent");
+
+        var cap = Capability.Check(_hasIdentity, _isSupported);
+        if (!cap.Ok) return cap;
+
+        _ensureWatchdog();
+
+        Uri iconUri = _icons.Place(handle, token);
+        var outcome = _engine.Blocked(handle, title, subtitle, iconUri, deepLink, question, agentId, now, unsafeBypass: p.Global.Unsafe);
+        return MapOutcome(outcome);
+    }
+
+    // ---- ready ----------------------------------------------------------------------
+
+    private VerbResult ReadyBody(ParseResult p, DateTimeOffset now)
+    {
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? summary = ResolveFreeText(p, "summary");
+
+        var cap = Capability.Check(_hasIdentity, _isSupported);
+        if (!cap.Ok) return cap;
+
+        _ensureWatchdog();
+
+        Uri iconUri = _icons.Place(handle, token);
+        var outcome = _engine.Ready(handle, title, subtitle, iconUri, deepLink, summary, now, unsafeBypass: p.Global.Unsafe);
+        return MapOutcome(outcome);
+    }
+
+    // ---- broken ---------------------------------------------------------------------
+
+    private VerbResult BrokenBody(ParseResult p, DateTimeOffset now)
+    {
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+
+        if (!p.Flags.TryGetValue("reason", out string? reasonRaw) || !BrokenReasons.TryParse(reasonRaw, out BrokenReasonToken reason))
         {
             return VerbResult.Failure(FailureKind.InvalidArguments,
-                $"state accepts only 'running' or 'paused' (got '{stateArg}'); use done/fail/attention for their own states.");
+                $"broken requires --reason from the closed vocabulary (rate-limit/overloaded/api-error/timeout/fatal); got '{reasonRaw}'.");
+        }
+
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? detail = ResolveFreeText(p, "detail");
+
+        var cap = Capability.Check(_hasIdentity, _isSupported);
+        if (!cap.Ok) return cap;
+
+        _ensureWatchdog();
+
+        Uri iconUri = _icons.Place(handle, token);
+        var outcome = _engine.Broken(handle, title, subtitle, iconUri, deepLink, reason, detail, now, unsafeBypass: p.Global.Unsafe);
+        return MapOutcome(outcome);
+    }
+
+    // ---- agent-started / agent-stopped -----------------------------------------------
+
+    private VerbResult AgentStartedBody(ParseResult p, DateTimeOffset now)
+    {
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? agentId = p.Flags.GetValueOrDefault("agent");
+        string? name = p.Flags.GetValueOrDefault("name");
+
+        var cap = Capability.Check(_hasIdentity, _isSupported);
+        if (!cap.Ok) return cap;
+
+        _ensureWatchdog();
+
+        Uri iconUri = _icons.Place(handle, token);
+        var outcome = _engine.AgentStarted(handle, title, subtitle, iconUri, deepLink, agentId, name, now, unsafeBypass: p.Global.Unsafe);
+        return MapOutcome(outcome);
+    }
+
+    private VerbResult AgentStoppedBody(ParseResult p, DateTimeOffset now)
+    {
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+
+        string? title = p.Flags.GetValueOrDefault("title");
+        string? subtitle = p.Flags.GetValueOrDefault("subtitle");
+        string? agentId = p.Flags.GetValueOrDefault("agent");
+
+        var cap = Capability.Check(_hasIdentity, _isSupported);
+        if (!cap.Ok) return cap;
+
+        _ensureWatchdog();
+
+        Uri iconUri = _icons.Place(handle, token);
+        var outcome = _engine.AgentStopped(handle, title, subtitle, iconUri, deepLink, agentId, now, unsafeBypass: p.Global.Unsafe);
+        return MapOutcome(outcome);
+    }
+
+    // ---- session-ended (no identity flags, no upsert -- ERGO-31 §1 intro) -----------
+
+    private VerbResult SessionEndedBody(ParseResult p, DateTimeOffset now)
+    {
+        if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
+
+        if (!p.Flags.TryGetValue("reason", out string? reasonRaw) || !SessionEndedReasons.TryParse(reasonRaw, out SessionEndedReasonToken reason))
+        {
+            return VerbResult.Failure(FailureKind.InvalidArguments,
+                $"session-ended requires --reason from the closed vocabulary (finished/error); got '{reasonRaw}'.");
         }
 
         var cap = Capability.Check(_hasIdentity, _isSupported);
@@ -171,42 +308,7 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        return MapOutcome(_ops.SetState(handle, state.Value, now, unsafeBypass: p.Global.Unsafe));
-    }
-
-    // ---- attention --------------------------------------------------------------------
-
-    private VerbResult AttentionBody(ParseResult p, DateTimeOffset now)
-    {
-        if (!TryGetHandleAndOne(p, "question", out string handle, out string question, out var err)) return err!.Value;
-        if (string.IsNullOrWhiteSpace(question))
-            return VerbResult.Failure(FailureKind.InvalidArguments, "attention requires a non-empty <question>.");
-
-        var cap = Capability.Check(_hasIdentity, _isSupported);
-        if (!cap.Ok) return cap;
-
-        _ensureWatchdog();
-
-        return MapOutcome(_ops.Attention(handle, question, now, unsafeBypass: p.Global.Unsafe));
-    }
-
-    // ---- done / fail --------------------------------------------------------------------
-
-    private VerbResult DoneBody(ParseResult p, DateTimeOffset now) => FinishBody(p, now, _ops.Done);
-
-    private VerbResult FailBody(ParseResult p, DateTimeOffset now) => FinishBody(p, now, _ops.Fail);
-
-    private VerbResult FinishBody(ParseResult p, DateTimeOffset now, Func<string, DateTimeOffset, string?, bool, OperationOutcome> finish)
-    {
-        if (!TryGetSingleHandle(p, out string handle, out var err)) return err!.Value;
-        string? summary = p.Flags.TryGetValue("summary", out string? raw) ? raw : null;
-
-        var cap = Capability.Check(_hasIdentity, _isSupported);
-        if (!cap.Ok) return cap;
-
-        _ensureWatchdog();
-
-        return MapOutcome(finish(handle, now, summary, p.Global.Unsafe));
+        return MapOutcome(_engine.SessionEnded(handle, reason, now));
     }
 
     // ---- remove -----------------------------------------------------------------------
@@ -223,10 +325,10 @@ public sealed class Dispatcher
         return MapOutcome(_ops.Remove(handle, now));
     }
 
-    // ---- run (phase 11) ---------------------------------------------------------
+    // ---- run (phase 11; re-seated onto the v2 engine, phase 15) -----------------
 
     private RunDeps BuildRunDeps() => new(
-        _ops, _icons, _posture, _hasIdentity, _isSupported, _ensureWatchdog, _defaultDeepLink,
+        _ops, _engine, _icons, _posture, _hasIdentity, _isSupported, _ensureWatchdog, _defaultDeepLink,
         _settings, _clock, _sleep, _spawnChild, _stdoutMirror, _stderrMirror);
 
     // ---- shared argument-shape validation -----------------------------------------------
@@ -244,19 +346,35 @@ public sealed class Dispatcher
         return true;
     }
 
-    private static bool TryGetHandleAndOne(ParseResult p, string secondName, out string handle, out string second, out VerbResult? error)
+    private static bool TryResolveKind(ParseResult p, out ActivityKind kind, out VerbResult? error)
     {
-        if (p.Positionals.Count != 2 || string.IsNullOrEmpty(p.Positionals[0]))
+        if (!p.Flags.TryGetValue("kind", out string? raw) || !ActivityKinds.TryParse(raw, out kind))
         {
-            handle = "";
-            second = "";
-            error = VerbResult.Failure(FailureKind.InvalidArguments, $"{p.Verb} requires a <handle> and a <{secondName}>.");
+            kind = default;
+            error = VerbResult.Failure(FailureKind.InvalidArguments,
+                $"activity requires --kind from the closed vocabulary (read/edit/write/search/shell/fetch/web-search/plan/compacting/tool); got '{raw}'.");
             return false;
         }
-        handle = p.Positionals[0];
-        second = p.Positionals[1];
+
         error = null;
         return true;
+    }
+
+    /// <summary>
+    /// ERGO-31's free-text convention: a flag's value of literally <c>"-"</c>
+    /// means "read this field from stdin" (UTF-8, to EOF, TRAILING whitespace
+    /// trimmed -- LIFE-24 S2-walk item 1). Any OTHER value is used verbatim
+    /// as the literal text -- a pragmatic superset of the documented
+    /// mechanism: short/simple text is just as valid typed directly on argv
+    /// (handy for manual invocation/scripting), and nothing about accepting
+    /// it compromises the stdin path's own guarantees. Absent flag -&gt;
+    /// <see langword="null"/> (no claim, per the idempotency rule -- an
+    /// absent optional field is never conflated with an explicit empty one).
+    /// </summary>
+    private string? ResolveFreeText(ParseResult p, string flagName)
+    {
+        if (!p.Flags.TryGetValue(flagName, out string? raw)) return null;
+        return raw == "-" ? _stdin.ReadToEnd().TrimEnd() : raw;
     }
 
     private bool TryResolveDeepLink(ParseResult p, out Uri deepLink, out VerbResult? error)

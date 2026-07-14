@@ -67,11 +67,29 @@ public sealed class SidecarStore
     /// filesystem operation, so <see cref="Read"/> never observes a
     /// partially-written file. <paramref name="now"/> is stamped as
     /// <see cref="SidecarEntry.LastUpdate"/> unconditionally, on every call.
+    ///
+    /// PRESERVES whatever <see cref="EngineMemory"/> already existed for this
+    /// handle (a fresh read-before-write) -- every phase-05-era caller of
+    /// this overload (<c>ReplaceSteps</c>/<c>TouchKeepAlive</c>/the recycle-bin
+    /// resurrection paths) only ever meant to touch the identity/liveness
+    /// stamp, never the v2 engine's own memory; <see cref="WriteWithMemory"/>
+    /// is the explicit overload for a caller that DOES mean to set it.
     /// </summary>
     public void Write(string handle, string id, DateTimeOffset now, int schemaVersion = SidecarEntry.CurrentSchemaVersion)
+        => WriteEntry(handle, new SidecarEntry(id, now, schemaVersion, Read(handle)?.EngineMemory));
+
+    /// <summary>
+    /// Same atomic create-or-replace as <see cref="Write"/>, but sets
+    /// <see cref="SidecarEntry.EngineMemory"/> to <paramref name="memory"/>
+    /// explicitly rather than preserving whatever was already there -- the
+    /// v2 <c>Atv.Semantics.SemanticEngine</c>'s own write path.
+    /// </summary>
+    public void WriteWithMemory(string handle, string id, DateTimeOffset now, EngineMemory memory, int schemaVersion = SidecarEntry.CurrentSchemaVersion)
+        => WriteEntry(handle, new SidecarEntry(id, now, schemaVersion, memory));
+
+    private void WriteEntry(string handle, SidecarEntry entry)
     {
         Directory.CreateDirectory(_directory);
-        var entry = new SidecarEntry(id, now, schemaVersion);
         string finalPath = PathFor(handle);
         string tempPath = Path.Combine(_directory, $".tmp-{Guid.NewGuid():N}{FileExtension}");
 

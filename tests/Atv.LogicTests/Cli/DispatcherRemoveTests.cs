@@ -11,7 +11,7 @@ public sealed class DispatcherRemoveTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         var view = h.Store.FindAll().Single();
         string iconPath = view.IconUri.LocalPath;
         Assert.IsTrue(File.Exists(iconPath));
@@ -29,8 +29,8 @@ public sealed class DispatcherRemoveTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.Run(dispatcher, "start", "h1");
-        h.Run(dispatcher, "start", "h2");
+        h.Run(dispatcher, "working", "h1");
+        h.Run(dispatcher, "working", "h2");
         var h1Id = h.Sidecar.Read("h1")!.Id;
         h.Store.SetHiddenByUser(h1Id, true);
 
@@ -77,7 +77,7 @@ public sealed class DispatcherRemoveTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher(json: true);
-        h.Run(dispatcher, "start", "h1");
+        h.Run(dispatcher, "working", "h1");
         h.Stdout.GetStringBuilder().Clear();
 
         h.Run(dispatcher, "remove", "h1");
