@@ -1,6 +1,7 @@
 using Atv.Config;
 using Atv.Icons;
 using Atv.Persistence;
+using Atv.Presence;
 using Atv.Store;
 
 namespace Atv.Watchdog;
@@ -14,6 +15,16 @@ namespace Atv.Watchdog;
 /// <see cref="Reconciler"/>), exactly like every other consumer -- there is
 /// NO production raw <c>tasks.json</c> reader (ratified 2026-07-07).
 /// </summary>
+/// <summary>
+/// <see cref="Presence"/> (phase 15B, LIFE-24 §6) is the presence gate for
+/// the Ready-&gt;Idle decay pass (<see cref="WatchdogLoop.RunTick"/>'s SEPARATE
+/// decay step, never folded into the pre-existing hygiene-reap pass above) --
+/// <see langword="null"/> in any context that never wires one (e.g. the
+/// LIFE-20 boot-recovery flat clear, which has no need for it): decay simply
+/// never advances in that case, and the unrelated hygiene reap is entirely
+/// unaffected either way (the two clocks are independent by construction, not
+/// just by convention).
+/// </summary>
 public sealed record WatchdogDeps(
     IAppTaskStore Store,
     SidecarStore Sidecar,
@@ -22,7 +33,8 @@ public sealed record WatchdogDeps(
     IconService? Icons,
     Action<string> Log,
     Func<DateTimeOffset> Clock,
-    Settings Settings);
+    Settings Settings,
+    IPresenceSource? Presence = null);
 
 /// <summary>
 /// One tick's outcome (breadcrumb counters for the FAIL-3 log / tests).
@@ -36,7 +48,8 @@ public sealed record TickResult(
     int ExpiredCount,
     int HiddenSweptCount,
     int EntrylessReapedCount,
-    int RecycleScavengedCount);
+    int RecycleScavengedCount,
+    int ReadyDecayedCount = 0);
 
 /// <summary>
 /// Everything <see cref="WatchdogLoop.Run"/> needs to actually run the loop,
@@ -130,8 +143,17 @@ public static class WatchdogLoop
                 deps.Icons.ReapRecycledIcon(handle);
         }
 
+        // SEPARATE pass (LIFE-24 §6): the presence-gated Ready->Idle UX decay
+        // clock, deliberately never folded into ExpireIdle above -- that pass
+        // is the UNRELATED wall-clock hygiene reap (LIFE-22), which must keep
+        // firing regardless of presence. Runs against summary.Kept (the same
+        // surviving-entries list ExpireIdle used) with its own fresh re-read
+        // per handle, so an entry ExpireIdle just expired this same tick is
+        // silently skipped here (already gone) rather than double-handled.
+        int decayed = ReadyDecay.RunPass(deps, summary.Kept, now);
+
         int supervisedCount = deps.Store.FindAll().Count;
-        return new TickResult(supervisedCount, expired, summary.SweptHidden.Count, entrylessReaped, scavenge.Removed.Count);
+        return new TickResult(supervisedCount, expired, summary.SweptHidden.Count, entrylessReaped, scavenge.Removed.Count, decayed);
     }
 
     /// <summary>LIFE-22's per-state idle expiry, LIFE-21's "what expiry does": re-read <see cref="SidecarStore.Read"/> fresh per surviving handle, compare wall-clock <c>now</c> vs the FRESH <c>lastUpdate</c>, and on expiry remove the card, tombstone a recycle record read off the live API card, and move its icon into the recycle folder.</summary>

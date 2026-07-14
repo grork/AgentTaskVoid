@@ -181,7 +181,7 @@ public sealed class SemanticVerbsEndToEndTests
     }
 
     [TestMethod]
-    public void AgentStartedAndStopped_RealCard_BookkeepingOnly_NoStateChange_15AScopeNoFanOut()
+    public void AgentStartedAndStopped_RealCard_SoloLocus_BookkeepingOnly_NoStateChange_NoCard()
     {
         var now = DateTimeOffset.Now;
         _engine.Working("e2e-agent", "T", "S", IconUri, DeepLink, "goal", now);
@@ -191,7 +191,53 @@ public sealed class SemanticVerbsEndToEndTests
 
         Assert.AreEqual(OutcomeKind.Accepted, started.Kind);
         Assert.AreEqual(OutcomeKind.Accepted, stopped.Kind);
-        Assert.AreEqual(AppTaskState.Running, _store.Find(started.View!.Id)!.State, "15A: no child card, no state transition -- pure locus bookkeeping.");
+        Assert.AreEqual(AppTaskState.Running, _store.Find(started.View!.Id)!.State, "a solo (never-concurrent) locus is pure bookkeeping -- no child card, no state transition.");
+    }
+
+    [TestMethod]
+    public void AgentStarted_SecondConcurrent_MintsRealChildCards_ByteIdenticalIcon_ThenCascadesOnRemove()
+    {
+        // AC6/AC9's real-API fan-out slice: an actual 2nd-concurrent agent-started
+        // mints TWO real WinRT cards (retroactive 1st + the 2nd), reusing the
+        // parent's own IconUri byte-for-byte, and `remove` on the parent actually
+        // makes both real child cards disappear from the live platform.
+        var now = DateTimeOffset.Now;
+        var parent = _engine.Working("e2e-fanout", "Session", "S", IconUri, DeepLink, "goal", now);
+        int countBeforeFanOut = _store.FindAll().Count;
+
+        var first = _engine.AgentStarted("e2e-fanout", "Session", "S", IconUri, DeepLink, agentId: "worker-a", name: "Worker A", now);
+        Assert.HasCount(countBeforeFanOut, _store.FindAll(), "the 1st worker alone must not yet mint a real card.");
+
+        var second = _engine.AgentStarted("e2e-fanout", "Session", "S", IconUri, DeepLink, agentId: "worker-b", name: "Worker B", now);
+
+        Assert.AreEqual(OutcomeKind.Accepted, first.Kind);
+        Assert.AreEqual(OutcomeKind.Accepted, second.Kind);
+
+        var childEntryA = _sidecar.Read("e2e-fanout#worker-a");
+        var childEntryB = _sidecar.Read("e2e-fanout#worker-b");
+        Assert.IsNotNull(childEntryA, "the retroactively-carded 1st worker must have a real sidecar entry.");
+        Assert.IsNotNull(childEntryB, "the 2nd worker must have a real sidecar entry.");
+
+        var childViewA = _store.Find(childEntryA!.Id);
+        var childViewB = _store.Find(childEntryB!.Id);
+        Assert.IsNotNull(childViewA, "worker-a's card must be a REAL, live WinRT task.");
+        Assert.IsNotNull(childViewB, "worker-b's card must be a REAL, live WinRT task.");
+        Assert.AreEqual(IconUri, childViewA!.IconUri, "the child must reuse the parent's exact IconUri byte-for-byte -- never IconService.Place.");
+        Assert.AreEqual(IconUri, childViewB!.IconUri);
+        Assert.AreEqual(AppTaskState.Running, childViewA.State);
+        Assert.AreEqual(AppTaskState.Running, childViewB.State);
+        Assert.AreEqual("Worker A", childViewA.Title);
+        Assert.AreEqual("Worker B", childViewB.Title);
+
+        // Cascade: removing the parent must ALSO remove both real children.
+        var removeOutcome = _ops.Remove("e2e-fanout", now);
+
+        Assert.AreEqual(OutcomeKind.Removed, removeOutcome.Kind);
+        Assert.IsNull(_store.Find(parent.View!.Id), "the parent card must be gone.");
+        Assert.IsNull(_store.Find(childEntryA.Id), "the cascade must ALSO remove worker-a's real card.");
+        Assert.IsNull(_store.Find(childEntryB.Id), "the cascade must ALSO remove worker-b's real card.");
+        Assert.IsNull(_sidecar.Read("e2e-fanout#worker-a"));
+        Assert.IsNull(_sidecar.Read("e2e-fanout#worker-b"));
     }
 
     [TestMethod]

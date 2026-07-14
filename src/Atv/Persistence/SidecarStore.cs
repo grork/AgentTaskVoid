@@ -127,6 +127,10 @@ public sealed class SidecarStore
         }
     }
 
+    /// <summary>ERGO-31 §5's fan-out cascade support: every currently-on-disk entry whose <see cref="EngineMemory.ParentHandle"/> matches <paramref name="parentHandle"/> -- a minted child's entries are otherwise ordinary sidecar entries, distinguished only by this field. A full <see cref="ReadAll"/> scan: cascade is a remove/session-ended-time concern, not a hot path, matching <see cref="Reconciler.ReconcileAll"/>'s own full-pass precedent.</summary>
+    public IReadOnlyList<(string Handle, SidecarEntry Entry)> ReadChildrenOf(string parentHandle)
+        => [.. ReadAll().Where(e => e.Entry.EngineMemory?.ParentHandle == parentHandle)];
+
     /// <summary>Drops the entry for <paramref name="handle"/> (reconciliation rules 2/3). Returns <see langword="false"/> if there was nothing to drop.</summary>
     public bool Delete(string handle)
     {

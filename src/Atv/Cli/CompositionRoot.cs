@@ -4,6 +4,7 @@ using Atv.Diagnostics;
 using Atv.Icons;
 using Atv.Operations;
 using Atv.Persistence;
+using Atv.Presence;
 using Atv.Run;
 using Atv.Semantics;
 using Atv.Store;
@@ -118,7 +119,8 @@ public static class CompositionRoot
             b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Icons,
             msg => b.Log.Append("watchdog", null, msg, DateTimeOffset.Now),
             () => DateTimeOffset.Now,
-            b.Settings);
+            b.Settings,
+            Presence: new Win32PresenceSource());
         return (deps, b.Paths);
     }
 

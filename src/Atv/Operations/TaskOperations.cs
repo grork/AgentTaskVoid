@@ -118,11 +118,47 @@ public sealed class TaskOperations
             return new OperationOutcome(OutcomeKind.UnknownHandleNoOp, handle, reason);
         }
 
+        // ERGO-31 §5's cascade -- BEFORE removing the parent itself, so a
+        // mid-cascade failure never leaves the parent gone with orphaned
+        // children still live. A no-op for a handle with no children (including
+        // when `handle` is ITSELF a child -- children have no children of their
+        // own, so `remove <child-handle>` targets exactly that one card, per AC6).
+        // Known non-blocking gap (15B review): a direct `remove <child-handle>`
+        // bypasses SemanticEngine.ClaimAgentStopped entirely, so the PARENT's
+        // EngineMemory.CardedAgentLoci/ActiveAgentLoci never learns the locus is
+        // gone -- narrow, out-of-band-only desync (the card itself is still
+        // correctly gone); not fixed here.
+        CascadeRemoveChildren(handle);
+
         _store.Remove(entry.Id);
         _sidecar.Delete(handle);
         _icons?.ReapLiveIcon(handle);
         Log($"{handle}: removed (id {entry.Id}).");
         return new OperationOutcome(OutcomeKind.Removed, handle, "Removed.");
+    }
+
+    /// <summary>
+    /// ERGO-31 §5's cascade: removes every still-live CHILD card minted under
+    /// <paramref name="parentHandle"/> (handle <c>&lt;parent&gt;#&lt;agentId&gt;</c>,
+    /// identified purely via <see cref="EngineMemory.ParentHandle"/> --
+    /// <see cref="SidecarStore.ReadChildrenOf"/>). Shared by <see cref="Remove"/>
+    /// above and, via composition, <c>Atv.Semantics.SemanticEngine</c>'s
+    /// <c>session-ended --reason error</c> path (which also cascades -- a
+    /// session that's over takes its fanned-out workers with it either way).
+    /// Callers MUST already be running inside their own <see cref="WriteGate"/>
+    /// critical section; this does not acquire one of its own (same contract
+    /// as <see cref="ReapDroppedIcons"/> and every other private write helper
+    /// in this file).
+    /// </summary>
+    public void CascadeRemoveChildren(string parentHandle)
+    {
+        foreach (var (childHandle, childEntry) in _sidecar.ReadChildrenOf(parentHandle))
+        {
+            _store.Remove(childEntry.Id);
+            _sidecar.Delete(childHandle);
+            _icons?.ReapLiveIcon(childHandle);
+            Log($"{parentHandle}: cascaded removal to child '{childHandle}' (id {childEntry.Id}).");
+        }
     }
 
     /// <summary>

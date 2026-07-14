@@ -41,12 +41,13 @@ public static class SettingsLoader
         public const string RunUpdateDebounce = "run-update-debounce";
         public const string RunStepMaxLength = "run-step-max-length";
         public const string RunKeepAliveInterval = "run-keepalive-interval";
+        public const string ReadyDecayThreshold = "ready-decay-threshold";
 
         public static readonly IReadOnlyList<string> All =
         [
             WatchdogMode, IdleRunning, IdlePaused, IdleNeedsAttention, IdleCompleted,
             RecycleBinTtl, MutexWaitBudget, WatchdogPollInterval, LogMaxBytes, LogMaxAge,
-            RunUpdateDebounce, RunStepMaxLength, RunKeepAliveInterval,
+            RunUpdateDebounce, RunStepMaxLength, RunKeepAliveInterval, ReadyDecayThreshold,
         ];
     }
 
@@ -97,7 +98,8 @@ public static class SettingsLoader
             LogMaxAge: Resolve(Keys.LogMaxAge, d.LogMaxAge, ParseTimeSpan, flags, envByKey, fileByKey, warnings),
             RunUpdateDebounce: Resolve(Keys.RunUpdateDebounce, d.RunUpdateDebounce, ParseTimeSpan, flags, envByKey, fileByKey, warnings),
             RunStepMaxLength: Resolve(Keys.RunStepMaxLength, d.RunStepMaxLength, ParseInt, flags, envByKey, fileByKey, warnings),
-            RunKeepAliveInterval: Resolve(Keys.RunKeepAliveInterval, d.RunKeepAliveInterval, ParseTimeSpan, flags, envByKey, fileByKey, warnings));
+            RunKeepAliveInterval: Resolve(Keys.RunKeepAliveInterval, d.RunKeepAliveInterval, ParseTimeSpan, flags, envByKey, fileByKey, warnings),
+            ReadyDecayThreshold: Resolve(Keys.ReadyDecayThreshold, d.ReadyDecayThreshold, ParseTimeSpan, flags, envByKey, fileByKey, warnings));
 
         return new SettingsLoadResult(settings, warnings);
     }

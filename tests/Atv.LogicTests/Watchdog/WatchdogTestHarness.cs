@@ -46,7 +46,11 @@ internal sealed class WatchdogTestHarness : IDisposable
         IdleCompleted = TimeSpan.FromMinutes(10),
         RecycleBinTtl = TimeSpan.FromDays(1),
         WatchdogPollInterval = TimeSpan.FromMilliseconds(1),
+        ReadyDecayThreshold = TimeSpan.FromMinutes(20),
     };
+
+    /// <summary>Phase 15B's presence gate (LIFE-24 §6) -- a fake by default (present) so existing hygiene-only tests are unaffected; a decay test overrides <see cref="FakePresenceSource.Present"/> directly.</summary>
+    public FakePresenceSource Presence { get; } = new();
 
     public WatchdogTestHarness()
     {
@@ -59,8 +63,8 @@ internal sealed class WatchdogTestHarness : IDisposable
     /// <summary>A second <see cref="WriteGate"/> over the SAME underlying mutex -- for single-instance/gate-contention tests.</summary>
     public WriteGate NewGateOnSameMutex() => new(_mutex, log: Logs.Add);
 
-    public WatchdogDeps Deps(bool withIcons = true, WriteGate? gate = null)
-        => new(Store, Sidecar, RecycleBin, gate ?? Gate, withIcons ? Icons : null, Logs.Add, () => ClockValue, Settings);
+    public WatchdogDeps Deps(bool withIcons = true, WriteGate? gate = null, bool withPresence = true)
+        => new(Store, Sidecar, RecycleBin, gate ?? Gate, withIcons ? Icons : null, Logs.Add, () => ClockValue, Settings, withPresence ? Presence : null);
 
     public void Dispose()
     {

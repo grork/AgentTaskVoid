@@ -13,16 +13,12 @@ bottom once, then use it as reference. The per-host translator artifacts
 names — only what `atv` itself accepts and guarantees.
 
 **Status note (2026-07-13):** this document describes the ERGO-31/LIFE-24
-v2 semantic engine as built in plan phase 15, split into two parts. **Phase
-15A** (this build) ships the full verb surface, the five-state model, claim
-semantics, projection legality, and the stdin/normalizer contract described
-below — all of it is load-bearing and stable. **Phase 15B** (not yet built)
-adds two things flagged explicitly wherever they appear: the Ready→Idle
-presence-gated decay clock (§6), and multi-card fan-out addressing (§5). Until
-15B ships, `agent-started`/`agent-stopped` are accepted and do bookkeeping
-only — no child card is minted — and a card that reaches Ready simply stays
-Ready (no automatic demotion to Idle). Everything else in this document is
-final.
+v2 semantic engine as built in plan phase 15 (split into 15A and 15B for the
+build itself — that split is not part of the contract). The full verb
+surface, the five-state model, claim semantics, projection legality, the
+stdin/normalizer contract, the Ready→Idle presence-gated decay clock (§6),
+and multi-card fan-out addressing (§5) are ALL load-bearing and stable as of
+this build.
 
 ---
 
@@ -69,7 +65,7 @@ the same values is idempotent and cheap.
 | `blocked <h>` | `--question -` (required) | `--agent <id>` | **Blocked** | Platform-enforced: `NeedsAttention` requires a question. |
 | `ready <h>` | `--summary -` | — | **Ready** | Bare preserves the current step content; `--summary` swaps to a final summary. Clears every pending Blocked locus (turn-end). |
 | `broken <h>` | `--detail -` | `--reason <token>` (required) | **Broken** | Always renders as a final summary of the reason word (+ optional detail). Clears every pending Blocked locus (turn-end). |
-| `agent-started <h>` | — | `--agent <id>`, `--name <n>` | *(no transition)* | Registers a child locus. 15A: bookkeeping only, no child card yet (§5). |
+| `agent-started <h>` | — | `--agent <id>`, `--name <n>` | *(no transition)* | Registers a child locus; mints a real child card at the 2nd concurrent registration (§5). |
 | `agent-stopped <h>` | — | `--agent <id>` | *(no transition, unless it clears a pending block)* | Retires a child locus (fan-in). If that locus was blocking, the card re-projects (§5.1). |
 | `session-ended <h>` | — | `--reason <token>` (required) | `finished` → card removed · `error` → **Broken** | The one verb with **no** identity flags and **no** upsert — it only acts on an already-live handle. |
 
@@ -148,31 +144,65 @@ no free-text detail:
 Both vocabularies are closed by design. Map your host's own richer error
 taxonomy onto the nearest of these five/two tokens in your translator.
 
-## 5. Fan-out addressing — 15B, not yet built
+## 5. Fan-out addressing
 
-**This section describes the target design; it is not implemented by 15A.**
-`agent-started <h> --agent <id> --name <n>` and `agent-stopped <h> --agent
-<id>` exist today and are safe to call — they register/retire bookkeeping —
-but no child card is minted yet, no `<session>#<agent_id>` handle exists, and
-`remove`/`session-ended` do not cascade to anything (there is nothing to
-cascade to).
+`agent-started <h> --agent <id> [--name <n>]` registers a child locus.
+Registering alone does nothing visible — the engine mints a REAL child card
+only at the **2nd concurrent** `agent-started` for a session (retroactively
+carding the 1st worker too, in the SAME call that crosses the threshold —
+fan-out is only recognizable once a second worker appears, so there is
+nothing to card before then). A 3rd, 4th, … concurrent worker each mint their
+own card the moment they register, once fan-out is already established for
+that session.
 
-The target design once 15B ships: the engine mints a child card at the
-**2nd concurrent** `agent-started` for a session (retroactively carding the
-1st worker too — fan-out is only recognizable once a second worker appears).
-The child handle is `<session-handle>#<agent_id>`, addressable by `list`/
-`remove` like any other handle. A child card is scaffolding only — Working/
-Completed, never Blocked (a question always belongs to the session card,
-which has the one input point). Children retire at fan-in
-(`agent-stopped`); `remove <parent>` and `session-ended <parent>` cascade to
-every still-live child.
+The child handle is exactly `<session-handle>#<agent_id>` — deterministic, so
+a translator (or a human) can always compute it without asking `atv`
+anything. It is addressable by `list`/`remove` and every other semantic verb
+like any other handle: once minted, a subagent's own further activity should
+target the CHILD handle directly (e.g. `atv activity <session>#<agent_id>
+--kind read --label file.ts`), not the parent.
+
+A child card is scaffolding: it starts Working (a bare step baseline) and can
+reach Ready via its own `ready` call — and that is the ENTIRE reachable
+range. "Working/Completed only" is exhaustive, not merely "never Blocked":
+**`blocked`, `broken`, and `session-ended --reason error` are all refused
+against a child handle**, because each would land the child in a third state
+(NeedsAttention, Error) beyond the two sanctioned ones (`--strict`'s
+`InvalidArguments` code, non-strict just a logged no-op, always a true
+no-op — the child's card is left exactly as it was). Route a subagent's own
+permission/question prompt, failure, or session-error to the PARENT handle
+instead — e.g. `blocked <session> --agent <id> --question -`, which uses the
+same-locus attribution machinery in §5.1 rather than the child handle at all;
+`broken <session> --reason ...` for a subagent-caused failure; `session-ended
+<session> --reason error` to end the whole session (which itself cascades to
+every live child, below). `session-ended <child> --reason finished` (i.e.
+plain removal) is UNAFFECTED by this refusal — removing a child outright
+never leaves it in a new state, so it behaves exactly like `remove
+<child-handle>`.
+
+**Retirement:** a child retires (its card is removed) at its OWN
+`agent-stopped <h> --agent <id>` — never merely because concurrency later
+drops back below 2. **Cascade:** `remove <parent-handle>` and
+`session-ended <parent-handle>` (either `--reason`) both remove every
+still-live child along with the parent — a session that's over takes its
+fanned-out workers with it. `remove <child-handle>` targets exactly that one
+child; it does not affect the parent or any sibling.
 
 A **name-only** host (an `agent-started` that carries `--name` but no
-`--agent` — i.e. the host can't tell concurrent same-name workers apart) mints
-no child card even after 15B ships: the subagent instead surfaces as a line
-on the parent card's own activity stream.
+`--agent` — i.e. the host can't tell concurrent same-name workers apart)
+mints no child card at all, ever: there is no locus id to address a card by,
+so the subagent instead surfaces as a line on the parent card's own activity
+stream (a separate `activity <session> --kind tool --name <n> --label ...`
+call is the translator's job — `agent-started` alone never renders anything).
 
-### 5.1 Blocked and same-locus clearing (built now, in 15A)
+**The child's icon is the parent's own resolved `--icon` value for that same
+call, reused byte-for-byte** — never re-rendered or re-placed on a per-child
+path. This is deliberate: Agentaskvoid's taskbar grouping is keyed on the
+exact icon URI string (empirically verified, ERGO-13), so every card sharing
+one icon URI groups into one taskbar cluster. A child minted with its own,
+different icon path would silently secede from the parent's group.
+
+### 5.1 Blocked and same-locus clearing
 
 `blocked --agent <id>` records which **locus** raised the question: a
 specific agent id, or the parent/main-thread locus if `--agent` is absent.
@@ -198,24 +228,34 @@ land on the same parent locus by construction, so "any activity clears the
 block" falls out of the same-locus rule automatically. No special case is
 needed on the host side.
 
-## 6. Clocks — 15B, not yet built
+## 6. Clocks
 
-**This section describes the target design; it is not implemented by 15A.**
-Today, a card that reaches Ready simply stays Ready until some other verb
-moves it. Once 15B ships:
-
-- **Only Ready decays**, and only while the user *had a chance* to act
-  (device unlocked AND recent input) — a courtesy demotion to Idle
-  (`Paused`), never an inbox-zero sweep.
+- **Only Ready decays**, and only while the user *had a chance* to act —
+  device unlocked AND recent input, sampled by `atv`'s own background
+  watchdog process, never something a translator measures or reports itself.
+  A card that decays lands in Idle (`Paused`) — a courtesy demotion to
+  reduce visual noise, never an inbox-zero deletion; the card is still there,
+  still addressable, still `list`-able.
 - Blocked and Broken never decay — surviving the user's absence is their
   whole purpose.
-- A transition **INTO** Ready starts the clock; re-asserting Ready while
-  already Ready never restarts it.
+- A transition **INTO** Ready starts the clock fresh; re-asserting Ready
+  while already Ready (e.g. a duplicate `ready` call) never restarts it —
+  the same idempotency rule §2 already describes, extended to the clock.
+  Leaving Ready for any other state (another `working`/`activity`/`blocked`/
+  `broken` claim) clears the clock; a later return to Ready starts a brand
+  new one.
+- The exact decay threshold and "recent input" window are `atv`-internal
+  tuning, not part of this contract — a translator never configures, queries,
+  or needs to reason about either.
 - This UX decay clock is entirely separate from `atv`'s own hygiene reap
   (an orphaned card whose owning process died without a `session-ended`
-  event, cleaned up on wall-clock staleness by the watchdog) — the two are
-  never conflated, and a translator does not need to know the hygiene reap
-  exists at all.
+  event, cleaned up on wall-clock staleness by the watchdog) — the two run
+  as independent passes and are never conflated. In practice the hygiene
+  reap is the more aggressive of the two for a truly abandoned card (no
+  further writes of ANY kind, ever), while the decay clock is the one that
+  fires for a card the user is actively near but simply hasn't looked at —
+  a translator does not need to know the hygiene reap exists at all, or
+  reason about which of the two will act first on any given card.
 
 ## 7. Free text: the `-` stdin convention
 
@@ -294,5 +334,6 @@ that.
 
 `list`, `run`, `clear`, `doctor`, `remove`, and the hidden `watchdog` mode
 are untouched by this document — see `atv --help` and `docs/configuration.md`.
-`remove <handle>` still exists for manual removal and (once 15B ships) fan-out
-child-card addressing/cascade.
+`remove <handle>` still exists for manual removal, and works identically
+against a parent handle (cascading to every live child, §5) or a child
+handle (targeting exactly that one card).

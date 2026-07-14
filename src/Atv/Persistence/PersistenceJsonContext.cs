@@ -14,6 +14,8 @@ namespace Atv.Persistence;
 [JsonSerializable(typeof(RecycleRecord))]
 [JsonSerializable(typeof(EngineMemory))]
 [JsonSerializable(typeof(BlockedLocus))]
+[JsonSerializable(typeof(ReadyDecayState))]
+[JsonSerializable(typeof(AgentNameHint))]
 internal partial class PersistenceJsonContext : JsonSerializerContext
 {
 }

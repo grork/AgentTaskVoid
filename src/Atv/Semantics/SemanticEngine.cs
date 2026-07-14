@@ -83,12 +83,27 @@ public sealed class SemanticEngine
     /// What a <c>Claim*</c> method returns: <see cref="Content"/>/<see cref="State"/>
     /// are BOTH <see langword="null"/> together, meaning "no card content/state
     /// change" (pure engine-memory bookkeeping -- <see cref="AgentStarted"/>'s
-    /// only shape, and <see cref="AgentStopped"/>'s shape when the stopped
+    /// usual shape, and <see cref="AgentStopped"/>'s shape when the stopped
     /// locus wasn't blocking anything), or BOTH non-null together, the claim's
     /// real (content, state) pair. <see cref="Memory"/> is always set --
     /// every claim, even a pure no-op one, gets to update engine memory.
+    ///
+    /// 15B fan-out fields (ERGO-31 §5), populated ONLY by
+    /// <see cref="ClaimAgentStarted"/>/<see cref="ClaimAgentStopped"/>, empty/
+    /// null for every other verb: <see cref="NewlyCardedAgentIds"/> -- agent
+    /// ids that just crossed into "carded" this call (the 2nd-concurrent-start
+    /// mint, including a retroactive 1st-worker mint in the SAME list) --
+    /// consumed by <see cref="ApplyClaimCore"/>'s <c>afterWrite</c> hook to
+    /// actually mint each child card; <see cref="RetiredChildAgentId"/> -- the
+    /// single agent id (at most one per <c>agent-stopped</c> call) whose
+    /// minted child card must now be cascaded away.
     /// </summary>
-    private sealed record ClaimResult(AppTaskContentDto? Content, AppTaskState? State, EngineMemory Memory)
+    private sealed record ClaimResult(
+        AppTaskContentDto? Content,
+        AppTaskState? State,
+        EngineMemory Memory,
+        IReadOnlyList<string>? NewlyCardedAgentIds = null,
+        string? RetiredChildAgentId = null)
     {
         public bool HasContentClaim => Content is not null;
     }
@@ -108,7 +123,7 @@ public sealed class SemanticEngine
             (completed, executing) = Advance(completed, executing, line);
         }
 
-        var memory = ctx.Memory with { Goal = goal ?? ctx.Memory.Goal, BlockedLoci = [] };
+        var memory = ctx.Memory with { Goal = goal ?? ctx.Memory.Goal, BlockedLoci = [], ReadyDecay = null };
         return new ClaimResult(new AppTaskContentDto.SequenceOfSteps(completed, executing), AppTaskState.Running, memory);
     }
 
@@ -130,9 +145,9 @@ public sealed class SemanticEngine
 
     // ==== blocked ============================================================
 
-    /// <summary>ERGO-31 §1's <c>blocked</c> row: platform-enforced literal question (ERGO-10: <c>NeedsAttention</c> requires <c>SetQuestion</c>). Records/refreshes <paramref name="agentId"/>'s locus (or the parent locus if absent) and always DISPLAYS the latest raised question -- LIFE-24's concurrent-block rule.</summary>
+    /// <summary>ERGO-31 §1's <c>blocked</c> row: platform-enforced literal question (ERGO-10: <c>NeedsAttention</c> requires <c>SetQuestion</c>). Records/refreshes <paramref name="agentId"/>'s locus (or the parent locus if absent) and always DISPLAYS the latest raised question -- LIFE-24's concurrent-block rule. ERGO-31 §5: structurally refused against a fan-out CHILD handle -- "a question always belongs to the session card" -- see <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check.</summary>
     public OperationOutcome Blocked(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string question, string? agentId, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBlocked(ctx, question, agentId, now));
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBlocked(ctx, question, agentId, now), refuseIfChild: true, refusedVerbPhrase: "blocked");
 
     private static ClaimResult ClaimBlocked(ClaimContext ctx, string question, string? agentId, DateTimeOffset now)
     {
@@ -144,30 +159,35 @@ public sealed class SemanticEngine
 
         BlockedLocus latest = LatestLocus(updated);
         var content = (AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps(completed, executing) { Question = latest.Question });
-        return new ClaimResult(content, AppTaskState.NeedsAttention, ctx.Memory with { BlockedLoci = updated });
+        return new ClaimResult(content, AppTaskState.NeedsAttention, ctx.Memory with { BlockedLoci = updated, ReadyDecay = null });
     }
 
     // ==== ready ==============================================================
 
-    /// <summary>ERGO-31 §1's <c>ready</c> row: bare preserves the current step content; <paramref name="summary"/> swaps to a <c>TextSummaryResult</c>. A turn-end event -- clears EVERY pending blocked locus (LIFE-24: turn-end events are never <c>--agent</c>-scoped).</summary>
+    /// <summary>ERGO-31 §1's <c>ready</c> row: bare preserves the current step content; <paramref name="summary"/> swaps to a <c>TextSummaryResult</c>. A turn-end event -- clears EVERY pending blocked locus (LIFE-24: turn-end events are never <c>--agent</c>-scoped). 15B: also the ONLY claim that ever (re)starts the LIFE-24 §6 Ready decay clock -- ONLY on a genuine transition INTO Ready (the card's prior live state was not already Completed); re-asserting an already-held Ready never restarts it (ERGO-31's idempotency rule, extended to the clock).</summary>
     public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary));
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now));
 
-    private static ClaimResult ClaimReady(ClaimContext ctx, string? summary)
+    private static ClaimResult ClaimReady(ClaimContext ctx, string? summary, DateTimeOffset now)
     {
         var (completed, executing) = CurrentSteps(ctx);
         AppTaskContentDto content = summary is not null
             ? new AppTaskContentDto.TextSummaryResult(Normalizer.Normalize(summary, FieldBudgets.Summary))
             : new AppTaskContentDto.SequenceOfSteps(completed, executing);
 
-        return new ClaimResult(content, AppTaskState.Completed, ctx.Memory with { BlockedLoci = [] });
+        bool wasAlreadyReady = ctx.Live?.State == AppTaskState.Completed;
+        ReadyDecayState decay = wasAlreadyReady && ctx.Memory.ReadyDecay is { } existing
+            ? existing // re-asserting Ready never restarts the clock.
+            : new ReadyDecayState(now, TimeSpan.Zero); // a genuine transition INTO Ready starts it fresh.
+
+        return new ClaimResult(content, AppTaskState.Completed, ctx.Memory with { BlockedLoci = [], ReadyDecay = decay });
     }
 
     // ==== broken =============================================================
 
-    /// <summary>ERGO-31 §1/§3's <c>broken</c> row: ALWAYS a <c>TextSummaryResult</c> of the rendered reason (+ optional <paramref name="detail"/>) -- "CreateTextSummaryResult under Error renders fully with no question attached" (ERGO-31). A turn-end event -- clears every pending blocked locus.</summary>
+    /// <summary>ERGO-31 §1/§3's <c>broken</c> row: ALWAYS a <c>TextSummaryResult</c> of the rendered reason (+ optional <paramref name="detail"/>) -- "CreateTextSummaryResult under Error renders fully with no question attached" (ERGO-31). A turn-end event -- clears every pending blocked locus. ERGO-31 §5: structurally refused against a fan-out CHILD handle, same as <see cref="Blocked"/> -- "children are scaffolding: Working/Completed only" is EXHAUSTIVE, not merely "never Blocked"; a child must never reach Error either -- see <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check.</summary>
     public OperationOutcome Broken(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, BrokenReasonToken reason, string? detail, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBroken(ctx, reason, detail));
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBroken(ctx, reason, detail), refuseIfChild: true, refusedVerbPhrase: "broken");
 
     private static ClaimResult ClaimBroken(ClaimContext ctx, BrokenReasonToken reason, string? detail)
     {
@@ -175,41 +195,173 @@ public sealed class SemanticEngine
         if (detail is { Length: > 0 })
             text = $"{text}: {Normalizer.Normalize(detail, FieldBudgets.Summary)}";
 
-        return new ClaimResult(new AppTaskContentDto.TextSummaryResult(text), AppTaskState.Error, ctx.Memory with { BlockedLoci = [] });
+        return new ClaimResult(new AppTaskContentDto.TextSummaryResult(text), AppTaskState.Error, ctx.Memory with { BlockedLoci = [], ReadyDecay = null });
     }
 
-    // ==== agent-started / agent-stopped (15A: bookkeeping only, no fan-out) ===
+    // ==== agent-started / agent-stopped (15B: fan-out child-card mint/cascade) ===
 
-    /// <summary>ERGO-31 §1's <c>agent-started</c> row: registers a child locus. 15A: no child card is minted (15B's job) -- pure <see cref="EngineMemory.ActiveAgentLoci"/> bookkeeping, never touches the card's content/state (the table's target-state column is blank).</summary>
+    /// <summary>
+    /// ERGO-31 §1's <c>agent-started</c> row: registers a child locus and,
+    /// per ERGO-31 §5, mints a REAL child card at the 2nd concurrent
+    /// registration (retroactively carding the 1st worker too -- both ids
+    /// come back in the same <see cref="ClaimResult.NewlyCardedAgentIds"/>
+    /// list, computed by <see cref="ClaimAgentStarted"/>). Never touches the
+    /// PARENT card's own content/state (the transition table's target-state
+    /// column is blank) -- a name-only registration (no <paramref name="agentId"/>)
+    /// mints nothing at all (mapping rule 5's degraded resolution: the
+    /// translator is expected to surface it as a parent activity line via a
+    /// separate <c>activity</c> call instead).
+    ///
+    /// Known non-blocking gap (15B review): a NESTED <c>agent-started</c>
+    /// against a handle that is ITSELF an already-minted child is unguarded
+    /// and untested -- <paramref name="handle"/> is passed straight to
+    /// <see cref="ApplyClaim"/> like any other handle, so it would register a
+    /// grandchild locus on the child's own EngineMemory rather than being
+    /// refused the way <c>blocked</c>/<c>broken</c>/<c>session-ended --reason
+    /// error</c> are. Left as-is; not exercised by any known translator.
+    /// </summary>
     public OperationOutcome AgentStarted(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimAgentStarted(ctx, agentId));
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
+            ctx => ClaimAgentStarted(ctx, agentId, name),
+            afterWrite: result =>
+            {
+                foreach (string newlyCardedId in result.NewlyCardedAgentIds ?? [])
+                    MintChildCard(handle, iconUri, deepLink, newlyCardedId, result.Memory.NameHintFor(newlyCardedId), now);
+            });
 
-    private static ClaimResult ClaimAgentStarted(ClaimContext ctx, string? agentId)
+    private static ClaimResult ClaimAgentStarted(ClaimContext ctx, string? agentId, string? name)
     {
-        var active = agentId is { Length: > 0 } && !ctx.Memory.ActiveAgentLoci.Contains(agentId)
-            ? (IReadOnlyList<string>)[.. ctx.Memory.ActiveAgentLoci, agentId]
-            : ctx.Memory.ActiveAgentLoci;
+        if (agentId is not { Length: > 0 })
+            return new ClaimResult(null, null, ctx.Memory); // name-only: no locus id, no mint possible.
 
-        return new ClaimResult(null, null, ctx.Memory with { ActiveAgentLoci = active });
+        var active = ctx.Memory.ActiveAgentLoci.Contains(agentId)
+            ? ctx.Memory.ActiveAgentLoci
+            : (IReadOnlyList<string>)[.. ctx.Memory.ActiveAgentLoci, agentId];
+
+        var nameHints = UpsertNameHint(ctx.Memory.AgentNameHints, agentId, name);
+
+        // "Carded" is sticky per locus (never re-derived from the live concurrency
+        // count) so a child, once minted, is never silently un-minted just because
+        // concurrency later drops back below 2 -- only its OWN agent-stopped retires
+        // it. Minting therefore only ever ADDS to CardedAgentLoci, at the moment
+        // concurrency FIRST reaches 2, for every currently-active-but-not-yet-carded
+        // locus (which is exactly {1st, 2nd} the first time, and exactly {Nth} on
+        // every subsequent start once fan-out is already established for this
+        // session).
+        IReadOnlyList<string> newlyCarded = [];
+        IReadOnlyList<string> carded = ctx.Memory.CardedAgentLoci;
+        if (active.Count >= 2)
+        {
+            string[] toMint = [.. active.Where(a => !ctx.Memory.CardedAgentLoci.Contains(a))];
+            if (toMint.Length > 0)
+            {
+                carded = [.. ctx.Memory.CardedAgentLoci, .. toMint];
+                newlyCarded = toMint;
+            }
+        }
+
+        var memory = ctx.Memory with { ActiveAgentLoci = active, CardedAgentLoci = carded, AgentNameHints = nameHints };
+        return new ClaimResult(null, null, memory, NewlyCardedAgentIds: newlyCarded);
     }
 
-    /// <summary>ERGO-31 §1's <c>agent-stopped</c> row: retires the child locus (fan-in). LIFE-24: agent-stopped is one of the same-locus block-clearing trigger events -- if <paramref name="agentId"/> WAS a pending blocked locus, clearing it may re-project the card (Working, if it was the last one; otherwise still Blocked showing the next-latest question). If it wasn't blocking anything, this is pure bookkeeping (no content/state touch at all).</summary>
+    private static IReadOnlyList<AgentNameHint> UpsertNameHint(IReadOnlyList<AgentNameHint> hints, string agentId, string? name)
+    {
+        if (name is not { Length: > 0 }) return hints; // nothing new to remember this call.
+        return [.. hints.Where(h => h.AgentId != agentId), new AgentNameHint(agentId, name)];
+    }
+
+    /// <summary>
+    /// ERGO-31 §1's <c>agent-stopped</c> row: retires the child locus
+    /// (fan-in). LIFE-24: agent-stopped is one of the same-locus
+    /// block-clearing trigger events -- if <paramref name="agentId"/> WAS a
+    /// pending blocked locus, clearing it may re-project the card (Working,
+    /// if it was the last one; otherwise still Blocked showing the
+    /// next-latest question). If it wasn't blocking anything, this is pure
+    /// bookkeeping (no content/state touch at all). ERGO-31 §5: if
+    /// <paramref name="agentId"/> had a REAL minted child card, this also
+    /// retires it (<see cref="ClaimResult.RetiredChildAgentId"/>, consumed by
+    /// <see cref="RetireChildCard"/>) -- a child never un-retires itself just
+    /// because concurrency drops; it only ever retires at its OWN
+    /// agent-stopped.
+    /// </summary>
     public OperationOutcome AgentStopped(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimAgentStopped(ctx, agentId));
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
+            ctx => ClaimAgentStopped(ctx, agentId),
+            afterWrite: result =>
+            {
+                if (result.RetiredChildAgentId is { } retiredId)
+                    RetireChildCard(handle, retiredId, now);
+            });
 
     private static ClaimResult ClaimAgentStopped(ClaimContext ctx, string? agentId)
     {
         var active = (IReadOnlyList<string>)[.. ctx.Memory.ActiveAgentLoci.Where(a => a != agentId)];
+        bool wasCarded = agentId is not null && ctx.Memory.CardedAgentLoci.Contains(agentId);
+        var carded = wasCarded
+            ? (IReadOnlyList<string>)[.. ctx.Memory.CardedAgentLoci.Where(a => a != agentId)]
+            : ctx.Memory.CardedAgentLoci;
+
         bool wasBlocked = ctx.Memory.BlockedLoci.Any(l => l.AgentId == agentId);
         var remaining = RemoveLocus(ctx.Memory.BlockedLoci, agentId);
-        var memory = ctx.Memory with { ActiveAgentLoci = active, BlockedLoci = remaining };
+        var memory = ctx.Memory with { ActiveAgentLoci = active, CardedAgentLoci = carded, BlockedLoci = remaining };
+        string? retired = wasCarded ? agentId : null;
 
         if (!wasBlocked)
-            return new ClaimResult(null, null, memory);
+            return new ClaimResult(null, null, memory, RetiredChildAgentId: retired);
 
         var (completed, executing) = CurrentSteps(ctx);
-        return ProjectAfterLocusChange(completed, executing, memory);
+        var projected = ProjectAfterLocusChange(completed, executing, memory);
+        return projected with { RetiredChildAgentId = retired };
     }
+
+    // ==== fan-out child-card mint/retire (ERGO-31 §5) ==========================
+
+    /// <summary>
+    /// Mints a REAL child card at the deterministic handle
+    /// <c>&lt;parentHandle&gt;#&lt;agentId&gt;</c>, routed through the SAME
+    /// <see cref="IAppTaskStore.Create"/> every other card in this engine
+    /// uses (invariant #7: no second WinRT importer). <paramref name="iconUri"/>
+    /// is the PARENT's own already-resolved icon URI for THIS call --
+    /// reused BYTE-FOR-BYTE, never re-minted via <c>IconService.Place</c>
+    /// (ERGO-13's icon-URI-keyed taskbar grouping would break under a
+    /// per-child icon path). The child's own sidecar entry sets
+    /// <see cref="EngineMemory.ParentHandle"/>, which is what makes it
+    /// structurally a "child" for every later cascade/refusal check -- an
+    /// otherwise perfectly ordinary handle, addressable by every existing
+    /// handle-shaped verb (<c>list</c>/<c>remove</c>/further semantic verbs
+    /// against the child handle itself) with no special-casing anywhere else.
+    /// Idempotent no-op if the child handle is somehow already live
+    /// (defensive -- <see cref="EngineMemory.CardedAgentLoci"/> is the source
+    /// of truth for "already minted" and should make this unreachable).
+    /// </summary>
+    private void MintChildCard(string parentHandle, Uri iconUri, Uri deepLink, string agentId, string? name, DateTimeOffset now)
+    {
+        string childHandle = ChildHandle(parentHandle, agentId);
+        if (_sidecar.Read(childHandle) is not null) return;
+
+        string title = name is { Length: > 0 } ? name : agentId;
+        var content = new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder);
+        var created = _store.Create(title, "", deepLink, iconUri, content);
+        var childMemory = EngineMemory.Empty with { ParentHandle = parentHandle };
+        _sidecar.WriteWithMemory(childHandle, created.Id, now, childMemory);
+        Log($"{parentHandle}: minted child card '{childHandle}' for agent '{agentId}' (id {created.Id}).");
+    }
+
+    /// <summary>Retires (removes the card + sidecar entry + icon for) a minted child at its OWN <c>agent-stopped</c> (fan-in) -- a clean no-op if the child isn't actually live for any reason (defensive).</summary>
+    private void RetireChildCard(string parentHandle, string agentId, DateTimeOffset now)
+    {
+        string childHandle = ChildHandle(parentHandle, agentId);
+        var entry = _sidecar.Read(childHandle);
+        if (entry is null) return;
+
+        _store.Remove(entry.Id);
+        _sidecar.Delete(childHandle);
+        _icons?.ReapLiveIcon(childHandle);
+        Log($"{parentHandle}: retired child card '{childHandle}' (agent '{agentId}' stopped).");
+    }
+
+    /// <summary>ERGO-31 §5's deterministic child handle format -- the single place this string shape is built, so <c>list</c>/<c>remove</c> and every cascade path derive it identically.</summary>
+    private static string ChildHandle(string parentHandle, string agentId) => $"{parentHandle}#{agentId}";
 
     // ==== session-ended (no upsert, no identity flags -- ERGO-31 §1 intro) ===
 
@@ -243,6 +395,30 @@ public sealed class SemanticEngine
             return new OperationOutcome(OutcomeKind.UnknownHandleNoOp, handle, reason);
         }
 
+        // ERGO-31 §5: children are scaffolding (Working/Completed only, EXHAUSTIVE)
+        // -- `session-ended --reason error` would otherwise land a child in Error,
+        // a third state beyond the sanctioned two. Same refusal posture as the
+        // `blocked`/`broken` guard in ApplyClaimCore (this method is a separate
+        // code path that never routes through there, so it needs its own copy of
+        // the check). `session-ended --reason error` end the session via the
+        // parent instead. Note: `--reason finished` against a child is UNAFFECTED
+        // -- it delegates to TaskOperations.Remove above, which already handles a
+        // child handle correctly (removes just that one card, no new state).
+        if (entry.EngineMemory?.ParentHandle is { } parentHandle)
+        {
+            string reason = ChildRefusalReason(handle, parentHandle, "session-ended --reason error");
+            LogRefusal(handle, reason);
+            return new OperationOutcome(OutcomeKind.RefusedInvalidArgument, handle, reason, live);
+        }
+
+        // ERGO-31 §5: session-ended cascades to every still-live child, exactly
+        // like `remove` (Finished delegates straight to TaskOperations.Remove
+        // above, which cascades on its own) -- the session is over either way, so
+        // a leftover child card for a session that no longer exists would be an
+        // orphan. Runs BEFORE the parent's own write so a mid-cascade failure
+        // never leaves the parent transitioned with orphaned children still live.
+        _ops.CascadeRemoveChildren(handle);
+
         // TextSummaryResult + Error + no-question is unconditionally a safe cell
         // (SafeCombinationMatrix) -- validated anyway for uniformity/defensiveness,
         // matching every other write in this codebase.
@@ -265,25 +441,43 @@ public sealed class SemanticEngine
 
     private OperationOutcome ApplyClaim(
         string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, DateTimeOffset now, bool unsafeBypass,
-        Func<ClaimContext, ClaimResult> computeClaim)
+        Func<ClaimContext, ClaimResult> computeClaim,
+        Action<ClaimResult>? afterWrite = null,
+        bool refuseIfChild = false,
+        string? refusedVerbPhrase = null)
     {
         ValidateHandle(handle);
         OperationOutcome? outcome = null;
         bool ran = _writeGate.TryRun(() =>
-            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim));
+            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase));
         return ran ? outcome! : GateUnavailable(handle);
     }
 
     private OperationOutcome ApplyClaimCore(
         string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, DateTimeOffset now, bool unsafeBypass,
-        Func<ClaimContext, ClaimResult> computeClaim)
+        Func<ClaimContext, ClaimResult> computeClaim, Action<ClaimResult>? afterWrite, bool refuseIfChild, string? refusedVerbPhrase)
     {
         var (entry, live) = ResolveLive(handle);
+
+        // ERGO-31 §5: a fan-out CHILD card is scaffolding -- "Working/Completed
+        // only" is EXHAUSTIVE (not merely "never Blocked"), so `blocked` AND
+        // `broken` both structurally refuse here, before computeClaim runs at
+        // all, against a handle we already know is a child purely from its OWN
+        // sidecar entry's EngineMemory.ParentHandle (never a string-pattern guess
+        // against the handle's spelling). `session-ended --reason error` gets the
+        // equivalent guard in SessionEndedErrorCore (a separate code path that
+        // never routes through here).
+        if (refuseIfChild && entry?.EngineMemory?.ParentHandle is { } parentHandle)
+        {
+            string reason = ChildRefusalReason(handle, parentHandle, refusedVerbPhrase ?? "this verb");
+            LogRefusal(handle, reason);
+            return new OperationOutcome(OutcomeKind.RefusedInvalidArgument, handle, reason, live);
+        }
 
         if (live is not null)
         {
             if (live.IconUri != iconUri)
-                return ApplyIconForcedRecreate(handle, entry!.Id, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, entry.EngineMemory ?? EngineMemory.Empty, live);
+                return ApplyIconForcedRecreate(handle, entry!.Id, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, entry.EngineMemory ?? EngineMemory.Empty, live, afterWrite);
 
             var ctx = new ClaimContext(live, entry!.EngineMemory ?? EngineMemory.Empty);
             var result = computeClaim(ctx);
@@ -301,6 +495,7 @@ public sealed class SemanticEngine
                 _store.UpdateDeepLink(entry.Id, deepLink);
                 _store.Update(entry.Id, result.State!.Value, result.Content!);
                 _sidecar.WriteWithMemory(handle, entry.Id, now, result.Memory);
+                afterWrite?.Invoke(result);
 
                 var kind = validation.Outcome == ValidationOutcome.UnsafeBypassed ? OutcomeKind.AcceptedUnsafe : OutcomeKind.Accepted;
                 return new OperationOutcome(kind, handle, validation.Reason, _store.Find(entry.Id)!);
@@ -318,6 +513,7 @@ public sealed class SemanticEngine
             // to touch nothing. The already-known `live` view is still accurate to
             // return -- nothing about it changed.
             _sidecar.WriteWithMemory(handle, entry.Id, now, result.Memory);
+            afterWrite?.Invoke(result);
             return new OperationOutcome(OutcomeKind.Accepted, handle, "No content/state claim -- pure engine-memory bookkeeping.", live);
         }
 
@@ -366,6 +562,7 @@ public sealed class SemanticEngine
             _store.Update(created.Id, finalState, finalContent);
 
         _sidecar.WriteWithMemory(handle, created.Id, now, freshResult.Memory);
+        afterWrite?.Invoke(freshResult);
         var finalView = _store.Find(created.Id)!;
 
         if (record is not null)
@@ -380,7 +577,7 @@ public sealed class SemanticEngine
 
     private OperationOutcome ApplyIconForcedRecreate(
         string handle, string oldId, string? title, string? subtitle, Uri iconUri, Uri deepLink, DateTimeOffset now, bool unsafeBypass,
-        Func<ClaimContext, ClaimResult> computeClaim, EngineMemory existingMemory, AppTaskView oldLive)
+        Func<ClaimContext, ClaimResult> computeClaim, EngineMemory existingMemory, AppTaskView oldLive, Action<ClaimResult>? afterWrite)
     {
         // Icon is immutable per task (the grouping key) -- a changed icon token forces
         // a platform Remove+Create, losing step history unavoidably (ERGO-25's icon
@@ -419,6 +616,7 @@ public sealed class SemanticEngine
             _store.Update(recreated.Id, finalState, finalContent);
 
         _sidecar.WriteWithMemory(handle, recreated.Id, now, result.Memory);
+        afterWrite?.Invoke(result);
         string reason = "Icon token changed -- forced Remove+Create; step history lost.";
         Log($"{handle}: {reason} (old id {oldId}, new id {recreated.Id})");
         return new OperationOutcome(OutcomeKind.Accepted, handle, reason, _store.Find(recreated.Id)!, IconChanged: true);
@@ -489,6 +687,11 @@ public sealed class SemanticEngine
     /// </summary>
     private static ClaimResult ProjectAfterLocusChange(IReadOnlyList<string> completed, string executing, EngineMemory memory)
     {
+        // Neither outcome here is ever Ready (Running or NeedsAttention only),
+        // so the decay clock is always cleared -- matching ClaimWorking/
+        // ClaimBlocked/ClaimBroken's own "leaving Ready clears the clock" rule.
+        memory = memory with { ReadyDecay = null };
+
         if (memory.BlockedLoci.Count == 0)
             return new ClaimResult(new AppTaskContentDto.SequenceOfSteps(completed, executing), AppTaskState.Running, memory);
 
@@ -509,6 +712,10 @@ public sealed class SemanticEngine
         Log($"{handle}: {reason}");
         return new OperationOutcome(OutcomeKind.WriteGateUnavailable, handle, reason);
     }
+
+    /// <summary>ERGO-31 §5's single reason-string builder for every "this verb is not valid against a fan-out child" refusal (<c>blocked</c>/<c>broken</c> via <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check, <c>session-ended --reason error</c> via <see cref="SessionEndedErrorCore"/>) -- one phrasing, so the three refusal messages never drift from each other.</summary>
+    private static string ChildRefusalReason(string handle, string parentHandle, string verbPhrase)
+        => $"'{handle}' is a fan-out child card (parent '{parentHandle}') -- {verbPhrase} is not valid against a child; direct it to the parent handle instead (ERGO-31 §5).";
 
     private void LogRefusal(string handle, string reason) => Log($"{handle}: refused -- {reason}");
 

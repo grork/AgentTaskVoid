@@ -16,8 +16,8 @@ namespace Atv.Persistence;
 /// </summary>
 public sealed record SidecarEntry(string Id, DateTimeOffset LastUpdate, int SchemaVersion, EngineMemory? EngineMemory = null)
 {
-    /// <summary>Bump when this shape changes; keeps forward-compat cheap (ERGO-21 DP2). Bumped 1-&gt;2 for phase 15's <see cref="EngineMemory"/> addition.</summary>
-    public const int CurrentSchemaVersion = 2;
+    /// <summary>Bump when this shape changes; keeps forward-compat cheap (ERGO-21 DP2). Bumped 1-&gt;2 for phase 15A's <see cref="EngineMemory"/> addition, 2-&gt;3 for phase 15B's decay/fan-out fields on <see cref="Atv.Persistence.EngineMemory"/>.</summary>
+    public const int CurrentSchemaVersion = 3;
 }
 
 /// <summary>
@@ -34,6 +34,32 @@ public sealed record SidecarEntry(string Id, DateTimeOffset LastUpdate, int Sche
 public sealed record BlockedLocus(string? AgentId, string Question, DateTimeOffset WhenBlocked);
 
 /// <summary>
+/// LIFE-24's Ready-&gt;Idle presence-gated decay bookkeeping (15B), meaningful
+/// only while the owning card is currently semantically Ready
+/// (<c>AppTaskState.Completed</c>). <see cref="AccruedPresentTime"/> is
+/// elapsed WALL-CLOCK time that has passed while the user was present,
+/// summed incrementally one <see cref="Atv.Watchdog.WatchdogLoop"/> decay-pass
+/// tick at a time (the process is not continuously running, so this can never
+/// be a live in-memory timer -- LIFE-16's "stateless-over-disk"
+/// precedent). <see cref="LastSampledAt"/> is the wall-clock anchor for the
+/// NEXT tick's delta -- set to the moment of the qualifying Ready transition
+/// when the clock starts, and advanced every decay-pass tick regardless of
+/// whether that tick's delta actually counted toward the accrual (presence
+/// gates what gets COUNTED, never whether the anchor advances, so a long
+/// absent stretch doesn't get retroactively counted the moment presence
+/// returns). Deliberately does NOT reuse <see cref="SidecarEntry.LastUpdate"/>
+/// for this anchor -- that field is the UNRELATED hygiene-reap clock
+/// (LIFE-22/invariant #6); a decay-only bookkeeping write must never bump it,
+/// or the two clocks would be conflated (LIFE-24's explicit "never
+/// conflated" rule) by making an idle, un-acted-on card look artificially
+/// fresh to the hygiene reap forever.
+/// </summary>
+public sealed record ReadyDecayState(DateTimeOffset LastSampledAt, TimeSpan AccruedPresentTime);
+
+/// <summary>ERGO-31 §5's fan-out addressing: the last-known human-readable name a locus supplied via <c>agent-started --name</c>, remembered so a LATER retroactive child-card mint (the "2nd concurrent start also cards the 1st worker" rule) can still give the first worker's card a sensible title even though its own <c>agent-started</c> call happened on an earlier, separate process invocation.</summary>
+public sealed record AgentNameHint(string AgentId, string? Name);
+
+/// <summary>
 /// The v2 engine's own per-handle memory (LIFE-24: "if it needs memory or a
 /// clock, it is engine") -- everything a semantic-verb claim needs to
 /// remember that the platform's <c>AppTaskInfo</c> itself has no slot for.
@@ -42,21 +68,55 @@ public sealed record BlockedLocus(string? AgentId, string Question, DateTimeOffs
 /// <c>AppTaskState</c> (<see cref="Atv.Semantics.SemanticStateMapping"/>), so
 /// there is exactly one source of truth for "what state is this card in."
 ///
-/// 15A scope: <see cref="Goal"/> (the last <c>working --goal</c> claim,
+/// 15A fields: <see cref="Goal"/> (the last <c>working --goal</c> claim,
 /// remembered even though its RENDERING currently just flows into the step
 /// stream like any other activity line -- ERGO-31's parked pinning note is
-/// not yet built), <see cref="BlockedLoci"/> (LIFE-24's concurrent-block
-/// bookkeeping), and <see cref="ActiveAgentLoci"/> (a 15B on-ramp: which
-/// agent ids <c>agent-started</c> has registered and <c>agent-stopped</c>
-/// hasn't yet retired -- 15A never acts on the count, it just keeps the
-/// bookkeeping so 15B's "mint a child card at the 2nd concurrent start" has
-/// something to read). NOT yet present (15B's job): decay-accrual bookkeeping
-/// for the Ready-&gt;Idle clock, and the fan-out child-card registry itself.
+/// not yet built) and <see cref="BlockedLoci"/> (LIFE-24's concurrent-block
+/// bookkeeping).
+///
+/// 15B fields (ERGO-31 §5/§6): <see cref="ActiveAgentLoci"/> (which agent ids
+/// <c>agent-started</c> has registered and <c>agent-stopped</c> hasn't yet
+/// retired), <see cref="CardedAgentLoci"/> (the SUBSET of
+/// <see cref="ActiveAgentLoci"/>'s current-and-former members that already
+/// have a real minted child card -- "carded" is sticky per locus even after
+/// that locus later drops out of <see cref="ActiveAgentLoci"/>, since a
+/// minted child only retires at its OWN <c>agent-stopped</c>, never merely
+/// because concurrency dropped back below 2), <see cref="AgentNameHints"/>,
+/// <see cref="ParentHandle"/> (non-null ONLY on a minted CHILD card's own
+/// sidecar entry -- <see langword="null"/> for every ordinary/parent/session
+/// handle; this is what makes a handle "a child" structurally, rather than by
+/// pattern-matching its `#` separator), and <see cref="ReadyDecay"/> (the
+/// Ready-&gt;Idle clock; <see langword="null"/> whenever the card is not
+/// currently accruing -- never in Ready, or Ready but not yet claimed via
+/// <c>ready</c> since the 15B upgrade).
 /// </summary>
 public sealed record EngineMemory(
     string? Goal,
     IReadOnlyList<BlockedLocus> BlockedLoci,
-    IReadOnlyList<string> ActiveAgentLoci)
+    IReadOnlyList<string> ActiveAgentLoci,
+    IReadOnlyList<string> CardedAgentLoci,
+    IReadOnlyList<AgentNameHint> AgentNameHints,
+    string? ParentHandle,
+    ReadyDecayState? ReadyDecay)
 {
-    public static readonly EngineMemory Empty = new(null, [], []);
+    public static readonly EngineMemory Empty = new(null, [], [], [], [], null, null);
+
+    /// <summary>
+    /// Defensive normalization for a schema-&lt;3 entry deserialized against
+    /// this newer shape: STJ leaves a missing constructor-parameter's value
+    /// at the CLR default (<see langword="null"/> for every list field here,
+    /// not <c>[]</c>) rather than throwing (ERGO-21's graceful-degradation
+    /// precedent). Every reader routes through this rather than trusting the
+    /// raw deserialized shape.
+    /// </summary>
+    public EngineMemory Coalesced() => this with
+    {
+        BlockedLoci = BlockedLoci ?? [],
+        ActiveAgentLoci = ActiveAgentLoci ?? [],
+        CardedAgentLoci = CardedAgentLoci ?? [],
+        AgentNameHints = AgentNameHints ?? [],
+    };
+
+    /// <summary>The most recently supplied <c>--name</c> for <paramref name="agentId"/>, or <see langword="null"/> if none was ever given (a retroactively-carded child then falls back to its bare agent id as its title).</summary>
+    public string? NameHintFor(string agentId) => AgentNameHints.FirstOrDefault(h => h.AgentId == agentId)?.Name;
 }

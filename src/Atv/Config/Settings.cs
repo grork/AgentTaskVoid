@@ -40,7 +40,8 @@ public sealed record Settings(
     TimeSpan LogMaxAge,
     TimeSpan RunUpdateDebounce,
     int RunStepMaxLength,
-    TimeSpan RunKeepAliveInterval)
+    TimeSpan RunKeepAliveInterval,
+    TimeSpan ReadyDecayThreshold)
 {
     /// <summary>
     /// Built-in defaults -- ERGO-17's bottom precedence tier. Idle periods
@@ -55,7 +56,16 @@ public sealed record Settings(
     /// literal. Log rotation (1 MiB / 14 days) and the <c>run</c> tunables
     /// (update debounce, step max length, silent-child keepalive) are sane
     /// build-phase defaults -- FAIL-3 / ERGO-27 explicitly leave exact
-    /// thresholds to implementation.
+    /// thresholds to implementation. <see cref="ReadyDecayThreshold"/>
+    /// (phase 15B, LIFE-24 §6) is deliberately shorter than
+    /// <see cref="IdleCompleted"/>'s wall-clock hygiene threshold: an
+    /// actively-present user who simply hasn't looked at a Ready card should
+    /// see it courtesy-demoted to Idle well before the UNRELATED hygiene reap
+    /// would ever consider tombstoning it outright, so the two clocks stay
+    /// observably distinct rather than one always pre-empting the other. An
+    /// entirely absent user never accrues presence-gated time at all, so
+    /// <see cref="IdleCompleted"/> remains the sole backstop for that case
+    /// (LIFE-24: "the two clocks are never conflated").
     /// </summary>
     public static Settings Default { get; } = new(
         WatchdogMode: Config.WatchdogMode.Spawn,
@@ -70,5 +80,6 @@ public sealed record Settings(
         LogMaxAge: TimeSpan.FromDays(14),
         RunUpdateDebounce: TimeSpan.FromSeconds(2),
         RunStepMaxLength: 200,
-        RunKeepAliveInterval: TimeSpan.FromMinutes(5));
+        RunKeepAliveInterval: TimeSpan.FromMinutes(5),
+        ReadyDecayThreshold: TimeSpan.FromMinutes(5));
 }
