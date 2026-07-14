@@ -53,10 +53,12 @@ opaque string identifying one card. There is no default handle.
 
 Every verb **except `session-ended`** additionally accepts the identity
 flags `--title <text>` / `--subtitle <text>` / `--icon <token>` /
-`--deep-link <uri>`, and **upserts** the card: the very first semantic verb
-call for a handle creates it. There is no separate "start" verb. A stateless
-translator should pass the identity flags on **every** call — re-supplying
-the same values is idempotent and cheap.
+`--icon-file <path>` / `--deep-link <uri>`, and **upserts** the card: the
+very first semantic verb call for a handle creates it. There is no separate
+"start" verb. A stateless translator should pass the identity flags on
+**every** call — re-supplying the same values is idempotent and cheap.
+`--icon` and `--icon-file` are mutually exclusive — supplying both on one
+call is a usage error (see "Icons" below).
 
 | Verb | Free-text flag (`-` stdin eligible) | Other flags | Lands in | Notes |
 |---|---|---|---|---|
@@ -79,6 +81,45 @@ the same values is idempotent and cheap.
 - Duplicate "done" signals from a host (e.g. both an explicit stop event and
   a separate idle-notification event) are expected and harmless — map both
   to `ready`.
+
+### Icons
+
+**`--icon <token>`** (ERGO-20): a curated Segoe Fluent Icons name (e.g.
+`Robot`, `Bug`), a single literal emoji character, or a raw file path (see
+`--icon-file` below — any value that's neither a curated name nor a single
+character is treated as a path). Absent `--icon`, the default is the Robot
+glyph.
+
+**Theme-neutral tile (ERGO-28, phase 16):** every monochrome Segoe glyph —
+including the default Robot — renders as a **white glyph on a fixed
+accent-color rounded-rect tile** (`#0078D4`), not a bare glyph. This fixes
+solid-black-on-a-dark-taskbar invisibility without ever inspecting the
+system theme: one static asset, no runtime re-render (icon immutability,
+ERGO-25, and the URI grouping key, ERGO-13, both rule that out). Color emoji
+render **bare** (already full-color, theme-safe art) — they are never
+composited onto the tile.
+
+**`--icon-file <path>` (ERGO-29, phase 16):** bring your own image — PNG,
+JPG, or ICO. `atv` reads the file, validates it (byte-size cap, a
+magic-number format allowlist — not the file extension — and WIC decode),
+and normalizes it to the pipeline's 64px PNG: downscaled if oversized,
+aspect-ratio-preserving **transparent** letterbox padding if non-square (the
+supplied mark is never placed on the accent tile — it stays bare/full-bleed,
+since a caller's own logo can't be recolored for guaranteed contrast). A
+rejected file (too large, wrong format, corrupt data) falls back down the
+same chain as an unavailable `--icon` token (default glyph → drawn shape),
+logged, never a hard failure. **`--icon` and `--icon-file` are mutually
+exclusive** — supplying both is a usage error.
+
+The resulting per-handle icon file is cached and moved through
+remove/expire/resurrect/purge exactly like a rendered glyph (ERGO-23) — same
+lifecycle, regardless of source. Icons are immutable per card (set once, at
+first upsert) either way (ERGO-25); grouping is keyed on the exact icon URI
+string (ERGO-13), so two callers supplying the "same" logo via different
+paths do not glom into one taskbar group.
+
+**Known v1 caveat:** the fixed accent tile is not verified against Windows
+high-contrast themes — it targets ordinary light/dark taskbar theming only.
 
 ## 3. The closed kind vocabulary (`activity --kind`)
 

@@ -63,8 +63,9 @@ static void PrintUsage()
     Console.WriteLine($"Usage: {Branding.Command} <verb> <handle> [options]");
     Console.WriteLine();
     Console.WriteLine("Semantic verbs (ERGO-31 v2 -- every verb below except session-ended accepts");
-    Console.WriteLine("[--title T] [--subtitle S] [--icon TOKEN] [--deep-link URI] and upserts the card;");
-    Console.WriteLine("a flag value of exactly \"-\" reads that field from stdin, UTF-8, to EOF):");
+    Console.WriteLine("[--title T] [--subtitle S] [--icon TOKEN | --icon-file PATH] [--deep-link URI] and upserts");
+    Console.WriteLine("the card (--icon and --icon-file are mutually exclusive); a flag value of exactly \"-\"");
+    Console.WriteLine("reads that field from stdin, UTF-8, to EOF):");
     Console.WriteLine($"  {Branding.Command} working <handle> [--goal -]");
     Console.WriteLine($"  {Branding.Command} activity <handle> --kind read|edit|write|search|shell|fetch|web-search|plan|compacting|tool [--label -] [--agent ID] [--name N]");
     Console.WriteLine($"  {Branding.Command} blocked <handle> --question - [--agent ID]");

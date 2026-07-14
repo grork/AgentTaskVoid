@@ -56,7 +56,13 @@ public static class CommandLine
     private static readonly HashSet<string> PerVerbValueFlags = new(StringComparer.Ordinal)
     {
         // Identity flags (ERGO-31 §1 -- every verb except session-ended).
-        "--title", "--subtitle", "--icon", "--deep-link",
+        // --icon-file (ERGO-29, phase 16): a dedicated bring-your-own-image
+        // flag, unambiguous against --icon's token/emoji space at parse time.
+        // Supplying both on one call is a usage error -- argument-SHAPE
+        // validation, so it's the Dispatcher's job (this tokenizer captures
+        // both flags uneventfully, same "verb-name validity isn't a parse
+        // Error" precedent as ParseResult's own doc comment).
+        "--title", "--subtitle", "--icon", "--icon-file", "--deep-link",
         // v2 semantic-verb flags (ERGO-31 §1-3): free-text-eligible ("-" stdin
         // sentinel, resolved by the Dispatcher, not this tokenizer) and plain
         // closed-vocabulary/attribution tokens alike all ride the same

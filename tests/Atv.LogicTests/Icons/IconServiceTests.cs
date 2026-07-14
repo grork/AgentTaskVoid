@@ -1,4 +1,5 @@
 using Atv.Icons;
+using Atv.IconRendering;
 using Atv.LogicTests.Persistence;
 using Atv.Persistence;
 
@@ -41,7 +42,7 @@ public sealed class IconServiceTests
         var service = new IconService(icons.Path, recycle.Path);
 
         service.Place("session-a", Bug);
-        string cachePath = Path.Combine(icons.Path, "cache", $"segoe-{Bug.Codepoint:X}-{IconService.DefaultSizePx}.png");
+        string cachePath = Path.Combine(icons.Path, "cache", $"segoe-tile-{Bug.Codepoint:X}-{IconService.DefaultSizePx}.png");
         Assert.IsTrue(File.Exists(cachePath), "expected a canonical cache entry to be written on first render.");
         DateTime firstWrite = File.GetLastWriteTimeUtc(cachePath);
 
@@ -227,7 +228,7 @@ public sealed class IconServiceTests
         using var recycle = new TempDirectory();
         var service = new IconService(icons.Path, recycle.Path);
         service.Place("session-a", Robot);
-        string cachePath = Path.Combine(icons.Path, "cache", $"segoe-{Robot.Codepoint:X}-{IconService.DefaultSizePx}.png");
+        string cachePath = Path.Combine(icons.Path, "cache", $"segoe-tile-{Robot.Codepoint:X}-{IconService.DefaultSizePx}.png");
         File.SetLastWriteTimeUtc(cachePath, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
         int pruned = service.PruneCache(new DateTimeOffset(2026, 7, 9, 0, 0, 0, TimeSpan.Zero), TimeSpan.FromDays(30));
@@ -243,11 +244,229 @@ public sealed class IconServiceTests
         using var recycle = new TempDirectory();
         var service = new IconService(icons.Path, recycle.Path);
         service.Place("session-a", Robot);
-        string cachePath = Path.Combine(icons.Path, "cache", $"segoe-{Robot.Codepoint:X}-{IconService.DefaultSizePx}.png");
+        string cachePath = Path.Combine(icons.Path, "cache", $"segoe-tile-{Robot.Codepoint:X}-{IconService.DefaultSizePx}.png");
 
         int pruned = service.PruneCache(DateTimeOffset.UtcNow, TimeSpan.FromDays(30));
 
         Assert.AreEqual(0, pruned);
         Assert.IsTrue(File.Exists(cachePath));
+    }
+
+    // ---- phase 16 (ERGO-29): --icon-file source, folded RawPath validation/normalization ----
+
+    [TestMethod]
+    public void Place_IconFile_ValidPngSource_NormalizesToPipelineSize_AndCaches()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        byte[] source = ShapeRenderer.RenderDefaultShape(128).PngBytes!;
+        string sourcePath = Path.Combine(icons.Path, "source.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, source);
+        byte[] expectedNormalized = RasterNormalizer.Normalize(source, IconService.DefaultSizePx).PngBytes!;
+
+        Uri uri = service.Place("session-a", IconToken.RawPath(sourcePath));
+
+        CollectionAssert.AreEqual(expectedNormalized, File.ReadAllBytes(uri.LocalPath), "IconService must normalize a --icon-file source through Atv.IconRendering.RasterNormalizer, not copy raw bytes.");
+    }
+
+    [TestMethod]
+    public void Place_IconFile_SourceFileIsNeverModified()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        byte[] source = ShapeRenderer.RenderDefaultShape(48).PngBytes!;
+        string sourcePath = Path.Combine(icons.Path, "source.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, source);
+        DateTime beforeWrite = File.GetLastWriteTimeUtc(sourcePath);
+
+        service.Place("session-a", IconToken.RawPath(sourcePath));
+
+        CollectionAssert.AreEqual(source, File.ReadAllBytes(sourcePath), "the source file must only ever be READ, never modified.");
+        Assert.AreEqual(beforeWrite, File.GetLastWriteTimeUtc(sourcePath));
+    }
+
+    [TestMethod]
+    public void Place_IconFile_OversizedFile_FallsBackToDefault_AndLogs()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var logs = new List<string>();
+        var service = new IconService(icons.Path, recycle.Path, log: logs.Add, maxIconFileBytes: 10);
+        string sourcePath = Path.Combine(icons.Path, "big.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!); // certainly > 10 bytes
+
+        Uri uri = service.Place("session-a", IconToken.RawPath(sourcePath));
+        Uri defaultUri = service.Place("session-b", IconTokens.Default);
+
+        CollectionAssert.AreEqual(File.ReadAllBytes(defaultUri.LocalPath), File.ReadAllBytes(uri.LocalPath));
+        Assert.IsTrue(logs.Any(l => l.Contains("falling back to the default glyph", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void Place_IconFile_DisallowedFormat_FallsBackToDefault_AndLogs()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var logs = new List<string>();
+        var service = new IconService(icons.Path, recycle.Path, log: logs.Add);
+        string sourcePath = Path.Combine(icons.Path, "not-an-image.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, System.Text.Encoding.ASCII.GetBytes("this is plainly not an image, whatever the extension says"));
+
+        Uri uri = service.Place("session-a", IconToken.RawPath(sourcePath));
+        Uri defaultUri = service.Place("session-b", IconTokens.Default);
+
+        CollectionAssert.AreEqual(File.ReadAllBytes(defaultUri.LocalPath), File.ReadAllBytes(uri.LocalPath));
+        Assert.IsTrue(logs.Any(l => l.Contains("falling back to the default glyph", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void Place_IconFile_MalformedImageBytes_FallsBackToDefault_AndLogs()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var logs = new List<string>();
+        var service = new IconService(icons.Path, recycle.Path, log: logs.Add);
+        string sourcePath = Path.Combine(icons.Path, "corrupt.png");
+        byte[] signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        byte[] garbage = new byte[40];
+        new Random(7).NextBytes(garbage);
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, [.. signature, .. garbage]);
+
+        Uri uri = service.Place("session-a", IconToken.RawPath(sourcePath));
+        Uri defaultUri = service.Place("session-b", IconTokens.Default);
+
+        CollectionAssert.AreEqual(File.ReadAllBytes(defaultUri.LocalPath), File.ReadAllBytes(uri.LocalPath));
+        Assert.IsTrue(logs.Any(l => l.Contains("falling back to the default glyph", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void Place_IconFile_HandleWithTraversalSegments_StaysInsideIconsDirectory()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        string sourcePath = Path.Combine(icons.Path, "logo.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!);
+
+        Uri uri = service.Place("../../evil/../handle", IconToken.RawPath(sourcePath));
+
+        string fullIconsPath = Path.GetFullPath(icons.Path);
+        string fullResultPath = Path.GetFullPath(uri.LocalPath);
+        StringAssert.StartsWith(fullResultPath, fullIconsPath);
+    }
+
+    // ---- phase 16 AC4: ownership parity -- an --icon-file-sourced copy behaves exactly like a rendered-glyph copy ----
+
+    [TestMethod]
+    public void IconFileSourced_MoveToRecycle_MovesFileFromLiveToRecycleFolder()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        string sourcePath = Path.Combine(icons.Path, "logo.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!);
+        Uri liveUri = service.Place("session-a", IconToken.RawPath(sourcePath));
+        byte[] originalBytes = File.ReadAllBytes(liveUri.LocalPath);
+
+        bool moved = service.MoveToRecycle("session-a");
+
+        Assert.IsTrue(moved);
+        Assert.IsFalse(File.Exists(liveUri.LocalPath), "the live copy must be GONE -- moved, not copied.");
+        string recyclePath = Path.Combine(recycle.Path, HandleEncoding.Encode("session-a") + ".png");
+        Assert.IsTrue(File.Exists(recyclePath));
+        CollectionAssert.AreEqual(originalBytes, File.ReadAllBytes(recyclePath));
+    }
+
+    [TestMethod]
+    public void IconFileSourced_MoveBackFromRecycle_MovesFileBackToLivePath_ReturnsLiveUri()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        string sourcePath = Path.Combine(icons.Path, "logo.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!);
+        Uri originalLiveUri = service.Place("session-a", IconToken.RawPath(sourcePath));
+        byte[] originalBytes = File.ReadAllBytes(originalLiveUri.LocalPath);
+        service.MoveToRecycle("session-a");
+
+        Uri restoredUri = service.MoveBackFromRecycle("session-a");
+
+        Assert.AreEqual(originalLiveUri, restoredUri);
+        Assert.IsTrue(File.Exists(restoredUri.LocalPath));
+        CollectionAssert.AreEqual(originalBytes, File.ReadAllBytes(restoredUri.LocalPath));
+        string recyclePath = Path.Combine(recycle.Path, HandleEncoding.Encode("session-a") + ".png");
+        Assert.IsFalse(File.Exists(recyclePath), "each asset lives in exactly ONE place at a time.");
+    }
+
+    [TestMethod]
+    public void IconFileSourced_ReapLiveIcon_DeletesThePerHandleCopy()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        string sourcePath = Path.Combine(icons.Path, "logo.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!);
+        Uri uri = service.Place("session-a", IconToken.RawPath(sourcePath));
+
+        bool reaped = service.ReapLiveIcon("session-a");
+
+        Assert.IsTrue(reaped);
+        Assert.IsFalse(File.Exists(uri.LocalPath));
+    }
+
+    [TestMethod]
+    public void IconFileSourced_ReapRecycledIcon_DeletesTheRecycleSideCopy()
+    {
+        using var icons = new TempDirectory();
+        using var recycle = new TempDirectory();
+        var service = new IconService(icons.Path, recycle.Path);
+        string sourcePath = Path.Combine(icons.Path, "logo.png");
+        Directory.CreateDirectory(icons.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!);
+        service.Place("session-a", IconToken.RawPath(sourcePath));
+        service.MoveToRecycle("session-a");
+        string recyclePath = Path.Combine(recycle.Path, HandleEncoding.Encode("session-a") + ".png");
+        Assert.IsTrue(File.Exists(recyclePath));
+
+        bool reaped = service.ReapRecycledIcon("session-a");
+
+        Assert.IsTrue(reaped);
+        Assert.IsFalse(File.Exists(recyclePath));
+    }
+
+    [TestMethod]
+    public void IconFileSourced_TtlPurge_RecycleBinScavengePairedWithIconReap_RemovesRecordAndIconTogether()
+    {
+        using var iconsDir = new TempDirectory();
+        using var recycleDir = new TempDirectory();
+        var service = new IconService(iconsDir.Path, recycleDir.Path);
+        var recycleBin = new RecycleBin(recycleDir.Path);
+        var now = new DateTimeOffset(2026, 7, 13, 12, 0, 0, TimeSpan.Zero);
+        string sourcePath = Path.Combine(iconsDir.Path, "logo.png");
+        Directory.CreateDirectory(iconsDir.Path);
+        File.WriteAllBytes(sourcePath, ShapeRenderer.RenderDefaultShape(48).PngBytes!);
+
+        service.Place("session-a", IconToken.RawPath(sourcePath));
+        service.MoveToRecycle("session-a");
+        recycleBin.Tombstone(new RecycleRecord("session-a", "Title", "Subtitle", null, new Uri("https://example.invalid"), now));
+
+        var scavenge = recycleBin.Scavenge(now + TimeSpan.FromDays(2), TimeSpan.FromDays(1));
+        foreach (string handle in scavenge.Removed)
+            service.ReapRecycledIcon(handle);
+
+        Assert.IsTrue(scavenge.Removed.Contains("session-a"));
+        Assert.IsFalse(File.Exists(Path.Combine(recycleDir.Path, HandleEncoding.Encode("session-a") + ".json")));
+        Assert.IsFalse(File.Exists(Path.Combine(recycleDir.Path, HandleEncoding.Encode("session-a") + ".png")));
     }
 }

@@ -146,6 +146,52 @@ public sealed class CommandLineTests
         Assert.AreEqual("Fix the bug", result.Flags["goal"]);
     }
 
+    // ---- phase 16 (ERGO-29): --icon-file -----------------------------------------
+
+    [TestMethod]
+    public void Parse_IconFile_Captured()
+    {
+        var result = CommandLine.Parse(["working", "h1", "--icon-file", @"C:\logos\brand.png"]);
+
+        Assert.AreEqual(@"C:\logos\brand.png", result.Flags["icon-file"]);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_IconAndIconFile_BothCaptured_ConflictLeftToDispatcher()
+    {
+        // CommandLine only tokenizes -- the "--icon and --icon-file together
+        // is a usage error" rule is argument-SHAPE validation, which is the
+        // Dispatcher's job (matches the existing "verb-name validity isn't a
+        // parse Error" precedent).
+        var result = CommandLine.Parse(["working", "h1", "--icon", "Robot", "--icon-file", "logo.png"]);
+
+        Assert.AreEqual("Robot", result.Flags["icon"]);
+        Assert.AreEqual("logo.png", result.Flags["icon-file"]);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_IconFile_MissingValue_Errors()
+    {
+        var result = CommandLine.Parse(["working", "h1", "--icon-file"]);
+        Assert.IsNotNull(result.Error);
+    }
+
+    [TestMethod]
+    [DataRow("activity")]
+    [DataRow("blocked")]
+    [DataRow("ready")]
+    [DataRow("broken")]
+    [DataRow("agent-started")]
+    [DataRow("agent-stopped")]
+    public void Parse_IconFile_OnEveryUpsertingVerb_Captured(string verb)
+    {
+        var result = CommandLine.Parse([verb, "h1", "--icon-file", "logo.png"]);
+        Assert.AreEqual("logo.png", result.Flags["icon-file"]);
+        Assert.IsNull(result.Error);
+    }
+
     [TestMethod]
     public void Parse_ActivityFlags_KindLabelAgentName_AllCaptured()
     {

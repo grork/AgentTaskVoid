@@ -12,9 +12,25 @@ IWICImagingFactory
 CLSID_WICImagingFactory
 IWICBitmap
 IWICBitmapLock
+IWICBitmapSource
 GUID_WICPixelFormat32bppPBGRA
 WICBitmapCreateCacheOption
 WICBitmapLockFlags
+
+# WIC decode path for caller-supplied raster images (RasterNormalizer, phase
+# 16, ERGO-29): an in-memory stream -> decoder -> frame -> format-converted
+# (straight to 32bppPBGRA, matching the glyph path above) -> scaled. IStream
+# is IWICStream's base (CreateDecoderFromStream's parameter type).
+IStream
+IWICStream
+IWICBitmapDecoder
+IWICBitmapFrameDecode
+IWICFormatConverter
+IWICBitmapScaler
+WICDecodeOptions
+WICBitmapDitherType
+WICBitmapPaletteType
+WICBitmapInterpolationMode
 
 # Direct2D: SOFTWARE render target bound to the WIC bitmap above, plus the
 # solid-color brush and glyph/shape drawing calls GlyphRenderer/ShapeRenderer
@@ -38,6 +54,7 @@ D2D_POINT_2F
 D2D1_BRUSH_PROPERTIES
 D2D1_DRAW_TEXT_OPTIONS
 D2D1_ELLIPSE
+D2D1_ROUNDED_RECT
 DXGI_FORMAT
 
 # DirectWrite: text format for a single glyph, centered, and the font-face

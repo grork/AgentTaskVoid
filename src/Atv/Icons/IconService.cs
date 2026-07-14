@@ -53,22 +53,38 @@ public sealed class IconService
     /// <summary>ERGO-22's chosen render size: one PNG per glyph, no DPI-scale variants -- see the type-level remarks on why.</summary>
     public const int DefaultSizePx = 64;
 
+    /// <summary>
+    /// ERGO-29's byte-size cap on a <c>--icon-file</c> source file, checked
+    /// against <see cref="FileInfo.Length"/> BEFORE the file is ever read
+    /// into memory (so an oversized file never gets fully loaded, let alone
+    /// decoded). 5 MB is generous for any reasonable source logo/icon (real
+    /// ones are typically well under 1 MB) while still bounding worst-case
+    /// memory use decisively -- paired with <c>RasterNormalizer.MaxSourceDimensionPx</c>'s
+    /// declared-dimension cap as the second half of the decompression-bomb
+    /// defense (a small file can still declare a huge frame; that is caught
+    /// downstream, in <c>RasterNormalizer</c>, on the decoded header alone).
+    /// </summary>
+    public const long DefaultMaxIconFileBytes = 5 * 1024 * 1024;
+
     private const string FileExtension = ".png";
 
     private readonly string _handlesDir;
     private readonly string _cacheDir;
     private readonly string _recycleBinDir;
     private readonly int _sizePx;
+    private readonly long _maxIconFileBytes;
     private readonly Action<string> _log;
 
-    public IconService(string iconsDir, string recycleBinDir, int sizePx = DefaultSizePx, Action<string>? log = null)
+    public IconService(string iconsDir, string recycleBinDir, int sizePx = DefaultSizePx, Action<string>? log = null, long maxIconFileBytes = DefaultMaxIconFileBytes)
     {
         if (sizePx <= 0) throw new ArgumentOutOfRangeException(nameof(sizePx));
+        if (maxIconFileBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxIconFileBytes));
 
         _handlesDir = Path.Combine(iconsDir, "handles");
         _cacheDir = Path.Combine(iconsDir, "cache");
         _recycleBinDir = recycleBinDir;
         _sizePx = sizePx;
+        _maxIconFileBytes = maxIconFileBytes;
         _log = log ?? (_ => { });
     }
 
@@ -104,18 +120,100 @@ public sealed class IconService
 
     private bool TryRenderToken(IconToken token, out byte[]? bytes) => token.Kind switch
     {
-        IconTokenKind.RawPath => TryReadRawPath(token.Value, out bytes),
+        IconTokenKind.RawPath => TryReadAndNormalizeRawPath(token.Value, out bytes),
         IconTokenKind.Emoji => TryRenderGlyph($"emoji-{token.Codepoint:X}-{_sizePx}", () => GlyphRenderer.RenderEmoji(token.Value, _sizePx), token, out bytes),
-        IconTokenKind.SegoeGlyph => TryRenderGlyph($"segoe-{token.Codepoint:X}-{_sizePx}", () => GlyphRenderer.RenderSegoeGlyph(token.Codepoint, _sizePx), token, out bytes),
+        // "segoe-tile" (not "segoe"): phase 16 (ERGO-28) changed WHAT a Segoe
+        // glyph render actually produces (white-on-accent-tile, not a bare
+        // black glyph) without touching the render-once CACHE's read-first
+        // logic -- an unchanged cache key would silently keep serving a
+        // pre-phase-16 install's already-cached bare-glyph bytes forever
+        // (observed live on this dev machine's own persisted LocalState
+        // cache while verifying this phase). The new prefix guarantees a
+        // fresh render on first use after upgrading; the stale
+        // "segoe-*.png" cache entries are simply orphaned (harmless -- the
+        // cache is a pure accelerator, see PruneCache).
+        IconTokenKind.SegoeGlyph => TryRenderGlyph($"segoe-tile-{token.Codepoint:X}-{_sizePx}", () => GlyphRenderer.RenderSegoeGlyph(token.Codepoint, _sizePx), token, out bytes),
         _ => throw new ArgumentOutOfRangeException(nameof(token), token.Kind, "Unknown icon token kind."),
     };
 
-    private static bool TryReadRawPath(string path, out byte[]? bytes)
+    /// <summary>
+    /// ERGO-29's `--icon-file` trust boundary: reads and validates a
+    /// caller-supplied source file, then hands it to
+    /// <see cref="RasterNormalizer"/> for decode/fit/flatten -- the SOURCE
+    /// file is only ever read here, never written or moved (AC3's path-safety
+    /// requirement); the DESTINATION path is always derived from the handle
+    /// via <see cref="HandleEncoding"/>, never from this path, so nothing
+    /// about a caller-controlled source path can influence where bytes get
+    /// written (no traversal vector exists to begin with).
+    ///
+    /// Every rejection tier -- missing file, oversized, disallowed format,
+    /// malformed image data -- returns <see langword="false"/> with a logged
+    /// reason (FAIL-3) so the caller's existing fallback chain
+    /// (<see cref="RenderWithFallback"/>) engages exactly like a genuinely
+    /// absent glyph would.
+    /// </summary>
+    private bool TryReadAndNormalizeRawPath(string path, out byte[]? bytes)
     {
-        if (!File.Exists(path)) { bytes = null; return false; }
-        try { bytes = File.ReadAllBytes(path); return true; }
-        catch (IOException) { bytes = null; return false; }
-        catch (UnauthorizedAccessException) { bytes = null; return false; }
+        bytes = null;
+
+        if (!File.Exists(path))
+        {
+            _log($"icon file: '{path}' does not exist.");
+            return false;
+        }
+
+        long length;
+        try
+        {
+            length = new FileInfo(path).Length;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log($"icon file: could not read the size of '{path}' ({ex.GetType().Name}).");
+            return false;
+        }
+
+        if (length <= 0 || length > _maxIconFileBytes)
+        {
+            _log($"icon file: '{path}' is {length} bytes, outside the allowed 1..{_maxIconFileBytes} byte range -- rejected before reading its contents.");
+            return false;
+        }
+
+        byte[] raw;
+        try
+        {
+            raw = File.ReadAllBytes(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log($"icon file: failed to read '{path}' ({ex.GetType().Name}).");
+            return false;
+        }
+
+        NormalizeResult result;
+        try
+        {
+            result = RasterNormalizer.Normalize(raw, _sizePx);
+        }
+        catch (Exception ex)
+        {
+            // RasterNormalizer.Normalize already catches its own decode
+            // failures (FAIL-1); this mirrors TryRenderGlyph's broad catch as
+            // defense-in-depth against a genuinely unexpected interop failure
+            // escaping it, so it degrades to the fallback chain instead of
+            // taking the whole verb down.
+            _log($"icon file: unexpected failure normalizing '{path}' ({ex.GetType().Name}: {ex.Message}).");
+            return false;
+        }
+
+        if (result.Status != NormalizeStatus.Ok)
+        {
+            _log($"icon file: '{path}' rejected -- {result.Status}: {result.Detail}");
+            return false;
+        }
+
+        bytes = result.PngBytes;
+        return true;
     }
 
     /// <summary>

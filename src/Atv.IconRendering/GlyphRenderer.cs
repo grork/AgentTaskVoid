@@ -16,6 +16,15 @@ namespace Atv.IconRendering;
 /// a clean <see cref="RenderStatus.GlyphNotFound"/> return, never an
 /// exception or a silently-blank/".notdef" render.
 ///
+/// ERGO-28 (phase 16): monochrome Segoe Fluent Icons glyphs
+/// (<see cref="RenderSegoeGlyph"/>) are composited onto <see cref="TileCompositor"/>'s
+/// fixed accent tile, in WHITE -- fixing the out-of-box "solid black glyph on
+/// a dark taskbar" contrast problem for the ERGO-12 default (Robot) and every
+/// other curated glyph. Color emoji (<see cref="RenderEmoji"/>) stay BARE, on
+/// a transparent canvas exactly as before -- already theme-safe full-color
+/// art; see <see cref="TileCompositor"/>'s remarks for the full "tile vs bare"
+/// reasoning.
+///
 /// Pure mechanism only (ERGO-22): no filesystem, no caching, no fallback
 /// policy -- those are the main project's job (<c>Atv.Icons.IconService</c>).
 /// </summary>
@@ -30,29 +39,40 @@ public static unsafe class GlyphRenderer
     /// <summary>Fraction of the canvas the font size targets -- leaves a small margin so glyphs with generous side-bearings (common in both emoji and icon fonts) aren't edge-clipped at taskbar size.</summary>
     private const float FontSizeFraction = 0.78f;
 
-    /// <summary>Renders a single literal emoji character (or a single non-BMP emoji encoded as a surrogate pair) via <see cref="EmojiFontFamily"/>.</summary>
+    /// <summary>Renders a single literal emoji character (or a single non-BMP emoji encoded as a surrogate pair) via <see cref="EmojiFontFamily"/>, BARE (transparent canvas, no tile -- ERGO-28's emoji build choice).</summary>
     public static RenderResult RenderEmoji(string emoji, int sizePx)
     {
         int codepoint = char.ConvertToUtf32(emoji, 0);
-        return Render(emoji, EmojiFontFamily, sizePx, codepoint);
+        return Render(emoji, EmojiFontFamily, sizePx, codepoint, onTile: false);
     }
 
-    /// <summary>Renders a single Segoe Fluent Icons codepoint (from the main project's curated list) via <see cref="SegoeIconFontFamily"/>.</summary>
+    /// <summary>Renders a single Segoe Fluent Icons codepoint (from the main project's curated list) via <see cref="SegoeIconFontFamily"/>, composited onto <see cref="TileCompositor"/>'s accent tile in white (ERGO-28).</summary>
     public static RenderResult RenderSegoeGlyph(int codepoint, int sizePx)
-        => Render(char.ConvertFromUtf32(codepoint), SegoeIconFontFamily, sizePx, codepoint);
+        => Render(char.ConvertFromUtf32(codepoint), SegoeIconFontFamily, sizePx, codepoint, onTile: true);
 
-    private static RenderResult Render(string text, string fontFamily, int sizePx, int probeCodepoint)
+    private static RenderResult Render(string text, string fontFamily, int sizePx, int probeCodepoint, bool onTile)
     {
         if (sizePx <= 0) throw new ArgumentOutOfRangeException(nameof(sizePx));
 
         if (!GlyphProbe.IsPresent(fontFamily, probeCodepoint))
             return RenderResult.NotFound(sizePx);
 
-        byte[] rgba = SoftwareCanvas.Render(sizePx, (renderTarget, brush) =>
+        byte[] rgba = SoftwareCanvas.Render(sizePx, (renderTarget, defaultBrush) =>
         {
+            if (onTile)
+                TileCompositor.FillTile(renderTarget, sizePx);
+
+            ID2D1SolidColorBrush* textBrush = defaultBrush;
+            ID2D1SolidColorBrush* tileGlyphBrush = null;
             IDWriteTextFormat* format = null;
             try
             {
+                if (onTile)
+                {
+                    renderTarget->CreateSolidColorBrush(TileCompositor.GlyphColor, null, &tileGlyphBrush);
+                    textBrush = tileGlyphBrush;
+                }
+
                 Interop.DWriteFactory->CreateTextFormat(
                     fontFamily,
                     null,
@@ -72,13 +92,14 @@ public static unsafe class GlyphRenderer
                     (uint)text.Length,
                     format,
                     in layoutRect,
-                    (ID2D1Brush*)brush,
+                    (ID2D1Brush*)textBrush,
                     D2D1_DRAW_TEXT_OPTIONS.D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT | D2D1_DRAW_TEXT_OPTIONS.D2D1_DRAW_TEXT_OPTIONS_NO_SNAP,
                     DWRITE_MEASURING_MODE.DWRITE_MEASURING_MODE_NATURAL);
             }
             finally
             {
                 if (format != null) format->Release();
+                if (tileGlyphBrush != null) tileGlyphBrush->Release();
             }
         });
 

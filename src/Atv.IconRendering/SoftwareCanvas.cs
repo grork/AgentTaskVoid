@@ -71,7 +71,7 @@ internal static unsafe class SoftwareCanvas
             draw(renderTarget, brush);
             renderTarget->EndDraw().ThrowOnFailure();
 
-            return ExtractStraightRgba(bitmap, sizePx);
+            return PixelExtraction.ExtractStraightRgba((IWICBitmapSource*)bitmap, sizePx, sizePx);
         }
         finally
         {
@@ -80,38 +80,4 @@ internal static unsafe class SoftwareCanvas
             if (bitmap != null) bitmap->Release();
         }
     }
-
-    private static byte[] ExtractStraightRgba(IWICBitmap* bitmap, int sizePx)
-    {
-        int stride = sizePx * 4;
-        byte[] bgraPremultiplied = new byte[stride * sizePx];
-        fixed (byte* p = bgraPremultiplied)
-        {
-            bitmap->CopyPixels(null, (uint)stride, (uint)bgraPremultiplied.Length, p);
-        }
-
-        byte[] rgba = new byte[bgraPremultiplied.Length];
-        for (int i = 0; i < rgba.Length; i += 4)
-        {
-            byte b = bgraPremultiplied[i + 0];
-            byte g = bgraPremultiplied[i + 1];
-            byte r = bgraPremultiplied[i + 2];
-            byte a = bgraPremultiplied[i + 3];
-
-            if (a == 0)
-            {
-                // rgba[i..i+3] already zero-initialized.
-                continue;
-            }
-
-            rgba[i + 0] = Unpremultiply(r, a);
-            rgba[i + 1] = Unpremultiply(g, a);
-            rgba[i + 2] = Unpremultiply(b, a);
-            rgba[i + 3] = a;
-        }
-        return rgba;
-    }
-
-    private static byte Unpremultiply(byte channel, byte alpha)
-        => (byte)Math.Min(255, (channel * 255 + alpha / 2) / alpha);
 }

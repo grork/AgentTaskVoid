@@ -398,18 +398,47 @@ public sealed class Dispatcher
         return true;
     }
 
+    /// <summary>
+    /// Resolves the icon source for one v2 upserting verb call: <c>--icon</c>
+    /// (the ERGO-20 curated-name/emoji/raw-path space) or <c>--icon-file</c>
+    /// (ERGO-29's dedicated bring-your-own-image flag), never both -- pure
+    /// argument-shape validation, so this runs before <see cref="Capability.Check"/>
+    /// just like <see cref="TryGetSingleHandle"/>/<see cref="TryResolveDeepLink"/>.
+    /// Absent either flag, falls back to <see cref="IconTokens.Default"/>.
+    /// </summary>
     private static bool TryResolveIconToken(ParseResult p, out IconToken token, out VerbResult? error)
     {
-        if (!p.Flags.TryGetValue("icon", out string? raw))
+        bool hasIcon = p.Flags.TryGetValue("icon", out string? iconRaw);
+        bool hasIconFile = p.Flags.TryGetValue("icon-file", out string? iconFileRaw);
+
+        if (hasIcon && hasIconFile)
+        {
+            token = default;
+            error = VerbResult.Failure(FailureKind.InvalidArguments, "--icon and --icon-file cannot both be specified on the same call -- choose one icon source.");
+            return false;
+        }
+
+        if (hasIconFile)
+        {
+            // The path is carried through unvalidated at parse time -- same
+            // posture as --icon's own RawPath fallback tier; IconService
+            // validates/normalizes it at render time (RasterNormalizer),
+            // degrading to the fallback chain rather than erroring here.
+            token = IconToken.RawPath(iconFileRaw!);
+            error = null;
+            return true;
+        }
+
+        if (!hasIcon)
         {
             token = IconTokens.Default;
             error = null;
             return true;
         }
 
-        if (!IconTokens.TryParse(raw, out token, out string? parseError))
+        if (!IconTokens.TryParse(iconRaw, out token, out string? parseError))
         {
-            error = VerbResult.Failure(FailureKind.InvalidArguments, parseError ?? $"--icon '{raw}' is invalid.");
+            error = VerbResult.Failure(FailureKind.InvalidArguments, parseError ?? $"--icon '{iconRaw}' is invalid.");
             return false;
         }
 

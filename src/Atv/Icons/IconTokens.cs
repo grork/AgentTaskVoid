@@ -1,6 +1,17 @@
 namespace Atv.Icons;
 
-/// <summary>How an <see cref="IconToken"/> was specified. <see cref="Emoji"/> and <see cref="SegoeGlyph"/> both render via <c>Atv.IconRendering.GlyphRenderer</c>; <see cref="RawPath"/> is the advanced escape hatch and bypasses rendering entirely.</summary>
+/// <summary>
+/// How an <see cref="IconToken"/> was specified. <see cref="Emoji"/> and
+/// <see cref="SegoeGlyph"/> both render via <c>Atv.IconRendering.GlyphRenderer</c>
+/// (bypassed entirely for <see cref="RawPath"/>, which points at an existing
+/// image file). Phase 16 (ERGO-29): <see cref="RawPath"/> is a supported,
+/// validated, NORMALIZED input -- both <c>--icon-file &lt;path&gt;</c>
+/// (explicit) and <c>--icon &lt;anything that isn't a curated name or a
+/// single character&gt;</c> (this type's third parse tier, unchanged) produce
+/// it, and <c>Atv.Icons.IconService</c> reads/validates/normalizes the target
+/// file via <c>Atv.IconRendering.RasterNormalizer</c> before caching it --
+/// no longer a raw, unvalidated byte-copy.
+/// </summary>
 public enum IconTokenKind
 {
     Emoji,
@@ -39,11 +50,13 @@ public readonly record struct IconToken(IconTokenKind Kind, string Value, int Co
 /// <item>the ERGO-12 default icon glyph used when a caller supplies no
 /// <c>--icon</c>.</item>
 /// </list>
-/// A raw file-path escape hatch ships too (ERGO-20 left it a build-time call;
+/// A raw file-path fallback ships too (ERGO-20 left it a build-time call;
 /// decided in because <see cref="TryParse"/>'s fallback case is trivial: any
 /// input that is neither a curated name nor a single literal character is
-/// just carried through as a path, unvalidated until whatever actually reads
-/// it).
+/// just carried through as a path). Phase 16 (ERGO-29) promoted this from an
+/// undocumented hatch to a supported input -- the path is validated and
+/// normalized by <c>Atv.Icons.IconService</c> before use, same as the
+/// dedicated <c>--icon-file</c> flag.
 /// </summary>
 public static class IconTokens
 {
