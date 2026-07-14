@@ -1,16 +1,18 @@
 # LIFE-24: The host-event → task-state integration semantics (the mapping layer)
-**Status:** OPEN — both prior blockers resolved (unblocked 2026-07-13). The design thinking
-is done; the verb contract is settled; what remains is the per-host mapping tables and two
-open empirical items. Semantic model + mapping rules RATIFIED 2026-07-11; layer placement
-(conduit / translator / engine) RATIFIED 2026-07-11 (second half); translator artifact shape
-+ per-host tech + the S1/S2-walk verb-claim semantics RATIFIED 2026-07-11 (third leg, which
-also decided LIFE-25 and spawned ERGO-31). **ERGO-31 ("The v2 semantic verb contract" —
-supersedes ERGO-27) is now DECIDED (2026-07-13)** and **INFRA-23 ("The host-event behavior
-recorder") is done** (phase-14 shipped; the Claude Code capture is `docs/host-events/
-claude-code.md`). What remains before this question is terminal: the per-host translator
-mapping tables (Claude Code capture in hand; the other hosts pend INFRA-31, "Recorder legs
-for the not-yet-testable hosts (Copilot / Codex / pi)") and open empirical items 1 and 4
-below (items 2 and 3 are now ANSWERED by the phase-14 capture).
+**Status:** DECIDED (2026-07-13)
+**Plan:** unplanned
+**Decision:** The integration layer is the **five-state semantic model** (Blocked / Broken /
+Ready / Working / Idle) + the **seven durable mapping rules** + the **conduit / translator /
+engine layering** — hosts project their event vocabularies onto the engine's idempotent
+semantic claims via per-host translators, keeping atv host-agnostic. The verb contract is
+ERGO-31 (v2 semantic verbs, supersedes ERGO-27). Claude Code's mapping is grounded + validated
+by the phase-14 capture (`docs/host-events/claude-code.md`); other hosts' tables + empirical
+item 4 defer with INFRA-31 (deferred-until-testable, recipe = INFRA-32). Empirical items 1–3
+ANSWERED — badge priority is **Error > NeedsAttention > Completed > Paused > Running**, so
+Blocked dominates every non-urgent state (no engine badge-mitigation needed). Consumed into a
+future phase as the v2-engine + Claude-Code-translator build (the concrete `map.json`/
+`translate.ps1` is build work, not a further decision). Full model + rules RATIFIED 2026-07-11
+(three legs — also decided LIFE-25, spawned ERGO-31); INFRA-23 recorder shipped in phase-14.
 
 ## Question
 How should a host's lifecycle *events* and *states* (Claude Code's, and by extension every
@@ -223,7 +225,16 @@ Five states, opinionated vocabulary (users learn it), ranked by the cost of igno
 1. `NeedsAttention`'s rank in the taskbar group-badge priority (documented: Error >
    Completed > Paused > Running; NeedsAttention untested). If Blocked doesn't dominate
    the badge, the model's most urgent state is its least visible. (An atv/taskbar
-   experiment, not a hook capture.) — **STILL OPEN.**
+   experiment, not a hook capture.) — **ANSWERED (2026-07-13):** the chain is
+   **Error > NeedsAttention > Completed > Paused > Running**. Verified on the live
+   taskbar (Win 11 26200) by staging shared-icon glommed pairs (throwaway probe forcing
+   one shared IconUri): Blocked+Completed badges as the exclamation (Blocked wins);
+   Blocked+Broken badges as the red X (Broken wins). So **Blocked dominates every
+   non-urgent state** — the concern (Blocked hidden behind Ready) does NOT occur; only
+   Broken outranks it, which is acceptable (both are "must look" session-truths). No
+   engine badge-mitigation is needed. Recorded in `docs/windows-ui-shell-tasks/README.md`.
+   (Aside: the flyout **list order** puts NeedsAttention first even when Error owns the
+   badge — list order ≠ badge priority.)
 2. Claude Code: which event types actually fire inside subagents; `agent_id` uniqueness
    across PARALLEL spawns; whether a subagent-triggered `Notification:
    permission_prompt` carries the `agent_id` (would let the session's Blocked state
@@ -239,7 +250,9 @@ Five states, opinionated vocabulary (users learn it), ranked by the cost of igno
    as expected, harmless duplicate done-signals.
 4. Copilot CLI: do tool hooks fire during subagent execution at all; `sessionId` scope
    in subagent payloads. (Host not installed on this box — needs the deferred
-   phase-13 leg's machine.) — **STILL OPEN (owned by INFRA-31's Copilot recorder leg).**
+   phase-13 leg's machine.) — **DEFERRED with INFRA-31** (2026-07-13, DEFERRED
+   deferred-until-testable); answered when Copilot's recorder leg is built on a machine
+   that can run it, per INFRA-30's rollout policy and the INFRA-32 onboarding recipe.
 
 ## RATIFIED 2026-07-11 (same session, second half): layer placement — conduit / translator / engine
 
@@ -397,11 +410,17 @@ command line); the walk surfaced these contract details:
 5. Large `PostToolUse` payloads (`tool_response` can be big) make PS 5.1
    parse slowly per event — accepted; async hooks absorb it.
 
-### Still OPEN to fully decide this question
+### Resolution — all residuals closed or homed (2026-07-13)
 - ~~The verb contract~~ — **DONE.** ERGO-31 ("The v2 semantic verb contract") is DECIDED
   (2026-07-13) and supersedes ERGO-27 ("The consolidated v1 command surface"); the ratified
   semantics above were its fixed inputs.
-- The per-host translator mapping tables (grounded in INFRA-23, "The host-event behavior
-  recorder", captures before being trusted). Claude Code's capture is in hand
-  (`docs/host-events/claude-code.md`); the other hosts pend INFRA-31's recorder legs.
-- The open empirical items above — items 2 and 3 now ANSWERED; items 1 and 4 remain.
+- **The per-host translator mapping tables** — Claude Code's is grounded + validated (its
+  capture, `docs/host-events/claude-code.md`, answered empirical items 2 & 3; ERGO-31
+  §2/§3/§4 + the capture fully determine the routing), so authoring the concrete
+  `map.json`/`translate.ps1` is **build work** for the v2-engine + Claude-Code-translator
+  plan phase, not an open decision. The other hosts' tables **defer with INFRA-31**
+  (deferred-until-testable) and follow the INFRA-32 onboarding recipe.
+- **Empirical items** — 1, 2, 3 all **ANSWERED**; item 4 **defers with INFRA-31**.
+- **v2 build note:** fan-out child cards must reuse the parent session's exact `IconUri`
+  (not `IconService.Place`, which mints per-handle paths and defeats glomming) — captured
+  in `requirements.md`.

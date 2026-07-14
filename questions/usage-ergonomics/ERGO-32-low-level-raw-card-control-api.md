@@ -1,5 +1,15 @@
 # ERGO-32: A low-level / raw card-control API
-**Status:** OPEN
+**Status:** DEFERRED (2026-07-13)
+**Deferred:** No raw tier ships; the ERGO-31 ("The v2 semantic verb contract") verbs stay the sole
+lifecycle surface. Rationale (full detail in the body below): no concrete consumer needs it (pi
+differs only in *delivery*, not vocabulary, and uses the smallest verb subset); "more control" is
+mostly control we deliberately removed (raw state×content re-exposes the ERGO-10 crash surface;
+opting out of the engine clocks leaks taskbar entries); the one genuine gap — unmodeled content
+shapes (buttons / text-input / rich result assets) — overlaps the deferred two-way round-trip
+(INTER-1/2/3), so a raw API would front-run a parked decision; and it is the same
+"structured-verbs-stop-being-the-API" anti-pattern LIFE-24 rejected 3×. **Revisit trigger:** a
+concrete consumer (host or tool) the semantic verbs genuinely cannot serve, weighed against the
+INTER-* two-way work. Operator call, 2026-07-13.
 
 ## Question
 Should `atv` expose a supported **low-level tier** — raw card control mapping ~1:1 to the

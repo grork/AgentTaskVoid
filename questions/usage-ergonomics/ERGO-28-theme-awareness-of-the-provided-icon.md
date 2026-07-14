@@ -1,5 +1,17 @@
 # ERGO-28: Theme-awareness of the icon provided to the platform
-**Status:** OPEN
+**Status:** DECIDED (2026-07-13)
+**Plan:** unplanned
+**Decision:** Option 1 (theme-neutral rendering). Render monochrome glyphs as a contrasting
+glyph on a **filled rounded-rect / squircle tile** in a fixed accent color — one static asset
+that reads on any taskbar theme (light/dark), matching how real app icons already look. No
+runtime theme reaction: options 2/3 (detect-at-render, watchdog re-render→Remove+Create) are
+rejected as fighting icon immutability (ERGO-25) and the URI grouping key (ERGO-13) for
+marginal gain. The default Robot glyph (ERGO-12) becomes a white robot on the accent tile, so
+the out-of-box case is fixed. Consumed into a future icon-pipeline phase (extends ERGO-22's
+`Atv.IconRendering`). Build-time details, not re-decisions: exact accent color + corner radius;
+whether color emoji (already theme-safe) also get the tile for visual consistency or render
+bare; high-contrast mode is a documented v1 caveat. Caller-supplied raster logos (ERGO-29)
+can't be recolored by us — contrast there is the caller's, at most padded onto the same tile.
 
 ## Question
 How should a task's icon adapt (if at all) to the user's Windows theme -- light/dark,

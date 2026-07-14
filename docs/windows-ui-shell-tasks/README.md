@@ -50,9 +50,9 @@ Undocumented Shell behavior for this build — not a contract, and it may change
 
 **The taskbar icon's badge is priority-ranked, not recency-ranked**, reflecting the single most notable state among all items sharing that icon:
 
-`Error` (red X) > `Completed` (green check) > `Paused` (gray pause) > `Running` (no badge)
+`Error` (red X) > `NeedsAttention` (exclamation) > `Completed` (green check) > `Paused` (gray pause) > `Running` (no badge)
 
-Independent of update order — e.g. a group with both `Completed` and `Paused` shows `Completed`; a group with both `Error` and `Completed` shows `Error`, regardless of which was updated last. `NeedsAttention`'s position is untested (it requires content with `SetQuestion` — see [state-content-compatibility.md](state-content-compatibility.md)).
+Independent of update order — e.g. a group with both `Completed` and `Paused` shows `Completed`; a group with both `Error` and `Completed` shows `Error`, regardless of which was updated last. `NeedsAttention` slots at #2, verified 2026-07-13 (LIFE-24 empirical item 1) by staging shared-icon glommed pairs on the live taskbar (Windows 11 26200): a `NeedsAttention`+`Completed` group badges as the exclamation; a `NeedsAttention`+`Error` group badges as the red X. Note the **flyout list order differs from badge priority** — the `NeedsAttention` card sorted first in the hover list even in the `Error`-badged group. (`NeedsAttention` requires content with `SetQuestion` — see [state-content-compatibility.md](state-content-compatibility.md).)
 
 ## Namespace essentials
 

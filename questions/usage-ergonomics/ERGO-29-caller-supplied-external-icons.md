@@ -1,5 +1,21 @@
 # ERGO-29: Caller-supplied (external) icons — bring-your-own image, and extraction from an exe/app
-**Status:** OPEN
+**Status:** DECIDED (2026-07-13)
+**Plan:** unplanned
+**Decision:** Support **bring-your-own image** via a dedicated `--icon-file <path>` flag
+(unambiguous against the `--icon` token/emoji space, option 2). It promotes today's hidden
+`RawPath` hatch into a supported, normalized input: accept common raster formats (PNG/JPG/ICO),
+fit to 64px, flatten transparency, cache per-handle like rendered glyphs, with size/format
+bounds + validation (path traversal, huge/malformed files). Consumed into a future
+icon-pipeline phase (extends `Atv.IconRendering`; pairs with ERGO-28's squircle). Build-time
+detail: whether a supplied mark gets the ERGO-28 tile (probably not for a full-bleed logo).
+
+**Sub-question 1.1 (extract icon from an exe / AUMID) — DEFERRED.** The "magic" of a host card
+auto-wearing the host's icon is illusory: the integration must already tell us *which* process
+owns the card (name the exe/AUMID), so at that point it can just supply the icon directly via
+`--icon-file` — extraction buys little over BYO-image for the most interop cost (Shell/Win32,
+multi-resolution selection, AOT-safe). Revisit when a concrete need appears (e.g. the platform
+fixing the theming story makes bare extracted icons viable again). Operator reasoning,
+2026-07-13.
 
 ## Question
 How should a caller supply their **own, fully-arbitrary icon** for a task card — a brand

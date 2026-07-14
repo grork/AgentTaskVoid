@@ -1,5 +1,48 @@
 # ERGO-30: A repo-scoped defaults file the tool auto-discovers (icons, titles, glomming)
-**Status:** OPEN
+**Status:** DECIDED (2026-07-13)
+**Plan:** unplanned
+**Decision:** Yes — auto-discover a repo-local **`.atv.json`** that supplies **presentation
+defaults**, so each repo brands its own cards with zero edits to the shared hook. The value is
+**distinguishability, not grouping** — cards are already separate per-session icons; the problem
+is telling apart "a sea of robot icons." Details:
+
+- **Discovery:** walk UP from an anchor directory, **first `.atv.json` wins**, stop at a `.git`
+  boundary or filesystem root (nearest-wins → monorepo-friendly). A handful of `File.Exists`
+  stats — negligible for a short-lived process. Runs in atv (the engine), so any caller benefits.
+- **Anchor (the load-bearing bit):** atv takes `--cwd <path>` from the caller and never trusts
+  its own process cwd in the hook case (a hook is spawned from an arbitrary directory). For
+  Claude Code the conduit passes **`--cwd ${CLAUDE_PROJECT_DIR}`** — Claude Code substitutes the
+  project *root* into the arg before spawning, so the anchor arrives as a clean CLI arg with **no
+  JSON parse and no escaping trap** (better than the payload `cwd`, which is documented to shift
+  to the tool-execution dir). atv stays host-agnostic — it only ever sees `--cwd`, never reads a
+  host env var itself. Direct human use (no `--cwd`) falls back to process cwd (reliable: they
+  ran atv while standing in the repo).
+- **Gated to card creation:** discovery runs only on the upsert **create** branch (no active
+  handle); it is skipped when updating a live card. Repo defaults bake in at creation — editing
+  `.atv.json` mid-session affects only *new* cards. (Off the hot path; `activity` fires often,
+  create once.)
+- **Presentation-only allowlist** — title (+ `{repo}`/`{branch}` templates), subtitle,
+  icon/icon-file (ERGO-29), glomming/grouping intent (ERGO-14/15). **This allowlist IS the trust
+  mechanism**: nothing repo-settable does more than change how a card *looks*, so no per-repo
+  trust prompt is needed.
+- **Excluded:** `deep-link` (a *launch action* — a checked-out repo must not decide what your
+  card opens) and ALL operational knobs (idle periods LIFE-22, watchdog interval, log rotation —
+  user/machine only). Identity stays global (ERGO-16): repo config changes presentation, not the
+  shared task namespace; `list`/`clear` stay identity-global.
+- **Precedence:** `--flag > env > repo-file > user-file (ERGO-26) > built-in default`, per key.
+- **Observability (anti-"silent sea of robots"):** `doctor`/`--verbose` surfaces the resolved
+  anchor + its source (`--cwd` vs process cwd) + the `.atv.json` found (or "none, searched up to
+  `<root>`") + parse status — so a misconfigured hook is a one-look diagnosis, not a mystery
+  (FAIL-3 posture).
+- **Translator discipline:** always forward the anchor (`--cwd ${CLAUDE_PROJECT_DIR}`), alongside
+  the existing UTF-8 / no-reserialization rules (LIFE-24).
+- **Per-host capability:** the project-dir anchor is verified for Claude Code (`CLAUDE_PROJECT_DIR`
+  + payload `cwd`, confirmed in the phase-14 captures); Copilot/Codex/pi equivalents are
+  capture-gated (LIFE-24 rule 7). Where a host provides no usable anchor, repo config simply
+  doesn't engage (documented degradation), never mis-anchors.
+
+Consumed into a future config-layer phase (extends ERGO-26's loader with the repo layer + the
+`--cwd` anchor + `doctor` surfacing). Title-template tokenization is a build detail.
 
 ## Question
 Given how **basic** each hook invocation is (a hook line calls `atv start <id> --title … --icon

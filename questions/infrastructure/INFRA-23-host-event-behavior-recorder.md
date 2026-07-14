@@ -1,6 +1,6 @@
 # INFRA-23: The host-event behavior recorder (diagnostics tooling, separate from atv)
 **Status:** EXPANDED
-**Expanded into:** INFRA-24, INFRA-25, INFRA-26, INFRA-27, INFRA-28, INFRA-29 (+ INFRA-30, INFRA-31, added 2026-07-12)
+**Expanded into:** INFRA-24, INFRA-25, INFRA-26, INFRA-27, INFRA-28, INFRA-29 (+ INFRA-30, INFRA-31, added 2026-07-12; + INFRA-32, added 2026-07-13)
 
 ## Question
 Design the standalone "real-world event behaviour" diagnostics tool for agent-CLI
@@ -54,8 +54,13 @@ Claude Code only:
   — DECIDED, consumed by phase-14: the core is proven only by a live host integration, and
   rollout is one host per phase gated on testability.
 - [`INFRA-31`: Recorder legs for the not-yet-testable hosts](./INFRA-31-recorder-legs-for-not-yet-testable-hosts.md)
-  — OPEN: whether/how the Copilot/Codex/pi legs get built. Catalogued so the remaining
-  rollout can't be silently dropped; its disposition is a future session's call.
+  — DEFERRED (2026-07-13): deferred-until-testable, single umbrella; pi carved out of v1 scope
+  (LIFE-8). Each leg is planned directly by INFRA-30's policy when its host becomes testable.
+- [`INFRA-32`: The host-onboarding playbook — trace to shipped integration](./INFRA-32-host-onboarding-playbook-trace-to-shipped-integration.md)
+  — DEFERRED (2026-07-13, spawned while deferring INFRA-31): the reusable recipe for taking a
+  runnable host from trace → verified mapping → shipped + wired atv integration. Deferred until
+  the first few adapters are hand-built, since a repeatable recipe can only be distilled from
+  repetition (n>1).
 
 ## Relationship to the plan
 Once the children above are DECIDED, this becomes a new plan phase (phase 14) executed

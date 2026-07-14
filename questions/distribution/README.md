@@ -23,4 +23,5 @@ now.
 - [`DIST-7`: The release full-package manifest](./DIST-7-release-full-package-manifest.md) -- DECIDED
 - [`DIST-8`: The joined release-leg spike](./DIST-8-joined-release-leg-spike.md) -- DECIDED
 - [`DIST-9`: Uninstall behavior with live tasks and a running watchdog](./DIST-9-uninstall-behavior-with-live-tasks-and-a-running-watchdog.md) -- DECIDED
-- [`DIST-10`: Getting `atv` onto the machine alongside the host plugin/integration](./DIST-10-getting-atv-onto-the-machine-alongside-the-host-plugin.md) -- OPEN
+- [`DIST-10`: Getting `atv` onto the machine alongside the host plugin/integration](./DIST-10-getting-atv-onto-the-machine-alongside-the-host-plugin.md) -- DEFERRED
+- [`DIST-11`: How the per-host integration artifact is delivered, placed on disk, and wired into the host's config](./DIST-11-integration-artifact-delivery-placement-and-host-config-wiring.md) -- DECIDED

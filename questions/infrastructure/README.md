@@ -36,4 +36,5 @@ aims.
 - [`INFRA-28`: Capture scenario design & session driver](./INFRA-28-capture-scenario-design-and-session-driver.md) -- DECIDED
 - [`INFRA-29`: Recorder lifecycle & maintenance model](./INFRA-29-recorder-lifecycle-and-maintenance-model.md) -- DECIDED
 - [`INFRA-30`: Recorder rollout & harness integration](./INFRA-30-recorder-rollout-and-harness-integration.md) -- DECIDED
-- [`INFRA-31`: Recorder legs for the not-yet-testable hosts (Copilot / Codex / pi)](./INFRA-31-recorder-legs-for-not-yet-testable-hosts.md) -- OPEN
+- [`INFRA-31`: Recorder legs for the not-yet-testable hosts (Copilot / Codex / pi)](./INFRA-31-recorder-legs-for-not-yet-testable-hosts.md) -- DEFERRED
+- [`INFRA-32`: The host-onboarding playbook — trace to shipped integration](./INFRA-32-host-onboarding-playbook-trace-to-shipped-integration.md) -- DEFERRED
