@@ -1,12 +1,16 @@
 # LIFE-24: The host-event → task-state integration semantics (the mapping layer)
-**Status:** BLOCKED(ERGO-31, INFRA-23) — the design thinking is done; what remains is owned
-by those two questions. Semantic model + mapping rules RATIFIED 2026-07-11; layer placement
+**Status:** OPEN — both prior blockers resolved (unblocked 2026-07-13). The design thinking
+is done; the verb contract is settled; what remains is the per-host mapping tables and two
+open empirical items. Semantic model + mapping rules RATIFIED 2026-07-11; layer placement
 (conduit / translator / engine) RATIFIED 2026-07-11 (second half); translator artifact shape
 + per-host tech + the S1/S2-walk verb-claim semantics RATIFIED 2026-07-11 (third leg, which
-also decided LIFE-25 and spawned ERGO-31). Blocked on: the verb contract (ERGO-31, "The v2
-semantic verb contract" — supersedes ERGO-27 when answered) and INFRA-23 ("The host-event
-behavior recorder"), which feeds the per-host translator tables and the open empirical
-items.
+also decided LIFE-25 and spawned ERGO-31). **ERGO-31 ("The v2 semantic verb contract" —
+supersedes ERGO-27) is now DECIDED (2026-07-13)** and **INFRA-23 ("The host-event behavior
+recorder") is done** (phase-14 shipped; the Claude Code capture is `docs/host-events/
+claude-code.md`). What remains before this question is terminal: the per-host translator
+mapping tables (Claude Code capture in hand; the other hosts pend INFRA-31, "Recorder legs
+for the not-yet-testable hosts (Copilot / Codex / pi)") and open empirical items 1 and 4
+below (items 2 and 3 are now ANSWERED by the phase-14 capture).
 
 ## Question
 How should a host's lifecycle *events* and *states* (Claude Code's, and by extension every
@@ -219,16 +223,23 @@ Five states, opinionated vocabulary (users learn it), ranked by the cost of igno
 1. `NeedsAttention`'s rank in the taskbar group-badge priority (documented: Error >
    Completed > Paused > Running; NeedsAttention untested). If Blocked doesn't dominate
    the badge, the model's most urgent state is its least visible. (An atv/taskbar
-   experiment, not a hook capture.)
+   experiment, not a hook capture.) — **STILL OPEN.**
 2. Claude Code: which event types actually fire inside subagents; `agent_id` uniqueness
    across PARALLEL spawns; whether a subagent-triggered `Notification:
    permission_prompt` carries the `agent_id` (would let the session's Blocked state
-   name the stalled worker).
+   name the stalled worker). — **ANSWERED (2026-07-13, `docs/host-events/claude-code.md`):**
+   subagent-scoped `SubagentStart/Stop` + `Pre/PostToolUse`/`PostToolBatch`/
+   `PostToolUseFailure`/`PermissionRequest` all carry the subagent's `agent_id`; `agent_id`
+   is unique across parallel spawns; `Notification:permission_prompt` does NOT carry it —
+   attribution lives on `PermissionRequest` (drives ERGO-31 §4's fan-out addressing).
 3. Claude Code: does `idle_prompt` fire after a user interrupt, and on what timing /
-   repetition?
+   repetition? — **ANSWERED (2026-07-13):** `idle_prompt` fires ~60 s after a clean turn
+   end, once, focus-independent; the after-interrupt sub-case stays weakly answered (never
+   idled past ~60 s post-interrupt in capture). So `ready` maps both `Stop` and `idle_prompt`
+   as expected, harmless duplicate done-signals.
 4. Copilot CLI: do tool hooks fire during subagent execution at all; `sessionId` scope
    in subagent payloads. (Host not installed on this box — needs the deferred
-   phase-13 leg's machine.)
+   phase-13 leg's machine.) — **STILL OPEN (owned by INFRA-31's Copilot recorder leg).**
 
 ## RATIFIED 2026-07-11 (same session, second half): layer placement — conduit / translator / engine
 
@@ -387,9 +398,10 @@ command line); the walk surfaced these contract details:
    parse slowly per event — accepted; async hooks absorb it.
 
 ### Still OPEN to fully decide this question
-- The verb contract — filed as ERGO-31 ("The v2 semantic verb contract"), which
-  when answered is expected to supersede ERGO-27 ("The consolidated v1 command
-  surface"); the ratified semantics above are its fixed inputs.
-- The per-host translator mapping tables (grounded in INFRA-23, "The host-event
-  behavior recorder", captures before being trusted).
-- The open empirical items above.
+- ~~The verb contract~~ — **DONE.** ERGO-31 ("The v2 semantic verb contract") is DECIDED
+  (2026-07-13) and supersedes ERGO-27 ("The consolidated v1 command surface"); the ratified
+  semantics above were its fixed inputs.
+- The per-host translator mapping tables (grounded in INFRA-23, "The host-event behavior
+  recorder", captures before being trusted). Claude Code's capture is in hand
+  (`docs/host-events/claude-code.md`); the other hosts pend INFRA-31's recorder legs.
+- The open empirical items above — items 2 and 3 now ANSWERED; items 1 and 4 remain.

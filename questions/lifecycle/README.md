@@ -29,5 +29,5 @@ is not guaranteed to shut down cleanly.
 - [`LIFE-21`: What expiry does](./LIFE-21-what-expiry-does.md) -- DECIDED
 - [`LIFE-22`: Idle-period defaults per state, and configurability](./LIFE-22-idle-period-defaults-per-state-and-configurability.md) -- DECIDED
 - [`LIFE-23`: Entryless-orphan reaping and the mass-deletion guard](./LIFE-23-entryless-orphan-reaping-and-the-mass-deletion-guard.md) -- DECIDED
-- [`LIFE-24`: The host-event -> task-state integration semantics (the mapping layer)](./LIFE-24-host-event-to-task-state-integration-semantics.md) -- BLOCKED(ERGO-31, INFRA-23)
+- [`LIFE-24`: The host-event -> task-state integration semantics (the mapping layer)](./LIFE-24-host-event-to-task-state-integration-semantics.md) -- OPEN
 - [`LIFE-25`: Should host hooks invoke the `atv` exe directly instead of via a shell?](./LIFE-25-hooks-invoking-the-exe-directly-vs-via-a-shell.md) -- DECIDED

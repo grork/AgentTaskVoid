@@ -11,10 +11,14 @@ caller-supplied handle is REQUIRED on every lifecycle verb -- no omit-to-default
 is an error (C3). The rest resolved to documented defaults (below). This spec is the input the
 execution plan consumes.
 
-**Successor note (2026-07-11):** ERGO-31 ("The v2 semantic verb contract"), spawned from
-LIFE-24's ("The host-event → task-state integration semantics") conduit/translator drill-down,
-is expected to supersede this surface when answered. This record stays DECIDED as the shipped
-v1 spec until then.
+**Successor note (updated 2026-07-13):** ERGO-31 ("The v2 semantic verb contract"), spawned
+from LIFE-24's ("The host-event → task-state integration semantics") conduit/translator
+drill-down, is now **DECIDED and supersedes this surface.** The v2 semantic verbs replace the
+lifecycle verbs `start`/`step`/`state`/`attention`/`done`/`fail`; the data/util verbs
+(`list`/`run`/`doctor`/`clear`/`remove`), the hidden `watchdog` mode, and all global flags
+here carry forward unchanged. This record stays DECIDED (its `**Plan:** all-phases` stamp is
+permanent — a v2 contract does not un-plan the shipped v1 phase) as the historical v1 spec;
+ERGO-31 is the current surface. See ERGO-31 §5 for the full supersession terms.
 
 ---
 
