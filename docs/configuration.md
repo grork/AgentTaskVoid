@@ -75,7 +75,93 @@ recurring values — icon token, title text — directly as `--flag`s on each
 `atv` call baked into the hook config, not through this config file. The
 config file is for *your own* machine-wide overrides (idle periods, watchdog
 mode); per-host presentation choices live in the integration artifact itself,
-editable by copying and adjusting that artifact's hook commands.
+editable by copying and adjusting that artifact's hook commands — or, since
+phase 17, per-**repo** via `.atv.json` below, with zero hook edits at all.
+
+## Repo-scoped presentation defaults: `.atv.json` (ERGO-30, phase 17)
+
+A repo can brand its own cards — title, subtitle, icon, whether its sessions
+visually glom together — without touching the shared hook config, by dropping
+a `.atv.json` file at (or above) the directory a translator anchors on. This
+is a **separate, narrower** layer than `atv-config.json` above: it only
+carries **presentation**, never operational knobs, and it slots into the
+precedence chain BETWEEN env and the user config file:
+
+```
+--flag  >  environment variable  >  repo file (.atv.json)  >  user config file (atv-config.json)  >  built-in default
+```
+
+### Discovery and the `--cwd` anchor
+
+`atv` walks **up** from an anchor directory looking for `.atv.json`; the
+**nearest** one wins (an ancestor's is never consulted once a closer one is
+found — monorepo-friendly: each package can have its own). The walk **stops**
+at the first `.git` boundary (that directory is still checked, inclusive) or
+at the filesystem root, whichever comes first.
+
+The anchor is **`--cwd <path>`** — a global option accepted anywhere on the
+command line, forwarded by a host integration (e.g. Claude Code's
+`--cwd ${CLAUDE_PROJECT_DIR}`, phase 18) so a hook spawned from an arbitrary
+directory still resolves the right repo. `atv` never reads a host environment
+variable itself for this — it only ever sees `--cwd`. Direct human use with
+no `--cwd` falls back to the process's own working directory (reliable: a
+human runs `atv` while standing in the repo). Where a host provides no usable
+anchor, repo config simply doesn't engage — never a mis-anchor.
+
+Discovery (and everything it feeds) runs **only when a card is genuinely
+created** — the first semantic-verb call against a handle with no live card.
+**Never** on an update to an already-live card: editing `.atv.json` mid-session
+changes nothing about that session's card; the *next new* card picks up the
+edit.
+
+### The allowlist (the entire trust mechanism)
+
+`.atv.json` is a flat JSON object, same string→string shape as
+`atv-config.json`, restricted to exactly five presentation keys:
+
+| Key | Mirrors | What it does |
+|---|---|---|
+| `title-template` | (no direct flag — see below) | A title, evaluated **only** when the caller supplied no explicit `--title`. `{repo}` (the discovered repo directory's name) and `{branch}` (read cheaply off `.git/HEAD`, never shelling out to `git`) expand inside it; a token with no resolvable value is **dropped** (replaced with an empty string), never left as a literal `{branch}` in a real title. A caller's own `--title` always wins verbatim and is never templated. |
+| `subtitle` | `--subtitle` | Subtitle text, when the caller supplied no explicit `--subtitle`. |
+| `icon` | `--icon` | An icon token (curated Segoe name / single-character emoji / raw path), when the caller supplied neither `--icon` nor `--icon-file`. |
+| `icon-file` | `--icon-file` | A bring-your-own-image path, same precedence as `icon` above; if a single source (env/repo-file/user-file) somehow sets both, `icon-file` wins. |
+| `group` | (no flag) | ERGO-14's glomming intent: a truthy value (`"true"`, case-insensitive) makes every card created while this repo's `.git` root is the discovered repo root **share one exact icon URI** — real taskbar glomming (ERGO-13 physics: grouping is keyed on the literal icon URI string). A different repo's cards always stay visually separate. If no `.git` boundary is found, grouping degrades gracefully (an ordinary per-handle icon, logged) rather than failing the create. |
+
+**Nothing else is repo-settable.** `deep-link` is explicitly excluded (a
+*launch action* — a checked-out repo, possibly attacker-controlled, must
+never decide what your card opens) and so is every operational knob from the
+table above (idle periods, watchdog interval, log rotation — user/machine
+only). A disallowed key present in a `.atv.json` is **ignored and durably
+logged** (never silently dropped) — `atv doctor`/the failure log will show
+it. Identity stays global (ERGO-16): `.atv.json` changes presentation, never
+the shared task namespace — `list`/`clear` are unaffected.
+
+A malformed or oversized (>64 KiB) `.atv.json` is ignored, logged, and never
+blocks a create (`atv` exits 0 unless `--strict`) — same non-disruptive
+posture as every other failure path in this tool.
+
+### Example
+
+```json
+{
+  "title-template": "{repo} ({branch})",
+  "icon": "Bug",
+  "group": "true"
+}
+```
+
+Every new card created while anchored under this repo gets a title like
+`myrepo (main)` (unless the caller passed its own `--title`), the "Bug"
+curated glyph (unless the caller passed `--icon`/`--icon-file`), and shares
+one taskbar icon with every other card from the same repo.
+
+### Diagnosing a repo config
+
+`atv doctor` (no flags needed) prints the resolved anchor and its source
+(`--cwd` vs. process cwd), which `.atv.json` was found — or
+`none, searched up to '<root>'` — and its parse status (`ok` / `not-found` /
+`malformed` / `too-large`), so a misconfigured hook or a typo'd `.atv.json`
+is a one-look diagnosis.
 
 ## Diagnosing configuration problems
 

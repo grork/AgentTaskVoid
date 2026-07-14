@@ -122,6 +122,17 @@ public static class SettingsLoader
     // ---- layer extraction ---------------------------------------------------
 
     private static Dictionary<string, string> ExtractEnv(IReadOnlyDictionary<string, string> processEnvironment, List<string> warnings)
+        => new(ExtractEnvFor(processEnvironment, Keys.All), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// ERGO-30's env layer for an ARBITRARY key set (unlike <see cref="Load"/>'s
+    /// fixed <c>Keys.All</c>) -- same brand-derived name + case-insensitive
+    /// lookup <see cref="ExtractEnv"/> uses for the tool's own operational
+    /// tunables, parameterized so <see cref="RepoSettings"/>'s five
+    /// presentation keys (<c>ATV_TITLE_TEMPLATE</c>, <c>ATV_SUBTITLE</c>, ...)
+    /// can reuse the identical lookup without duplicating it.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ExtractEnvFor(IReadOnlyDictionary<string, string> processEnvironment, IReadOnlyList<string> keys)
     {
         // Defensive case-insensitive shadow copy: real Windows env vars are
         // case-insensitive, and a caller might hand us a case-sensitive map.
@@ -130,13 +141,58 @@ public static class SettingsLoader
             caseInsensitive[kv.Key] = kv.Value;
 
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string key in Keys.All)
+        foreach (string key in keys)
         {
             string varName = CurrentEnvVarName(key);
             if (caseInsensitive.TryGetValue(varName, out string? raw) && raw is not null)
                 result[key] = raw;
         }
         return result;
+    }
+
+    /// <summary>
+    /// ERGO-30's user-file layer for an arbitrary key set -- reads the SAME
+    /// package-scoped config file <see cref="Load"/> already reads for the
+    /// operational tunables, filtered to <paramref name="keys"/>. A malformed
+    /// file degrades to an empty map here too; deliberately produces no
+    /// SECOND durable-log warning for the identical parse failure -- the
+    /// <see cref="Load"/> call a caller already makes for <see cref="Settings"/>
+    /// against the same file surfaces the one warning.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ReadFileFor(string? path, IReadOnlyList<string> keys)
+    {
+        var all = ReadFile(path, []);
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string key in keys)
+            if (all.TryGetValue(key, out string? v))
+                result[key] = v;
+        return result;
+    }
+
+    /// <summary>
+    /// ERGO-30's repo-scoped presentation-key precedence: <c>flag &gt; env &gt;
+    /// repo-file &gt; user-file &gt;</c> (no built-in default -- absence at
+    /// every layer is itself the answer; callers apply their OWN presentation
+    /// fallback, e.g. <c>Atv.Icons.IconTokens.Default</c>). Same "first source
+    /// that has this key wins" algorithm <see cref="Resolve{T}"/> uses for the
+    /// tool's own operational tunables -- a fresh minimal implementation
+    /// because these values are pure strings (no per-type parsing / mandatory
+    /// floor value) and the layer SET differs (four independently-supplied
+    /// maps here, not <see cref="Load"/>'s fixed flags/env/file triad against
+    /// one package-scoped file).
+    /// </summary>
+    public static string? ResolvePresentationKey(
+        string key,
+        string? flagValue,
+        IReadOnlyDictionary<string, string>? env,
+        IReadOnlyDictionary<string, string>? repoFile,
+        IReadOnlyDictionary<string, string>? userFile)
+    {
+        if (flagValue is not null) return flagValue;
+        if (env is not null && env.TryGetValue(key, out string? e)) return e;
+        if (repoFile is not null && repoFile.TryGetValue(key, out string? r)) return r;
+        if (userFile is not null && userFile.TryGetValue(key, out string? u)) return u;
+        return null;
     }
 
     private static Dictionary<string, string> ReadFile(string? path, List<string> warnings)

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Atv.Config;
 
 namespace Atv.Diagnostics;
 
@@ -32,13 +33,24 @@ public sealed record DoctorProbes(
     /// </summary>
     Func<string?>? PackageName = null);
 
-/// <summary>Everything <c>doctor</c> needs beyond the four probes above: the ERGO-26 paths to surface. Bundled so <see cref="Atv.Cli.Verbs.DoctorVerb"/> takes one parameter instead of four.</summary>
+/// <summary>Everything <c>doctor</c> needs beyond the four probes above: the ERGO-26 paths to surface, plus (phase 17) the ERGO-30 repo-defaults discovery delegate. Bundled so <see cref="Atv.Cli.Verbs.DoctorVerb"/> takes one parameter instead of several.</summary>
 public sealed record DoctorContext(
     DoctorProbes Probes,
     string ConfigPath,
     string AppDataFolder,
     string SidecarDir,
-    string LogPath);
+    string LogPath,
+    /// <summary>
+    /// ERGO-30's anti-"silent sea of robots" observability (AC7): the SAME
+    /// discovery delegate <see cref="Atv.Semantics.SemanticEngine"/> uses on
+    /// its create branch, invoked HERE unconditionally -- `doctor` is a pure
+    /// diagnostic verb, never gated by AC3's create-only rule (that rule is
+    /// about upserting verbs' hot path, not about diagnosing why a hook's
+    /// repo config isn't taking effect). <see langword="null"/> for a caller
+    /// that never wired repo support (existing pre-phase-17 tests) -- doctor
+    /// then simply omits the repo-config section.
+    /// </summary>
+    Func<RepoDiscoveryResult>? DiscoverRepo = null);
 
 /// <summary>
 /// <c>doctor</c>'s structured report (ERGO-27 C5's stable `--json` shape).
@@ -64,7 +76,17 @@ public sealed record DoctorReport(
     /// for a Release build (deliberately unmarked ship output) or when no package
     /// identity Name was available to classify.
     /// </summary>
-    string? BuildKindMarker = null);
+    string? BuildKindMarker = null,
+    /// <summary>ERGO-30 AC7: the resolved anchor directory (<c>--cwd</c> or the process's own cwd), <see langword="null"/> only when <see cref="DoctorContext.DiscoverRepo"/> itself was never wired.</summary>
+    string? RepoAnchorPath = null,
+    /// <summary><c>"--cwd"</c> or <c>"process cwd"</c> -- which of the two supplied <see cref="RepoAnchorPath"/>.</summary>
+    string? RepoAnchorSource = null,
+    /// <summary>The <c>.atv.json</c> path found by the anchor-rooted walk, or <see langword="null"/> when none was found (see <see cref="RepoSearchedUpTo"/> for how far the search went).</summary>
+    string? RepoConfigPath = null,
+    /// <summary><c>"not-found"</c> / <c>"ok"</c> / <c>"malformed"</c> / <c>"too-large"</c> -- a deliberately malformed repo file is a one-look diagnosis here (AC7).</summary>
+    string? RepoConfigParseStatus = null,
+    /// <summary>The last directory the discovery walk actually checked (a <c>.git</c> boundary or the filesystem root) -- what "none, searched up to &lt;root&gt;" refers to.</summary>
+    string? RepoSearchedUpTo = null);
 
 /// <summary>
 /// The individual, injected-probe-driven checks behind `doctor`
@@ -103,10 +125,24 @@ public static class DoctorChecks
             ? null
             : $"Nothing installed/registered -- winget install {WingetPackageId}";
 
+        RepoDiscoveryResult? repo = context.DiscoverRepo?.Invoke();
+        string? repoAnchorPath = repo?.AnchorPath;
+        string? repoAnchorSource = repo is null ? null : repo.AnchorSource == AnchorSource.CwdFlag ? "--cwd" : "process cwd";
+        string? repoConfigParseStatus = repo?.ParseStatus switch
+        {
+            null => null,
+            RepoConfigParseStatus.NotFound => "not-found",
+            RepoConfigParseStatus.Ok => "ok",
+            RepoConfigParseStatus.Malformed => "malformed",
+            RepoConfigParseStatus.TooLarge => "too-large",
+            _ => "unknown",
+        };
+
         return new DoctorReport(
             identityPresent, pfn, apiSupported, devModeEnabled, watchdogRunning,
             context.ConfigPath, context.AppDataFolder, context.SidecarDir, context.LogPath,
-            remedy, buildKindMarker);
+            remedy, buildKindMarker,
+            repoAnchorPath, repoAnchorSource, repo?.ConfigPath, repoConfigParseStatus, repo?.SearchedUpTo);
     }
 
     /// <summary>

@@ -7,7 +7,9 @@ public sealed record GlobalOptions(
     bool Verbose,
     bool Unsafe,
     bool WaitForDebugger,
-    string? WatchdogModeRaw);
+    string? WatchdogModeRaw,
+    /// <summary>ERGO-30's repo-scoped-defaults anchor (phase 17): the caller-supplied <c>--cwd</c>, or <see langword="null"/> when absent (the composition root then falls back to the process's own working directory). A global option like <see cref="WatchdogModeRaw"/> -- recognized at any position, harmlessly accepted-and-ignored by verbs that don't consume it.</summary>
+    string? Cwd = null);
 
 /// <summary>
 /// One parsed invocation: the recognized help/version pseudo-verbs, the verb
@@ -78,6 +80,7 @@ public static class CommandLine
         bool json = false, strict = false, verbose = false, unsafeBypass = false, waitForDebugger = false;
         bool showHelp = false, showVersion = false, reset = false, includeRecycleBin = false;
         string? watchdogModeRaw = null;
+        string? cwd = null;
         string? verb = null;
         string? error = null;
         var positionals = new List<string>();
@@ -122,6 +125,10 @@ public static class CommandLine
                     if (i + 1 >= args.Count) { error = "--watchdog-mode requires a value (spawn|inproc|off)."; break; }
                     watchdogModeRaw = args[++i];
                     continue;
+                case "--cwd":
+                    if (i + 1 >= args.Count) { error = "--cwd requires a value."; break; }
+                    cwd = args[++i];
+                    continue;
             }
             if (error is not null) break;
 
@@ -156,7 +163,7 @@ public static class CommandLine
             positionals.Add(tok);
         }
 
-        var global = new GlobalOptions(json, strict, verbose, unsafeBypass, waitForDebugger, watchdogModeRaw);
+        var global = new GlobalOptions(json, strict, verbose, unsafeBypass, waitForDebugger, watchdogModeRaw, cwd);
         return new ParseResult(showHelp, showVersion, verb, positionals, flags, reset, includeRecycleBin, childArgs, global, error);
     }
 }

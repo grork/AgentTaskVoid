@@ -1,3 +1,4 @@
+using Atv.Config;
 using Atv.Icons;
 using Atv.Operations;
 using Atv.Persistence;
@@ -53,6 +54,10 @@ public sealed class SemanticEngine
     private readonly TaskOperations _ops;
     private readonly IconService? _icons;
     private readonly Action<string> _log;
+    private readonly Func<RepoDiscoveryResult>? _discoverRepo;
+    private readonly IReadOnlyDictionary<string, string> _presentationEnv;
+    private readonly IReadOnlyDictionary<string, string> _presentationUserFile;
+    private readonly IconGroupRegistry? _groupRegistry;
 
     public SemanticEngine(
         IAppTaskStore store,
@@ -62,7 +67,11 @@ public sealed class SemanticEngine
         TimeSpan recycleBinTtl,
         TaskOperations ops,
         IconService? icons = null,
-        Action<string>? log = null)
+        Action<string>? log = null,
+        Func<RepoDiscoveryResult>? discoverRepo = null,
+        IReadOnlyDictionary<string, string>? presentationEnv = null,
+        IReadOnlyDictionary<string, string>? presentationUserFile = null,
+        IconGroupRegistry? groupRegistry = null)
     {
         _store = store;
         _sidecar = sidecar;
@@ -72,7 +81,13 @@ public sealed class SemanticEngine
         _ops = ops;
         _icons = icons;
         _log = log ?? (_ => { });
+        _discoverRepo = discoverRepo;
+        _presentationEnv = presentationEnv ?? EmptyStringMap;
+        _presentationUserFile = presentationUserFile ?? EmptyStringMap;
+        _groupRegistry = groupRegistry;
     }
+
+    private static readonly Dictionary<string, string> EmptyStringMap = new(StringComparer.OrdinalIgnoreCase);
 
     // ==== shared claim shapes ================================================
 
@@ -111,8 +126,8 @@ public sealed class SemanticEngine
     // ==== working ============================================================
 
     /// <summary>ERGO-31 §1's <c>working</c> row: sets the turn's goal (altitude 2). Absent <paramref name="goal"/> makes no content claim (idempotent) but still lands the card in Working, clearing any pending Blocked -- "a new prompt... means the block resolved" (LIFE-24).</summary>
-    public OperationOutcome Working(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? goal, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimWorking(ctx, goal));
+    public OperationOutcome Working(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? goal, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimWorking(ctx, goal), iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimWorking(ClaimContext ctx, string? goal)
     {
@@ -130,8 +145,8 @@ public sealed class SemanticEngine
     // ==== activity ===========================================================
 
     /// <summary>ERGO-31 §1's <c>activity</c> row: the current activity line (altitude 3). Clears the locus attributed to <paramref name="agentId"/> (or the parent locus if absent) -- AC3's "activity against a Blocked card drops the question and re-enters Working" for the single-locus case; when OTHER loci remain blocked (LIFE-24's concurrent-block case), the card stays Blocked showing the latest remaining question instead.</summary>
-    public OperationOutcome Activity(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimActivity(ctx, kind, label, agentId, name));
+    public OperationOutcome Activity(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimActivity(ctx, kind, label, agentId, name), iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimActivity(ClaimContext ctx, ActivityKind kind, string? label, string? agentId, string? name)
     {
@@ -146,8 +161,8 @@ public sealed class SemanticEngine
     // ==== blocked ============================================================
 
     /// <summary>ERGO-31 §1's <c>blocked</c> row: platform-enforced literal question (ERGO-10: <c>NeedsAttention</c> requires <c>SetQuestion</c>). Records/refreshes <paramref name="agentId"/>'s locus (or the parent locus if absent) and always DISPLAYS the latest raised question -- LIFE-24's concurrent-block rule. ERGO-31 §5: structurally refused against a fan-out CHILD handle -- "a question always belongs to the session card" -- see <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check.</summary>
-    public OperationOutcome Blocked(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string question, string? agentId, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBlocked(ctx, question, agentId, now), refuseIfChild: true, refusedVerbPhrase: "blocked");
+    public OperationOutcome Blocked(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string question, string? agentId, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBlocked(ctx, question, agentId, now), refuseIfChild: true, refusedVerbPhrase: "blocked", iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimBlocked(ClaimContext ctx, string question, string? agentId, DateTimeOffset now)
     {
@@ -165,8 +180,8 @@ public sealed class SemanticEngine
     // ==== ready ==============================================================
 
     /// <summary>ERGO-31 §1's <c>ready</c> row: bare preserves the current step content; <paramref name="summary"/> swaps to a <c>TextSummaryResult</c>. A turn-end event -- clears EVERY pending blocked locus (LIFE-24: turn-end events are never <c>--agent</c>-scoped). 15B: also the ONLY claim that ever (re)starts the LIFE-24 §6 Ready decay clock -- ONLY on a genuine transition INTO Ready (the card's prior live state was not already Completed); re-asserting an already-held Ready never restarts it (ERGO-31's idempotency rule, extended to the clock).</summary>
-    public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now));
+    public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now), iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimReady(ClaimContext ctx, string? summary, DateTimeOffset now)
     {
@@ -186,8 +201,8 @@ public sealed class SemanticEngine
     // ==== broken =============================================================
 
     /// <summary>ERGO-31 §1/§3's <c>broken</c> row: ALWAYS a <c>TextSummaryResult</c> of the rendered reason (+ optional <paramref name="detail"/>) -- "CreateTextSummaryResult under Error renders fully with no question attached" (ERGO-31). A turn-end event -- clears every pending blocked locus. ERGO-31 §5: structurally refused against a fan-out CHILD handle, same as <see cref="Blocked"/> -- "children are scaffolding: Working/Completed only" is EXHAUSTIVE, not merely "never Blocked"; a child must never reach Error either -- see <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check.</summary>
-    public OperationOutcome Broken(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, BrokenReasonToken reason, string? detail, DateTimeOffset now, bool unsafeBypass = false)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBroken(ctx, reason, detail), refuseIfChild: true, refusedVerbPhrase: "broken");
+    public OperationOutcome Broken(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, BrokenReasonToken reason, string? detail, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBroken(ctx, reason, detail), refuseIfChild: true, refusedVerbPhrase: "broken", iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimBroken(ClaimContext ctx, BrokenReasonToken reason, string? detail)
     {
@@ -220,14 +235,15 @@ public sealed class SemanticEngine
     /// refused the way <c>blocked</c>/<c>broken</c>/<c>session-ended --reason
     /// error</c> are. Left as-is; not exercised by any known translator.
     /// </summary>
-    public OperationOutcome AgentStarted(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false)
+    public OperationOutcome AgentStarted(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
         => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
             ctx => ClaimAgentStarted(ctx, agentId, name),
             afterWrite: result =>
             {
                 foreach (string newlyCardedId in result.NewlyCardedAgentIds ?? [])
                     MintChildCard(handle, iconUri, deepLink, newlyCardedId, result.Memory.NameHintFor(newlyCardedId), now);
-            });
+            },
+            iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimAgentStarted(ClaimContext ctx, string? agentId, string? name)
     {
@@ -284,14 +300,15 @@ public sealed class SemanticEngine
     /// because concurrency drops; it only ever retires at its OWN
     /// agent-stopped.
     /// </summary>
-    public OperationOutcome AgentStopped(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, DateTimeOffset now, bool unsafeBypass = false)
+    public OperationOutcome AgentStopped(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
         => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
             ctx => ClaimAgentStopped(ctx, agentId),
             afterWrite: result =>
             {
                 if (result.RetiredChildAgentId is { } retiredId)
                     RetireChildCard(handle, retiredId, now);
-            });
+            },
+            iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimAgentStopped(ClaimContext ctx, string? agentId)
     {
@@ -444,18 +461,21 @@ public sealed class SemanticEngine
         Func<ClaimContext, ClaimResult> computeClaim,
         Action<ClaimResult>? afterWrite = null,
         bool refuseIfChild = false,
-        string? refusedVerbPhrase = null)
+        string? refusedVerbPhrase = null,
+        IconToken iconToken = default,
+        bool iconExplicit = true)
     {
         ValidateHandle(handle);
         OperationOutcome? outcome = null;
         bool ran = _writeGate.TryRun(() =>
-            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase));
+            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase, iconToken, iconExplicit));
         return ran ? outcome! : GateUnavailable(handle);
     }
 
     private OperationOutcome ApplyClaimCore(
         string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, DateTimeOffset now, bool unsafeBypass,
-        Func<ClaimContext, ClaimResult> computeClaim, Action<ClaimResult>? afterWrite, bool refuseIfChild, string? refusedVerbPhrase)
+        Func<ClaimContext, ClaimResult> computeClaim, Action<ClaimResult>? afterWrite, bool refuseIfChild, string? refusedVerbPhrase,
+        IconToken iconToken, bool iconExplicit)
     {
         var (entry, live) = ResolveLive(handle);
 
@@ -554,10 +574,20 @@ public sealed class SemanticEngine
             _icons?.ReapRecycledIcon(handle);
         }
 
+        // ERGO-30: repo-scoped presentation defaults apply HERE ONLY -- the
+        // genuine "handle never seen before" creation path -- and NOWHERE else
+        // (never the `live is not null` branch above, never
+        // ApplyIconForcedRecreate's icon-token-changed recreate, which is an
+        // already-established session, not a new one). This is the ONE call
+        // site that ever touches `_discoverRepo` (AC3).
+        (string effectiveTitle, string effectiveSubtitle, Uri effectiveIconUri) =
+            ApplyRepoDefaults(handle, title, subtitle, iconUri, iconToken, iconExplicit);
+
         // Create() tolerates an empty title/subtitle fine (unlike UpdateTitles on an
         // already-live card, see ApplyIdentityIfClaimed's remarks) -- an absent
-        // --title/--subtitle on a brand-new handle just creates with "".
-        var created = _store.Create(title ?? "", subtitle ?? "", deepLink, iconUri, finalContent);
+        // --title/--subtitle (and no repo title-template) on a brand-new handle
+        // just creates with "".
+        var created = _store.Create(effectiveTitle, effectiveSubtitle, deepLink, effectiveIconUri, finalContent);
         if (finalState != AppTaskState.Running)
             _store.Update(created.Id, finalState, finalContent);
 
@@ -620,6 +650,137 @@ public sealed class SemanticEngine
         string reason = "Icon token changed -- forced Remove+Create; step history lost.";
         Log($"{handle}: {reason} (old id {oldId}, new id {recreated.Id})");
         return new OperationOutcome(OutcomeKind.Accepted, handle, reason, _store.Find(recreated.Id)!, IconChanged: true);
+    }
+
+    // ==== ERGO-30: repo-scoped presentation defaults (create-only) =============
+
+    /// <summary>
+    /// The sole entry point into ERGO-30's repo-scoped defaults, called ONLY
+    /// from <see cref="ApplyClaimCore"/>'s genuine-creation branch. Resolves,
+    /// per key, <c>flag &gt; env &gt; repo-file &gt; user-file</c>
+    /// (<see cref="SettingsLoader.ResolvePresentationKey"/>): the caller's own
+    /// explicit value always wins outright (<paramref name="title"/>/
+    /// <paramref name="subtitle"/> are already <see langword="null"/> unless
+    /// explicitly claimed; icon/icon-file via <paramref name="iconExplicit"/>).
+    /// When <see cref="_discoverRepo"/> is <see langword="null"/> (a caller
+    /// that never wired repo support -- most existing tests), this degrades
+    /// straight to today's pre-phase-17 behavior with zero repo-file access.
+    /// </summary>
+    private (string Title, string Subtitle, Uri IconUri) ApplyRepoDefaults(
+        string handle, string? title, string? subtitle, Uri fallbackIconUri, IconToken iconToken, bool iconExplicit)
+    {
+        if (_discoverRepo is null)
+            return (title ?? "", subtitle ?? "", fallbackIconUri);
+
+        RepoDiscoveryResult discovery = _discoverRepo();
+        LogRepoConfigIssues(discovery);
+
+        string? titleRaw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeyTitleTemplate, title, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
+        string effectiveTitle = titleRaw is null
+            ? ""
+            : title is not null
+                ? titleRaw // the caller's own explicit --title: always verbatim, never templated.
+                : RepoSettings.ExpandTemplate(titleRaw, discovery.RepoName, discovery.Branch);
+
+        string? subtitleRaw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeySubtitle, subtitle, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
+        string effectiveSubtitle = subtitleRaw ?? "";
+
+        Uri effectiveIconUri = ResolveCreateTimeIcon(handle, fallbackIconUri, iconToken, iconExplicit, discovery);
+
+        return (effectiveTitle, effectiveSubtitle, effectiveIconUri);
+    }
+
+    /// <summary>
+    /// Resolves the CREATE-time icon <see cref="Uri"/>: an env/repo-file/
+    /// user-file icon/icon-file override (only consulted when
+    /// <paramref name="iconExplicit"/> is <see langword="false"/> -- the
+    /// caller's own explicit <c>--icon</c>/<c>--icon-file</c> always wins
+    /// outright, never overridden by repo config), THEN the grouping-intent
+    /// key (ERGO-14/ERGO-13): when active, every card created while the SAME
+    /// repo root is discovered shares one exact <see cref="Uri"/> -- the
+    /// first live card in the repo becomes the "owner" (an ordinary per-handle
+    /// <see cref="IconService.Place"/>, so its own reap-on-remove lifecycle is
+    /// completely unaffected); every LATER creation in the same repo, as long
+    /// as that owner is still live, reuses its <see cref="AppTaskView.IconUri"/>
+    /// byte-for-byte -- the SAME physics phase 15B's fan-out child-card mint
+    /// uses (never a second <see cref="IconService.Place"/> call for a glommed
+    /// card). If the recorded owner is no longer live (its session ended),
+    /// ownership silently transfers to THIS call -- self-healing, no orphan
+    /// bookkeeping required.
+    /// </summary>
+    private Uri ResolveCreateTimeIcon(string handle, Uri fallbackIconUri, IconToken iconToken, bool iconExplicit, RepoDiscoveryResult discovery)
+    {
+        if (_icons is null) return fallbackIconUri;
+
+        IconToken effectiveToken = iconToken;
+        bool haveOverride = false;
+        if (!iconExplicit)
+        {
+            // icon-file beats icon when a SINGLE resolved layer supplies both --
+            // mirrors the CLI's own --icon/--icon-file mutual exclusivity, but a
+            // config file isn't hard-validated the way argv is; picking one
+            // deterministically beats refusing the whole create over a config
+            // author's mistake (this phase's non-disruptive posture).
+            string? iconFileRaw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeyIconFile, null, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
+            string? iconRaw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeyIcon, null, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
+            if (iconFileRaw is { Length: > 0 })
+            {
+                effectiveToken = IconToken.RawPath(iconFileRaw);
+                haveOverride = true;
+            }
+            else if (iconRaw is { Length: > 0 } && IconTokens.TryParse(iconRaw, out IconToken parsed, out _))
+            {
+                effectiveToken = parsed;
+                haveOverride = true;
+            }
+        }
+
+        if (!ResolveGroupEnabled(discovery))
+            return haveOverride ? _icons.Place(handle, effectiveToken) : fallbackIconUri;
+
+        if (_groupRegistry is null || discovery.RepoRootDir is null)
+        {
+            // Grouping intent set but no stable repo root was found to group by
+            // (or no registry wired) -- documented degradation (mirrors AC6's
+            // "missing git info degrades gracefully"): fall back to ordinary
+            // per-handle placement, never a throw or a refusal.
+            Log($"{handle}: repo grouping requested but no .git boundary was found (searched up to '{discovery.SearchedUpTo}') -- placing a per-handle icon instead.");
+            return haveOverride ? _icons.Place(handle, effectiveToken) : fallbackIconUri;
+        }
+
+        string groupKey = discovery.RepoRootDir;
+        string? ownerHandle = _groupRegistry.ReadOwnerHandle(groupKey);
+        if (ownerHandle is not null)
+        {
+            var ownerEntry = _sidecar.Read(ownerHandle);
+            var ownerLive = ownerEntry is not null ? _store.Find(ownerEntry.Id) : null;
+            if (ownerLive is not null)
+            {
+                Log($"{handle}: repo grouping -- reusing '{ownerHandle}'s icon URI byte-for-byte.");
+                return ownerLive.IconUri;
+            }
+        }
+
+        Uri placed = _icons.Place(handle, effectiveToken);
+        _groupRegistry.WriteOwnerHandle(groupKey, handle);
+        Log($"{handle}: repo grouping -- became the icon owner for repo '{discovery.RepoName}'.");
+        return placed;
+    }
+
+    private bool ResolveGroupEnabled(RepoDiscoveryResult discovery)
+    {
+        string? raw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeyGroup, null, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
+        return raw is not null && raw.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>ERGO-30's non-disruptive-posture logging for the two failure/observability modes AC1/AC4 call for: a malformed/oversized <c>.atv.json</c> (ignored, logged, exit 0) and non-allowlisted keys present in one (ignored AND logged, never silently dropped).</summary>
+    private void LogRepoConfigIssues(RepoDiscoveryResult discovery)
+    {
+        if (discovery.ParseStatus is RepoConfigParseStatus.Malformed or RepoConfigParseStatus.TooLarge)
+            Log($"repo config '{discovery.ConfigPath}': {discovery.ParseStatus} -- ignored, using defaults for every key it would have supplied.");
+
+        if (discovery.DisallowedKeys.Count > 0)
+            Log($"repo config '{discovery.ConfigPath}': ignored non-allowlisted key(s) {string.Join(", ", discovery.DisallowedKeys)} -- only {string.Join("/", RepoSettings.AllowlistKeys)} are repo-settable (ERGO-30).");
     }
 
     // ==== shared helpers ========================================================

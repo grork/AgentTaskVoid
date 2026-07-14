@@ -1,3 +1,4 @@
+using Atv.Config;
 using Atv.Icons;
 using Atv.LogicTests.Persistence;
 using Atv.LogicTests.Store;
@@ -25,6 +26,7 @@ internal sealed class SemanticEngineHarness : IDisposable
     private readonly TempDirectory _sidecarDir = new();
     private readonly TempDirectory _recycleDir = new();
     private readonly TempDirectory? _iconsDir;
+    private readonly TempDirectory? _groupsDir;
     private readonly Mutex _mutex = new(initiallyOwned: false);
 
     public FakeAppTaskStore Store { get; } = new();
@@ -33,11 +35,26 @@ internal sealed class SemanticEngineHarness : IDisposable
     public string RecycleDirPath => _recycleDir.Path;
     public WriteGate Gate { get; }
     public IconService? Icons { get; }
+    public IconGroupRegistry? GroupRegistry { get; }
     public List<string> Logs { get; } = [];
     public TaskOperations Ops { get; }
     public SemanticEngine Engine { get; }
 
-    public SemanticEngineHarness(bool withIcons = false, TimeSpan? ttl = null)
+    /// <summary>
+    /// ERGO-30 (phase 17) repo-defaults wiring, all optional/trailing so
+    /// every pre-existing call site of this harness keeps compiling and
+    /// exercises zero repo-file access (matching <see cref="SemanticEngine"/>'s
+    /// own "no <c>discoverRepo</c> wired -&gt; pre-phase-17 behavior"
+    /// degradation). <paramref name="discoverRepo"/> is deliberately the
+    /// caller's own delegate (not built here) so a test can wrap it in a
+    /// COUNTING spy -- AC3's "prove via a counting/spy fake, not just 'it
+    /// looked right'" requirement.
+    /// </summary>
+    public SemanticEngineHarness(
+        bool withIcons = false, TimeSpan? ttl = null,
+        Func<RepoDiscoveryResult>? discoverRepo = null,
+        IReadOnlyDictionary<string, string>? presentationEnv = null,
+        IReadOnlyDictionary<string, string>? presentationUserFile = null)
     {
         Sidecar = new SidecarStore(_sidecarDir.Path);
         RecycleBin = new RecycleBin(_recycleDir.Path);
@@ -46,9 +63,14 @@ internal sealed class SemanticEngineHarness : IDisposable
         {
             _iconsDir = new TempDirectory();
             Icons = new IconService(_iconsDir.Path, _recycleDir.Path);
+            _groupsDir = new TempDirectory();
+            GroupRegistry = new IconGroupRegistry(_groupsDir.Path);
         }
         Ops = new TaskOperations(Store, Sidecar, RecycleBin, Gate, ttl ?? Ttl, Logs.Add, Icons);
-        Engine = new SemanticEngine(Store, Sidecar, RecycleBin, Gate, ttl ?? Ttl, Ops, Icons, Logs.Add);
+        Engine = new SemanticEngine(
+            Store, Sidecar, RecycleBin, Gate, ttl ?? Ttl, Ops, Icons, Logs.Add,
+            discoverRepo: discoverRepo, presentationEnv: presentationEnv, presentationUserFile: presentationUserFile,
+            groupRegistry: GroupRegistry);
     }
 
     /// <summary>A second <see cref="SemanticEngine"/> sharing this harness's store/sidecar/recycle-bin but wrapping a NEW <see cref="WriteGate"/> around the SAME underlying mutex -- mirrors AC7's cross-verb concurrency test.</summary>
@@ -68,5 +90,6 @@ internal sealed class SemanticEngineHarness : IDisposable
         _sidecarDir.Dispose();
         _recycleDir.Dispose();
         _iconsDir?.Dispose();
+        _groupsDir?.Dispose();
     }
 }

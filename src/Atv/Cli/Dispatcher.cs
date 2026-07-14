@@ -131,7 +131,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
         string? subtitle = p.Flags.GetValueOrDefault("subtitle");
@@ -143,7 +143,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Working(handle, title, subtitle, iconUri, deepLink, goal, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.Working(handle, title, subtitle, iconUri, deepLink, goal, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -153,7 +153,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
         if (!TryResolveKind(p, out ActivityKind kind, out var kindErr)) return kindErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
@@ -168,7 +168,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Activity(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.Activity(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -178,7 +178,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? question = ResolveFreeText(p, "question");
         if (string.IsNullOrWhiteSpace(question))
@@ -194,7 +194,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Blocked(handle, title, subtitle, iconUri, deepLink, question, agentId, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.Blocked(handle, title, subtitle, iconUri, deepLink, question, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -204,7 +204,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
         string? subtitle = p.Flags.GetValueOrDefault("subtitle");
@@ -216,7 +216,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Ready(handle, title, subtitle, iconUri, deepLink, summary, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.Ready(handle, title, subtitle, iconUri, deepLink, summary, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -226,7 +226,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         if (!p.Flags.TryGetValue("reason", out string? reasonRaw) || !BrokenReasons.TryParse(reasonRaw, out BrokenReasonToken reason))
         {
@@ -244,7 +244,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Broken(handle, title, subtitle, iconUri, deepLink, reason, detail, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.Broken(handle, title, subtitle, iconUri, deepLink, reason, detail, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -254,7 +254,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
         string? subtitle = p.Flags.GetValueOrDefault("subtitle");
@@ -267,7 +267,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.AgentStarted(handle, title, subtitle, iconUri, deepLink, agentId, name, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.AgentStarted(handle, title, subtitle, iconUri, deepLink, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -275,7 +275,7 @@ public sealed class Dispatcher
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
         if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
-        if (!TryResolveIconToken(p, out IconToken token, out var iconErr)) return iconErr!.Value;
+        if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
         string? subtitle = p.Flags.GetValueOrDefault("subtitle");
@@ -287,7 +287,7 @@ public sealed class Dispatcher
         _ensureWatchdog();
 
         Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.AgentStopped(handle, title, subtitle, iconUri, deepLink, agentId, now, unsafeBypass: p.Global.Unsafe);
+        var outcome = _engine.AgentStopped(handle, title, subtitle, iconUri, deepLink, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
         return MapOutcome(outcome);
     }
 
@@ -404,12 +404,17 @@ public sealed class Dispatcher
     /// (ERGO-29's dedicated bring-your-own-image flag), never both -- pure
     /// argument-shape validation, so this runs before <see cref="Capability.Check"/>
     /// just like <see cref="TryGetSingleHandle"/>/<see cref="TryResolveDeepLink"/>.
-    /// Absent either flag, falls back to <see cref="IconTokens.Default"/>.
+    /// Absent either flag, falls back to <see cref="IconTokens.Default"/> and
+    /// reports <paramref name="explicitlyRequested"/> as <see langword="false"/>
+    /// -- ERGO-30 (phase 17)'s signal that <see cref="Semantics.SemanticEngine"/>
+    /// is free to substitute a repo-scoped icon default on CREATE (never on an
+    /// update, and never when the caller genuinely asked for a specific icon).
     /// </summary>
-    private static bool TryResolveIconToken(ParseResult p, out IconToken token, out VerbResult? error)
+    private static bool TryResolveIconToken(ParseResult p, out IconToken token, out bool explicitlyRequested, out VerbResult? error)
     {
         bool hasIcon = p.Flags.TryGetValue("icon", out string? iconRaw);
         bool hasIconFile = p.Flags.TryGetValue("icon-file", out string? iconFileRaw);
+        explicitlyRequested = hasIcon || hasIconFile;
 
         if (hasIcon && hasIconFile)
         {

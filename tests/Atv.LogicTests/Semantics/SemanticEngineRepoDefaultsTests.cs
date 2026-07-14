@@ -1,0 +1,366 @@
+using Atv.Config;
+using Atv.IconRendering;
+using Atv.Icons;
+using Atv.Semantics;
+using Atv.Store;
+
+namespace Atv.LogicTests.Semantics;
+
+/// <summary>
+/// ERGO-30 (phase 17) AC3/AC4/AC5/AC6 at the <see cref="Atv.Semantics.SemanticEngine"/>
+/// level: repo-scoped presentation defaults apply ONLY on the upsert CREATE
+/// branch (proven via a counting spy, not just "it looked right"), the
+/// five-key allowlist actually applies (title-template, subtitle, icon,
+/// icon-file, grouping intent) while disallowed keys are ignored AND logged,
+/// grouping produces real byte-identical <see cref="Uri"/> sharing within a
+/// repo while staying separate across repos, and the full flag/env/repo/
+/// user-file precedence (including the two easy-to-invert orderings).
+/// </summary>
+[TestClass]
+public sealed class SemanticEngineRepoDefaultsTests
+{
+    private static readonly Uri DefaultIconUri = SemanticEngineHarness.IconUri;
+    private static readonly Uri Link = SemanticEngineHarness.DeepLink;
+    private static readonly DateTimeOffset Now = SemanticEngineHarness.Now;
+
+    private static RepoDiscoveryResult FakeDiscovery(
+        IReadOnlyDictionary<string, string>? allowed = null,
+        string? repoRootDir = @"C:\repo",
+        string? repoName = "repo",
+        string? branch = "main",
+        RepoConfigParseStatus status = RepoConfigParseStatus.Ok,
+        IReadOnlyList<string>? disallowed = null,
+        string? configPath = @"C:\repo\.atv.json")
+        => new(@"C:\repo", AnchorSource.CwdFlag, configPath, @"C:\repo", status,
+            allowed ?? new Dictionary<string, string>(), disallowed ?? [], repoRootDir, repoName, branch);
+
+    // ==== AC3: create-only gating, proven via a counting spy ===================
+
+    [TestMethod]
+    public void CreatingANewCard_InvokesDiscoverRepoExactlyOnce()
+    {
+        int calls = 0;
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => { calls++; return FakeDiscovery(); });
+
+        h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.AreEqual(1, calls, "a genuine creation must trigger discovery exactly once.");
+    }
+
+    [TestMethod]
+    public void UpdatingALiveCard_NeverInvokesDiscoverRepo_ZeroAdditionalCalls()
+    {
+        int calls = 0;
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => { calls++; return FakeDiscovery(); });
+
+        h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+        Assert.AreEqual(1, calls, "sanity: creation triggered discovery once.");
+
+        // Several different verbs, all against the SAME already-live handle --
+        // none of them may probe discovery again.
+        h.Engine.Activity("session", null, null, DefaultIconUri, Link, ActivityKind.Read, "reading", null, null, Now.AddMinutes(1), iconToken: IconTokens.Default, iconExplicit: false);
+        h.Engine.Ready("session", null, null, DefaultIconUri, Link, null, Now.AddMinutes(2), iconToken: IconTokens.Default, iconExplicit: false);
+        h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal2", Now.AddMinutes(3), iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.AreEqual(1, calls, "the update path must perform literally NO discovery probing.");
+    }
+
+    [TestMethod]
+    public void EditingRepoFile_MidSession_NeverAffectsAnExistingCard_OnlyTheNextNewOne()
+    {
+        var discoveryVersion = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyTitleTemplate] = "Version A" });
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discoveryVersion);
+
+        h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+        var afterCreate = h.Store.FindAll().Single();
+        Assert.AreEqual("Version A", afterCreate.Title);
+
+        // "Edit .atv.json" -- the discovery closure now reports a different value.
+        discoveryVersion = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyTitleTemplate] = "Version B" });
+
+        // An UPDATE against the SAME existing handle: must be completely unaffected.
+        h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal2", Now.AddMinutes(1), iconToken: IconTokens.Default, iconExplicit: false);
+        var afterUpdate = h.Store.FindAll().Single();
+        Assert.AreEqual("Version A", afterUpdate.Title, "editing .atv.json mid-session must change nothing about a live card.");
+
+        // The NEXT NEW card picks up the edit.
+        h.Engine.Working("session-2", null, null, DefaultIconUri, Link, "goal", Now.AddMinutes(2), iconToken: IconTokens.Default, iconExplicit: false);
+        var secondCard = h.Store.FindAll().Single(t => t.Title == "Version B");
+        Assert.IsNotNull(secondCard);
+    }
+
+    // ==== AC4: allowlist enforcement ============================================
+
+    [TestMethod]
+    public void TitleTemplate_AppliesFromRepoFile_OnCreate_NoExplicitTitle()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyTitleTemplate] = "{repo}: {branch}" }, repoName: "myrepo", branch: "feature-x");
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        h.Engine.Working("session", null, "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        var view = h.Store.FindAll().Single();
+        Assert.AreEqual("myrepo: feature-x", view.Title);
+    }
+
+    [TestMethod]
+    public void TitleTemplate_NeverAppliesWhenCallerSuppliedAnExplicitTitle_VerbatimNoExpansion()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyTitleTemplate] = "{repo}: {branch}" });
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        h.Engine.Working("session", "Literal {repo} Title", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        var view = h.Store.FindAll().Single();
+        Assert.AreEqual("Literal {repo} Title", view.Title, "an explicit --title always wins verbatim, never templated.");
+    }
+
+    [TestMethod]
+    public void Subtitle_AppliesFromRepoFile_OnCreate()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "Repo Subtitle" });
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        h.Engine.Working("session", "T", null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.AreEqual("Repo Subtitle", h.Store.FindAll().Single().Subtitle);
+    }
+
+    [TestMethod]
+    public void IconToken_AppliesFromRepoFile_OnCreate_RealPixelRender()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyIcon] = "Bug" });
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        // iconExplicit: false -- mirrors "the caller passed no --icon", the
+        // ONLY condition under which a repo icon override is even consulted.
+        h.Engine.Working("session", "T", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        var view = h.Store.FindAll().Single();
+        byte[] actual = File.ReadAllBytes(view.IconUri.LocalPath);
+        byte[] bugRefBytes = File.ReadAllBytes(h.Icons!.Place("reference-bug", IconToken.Segoe(IconTokens.CuratedSegoe["Bug"])).LocalPath);
+        byte[] defaultRefBytes = File.ReadAllBytes(h.Icons.Place("reference-default", IconTokens.Default).LocalPath);
+
+        CollectionAssert.AreEqual(bugRefBytes, actual, "the repo's icon override must actually render -- byte-identical to a direct Bug-glyph render.");
+        CollectionAssert.AreNotEqual(defaultRefBytes, actual, "must NOT be the untouched default glyph.");
+    }
+
+    [TestMethod]
+    public void IconToken_NeverAppliesWhenCallerExplicitlyRequestedAnIcon()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyIcon] = "Bug" });
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        IconToken explicitToken = IconToken.Segoe(IconTokens.CuratedSegoe["Heart"]);
+        Uri placed = h.Icons!.Place("session", explicitToken);
+        h.Engine.Working("session", "T", "S", placed, Link, "goal", Now, iconToken: explicitToken, iconExplicit: true);
+
+        var view = h.Store.FindAll().Single();
+        byte[] actual = File.ReadAllBytes(view.IconUri.LocalPath);
+        byte[] heartRefBytes = File.ReadAllBytes(h.Icons.Place("reference-heart", explicitToken).LocalPath);
+        CollectionAssert.AreEqual(heartRefBytes, actual, "the caller's own explicit --icon must never be overridden by repo config.");
+    }
+
+    [TestMethod]
+    public void IconFile_AppliesFromRepoFile_OnCreate_NormalizedRealRender()
+    {
+        byte[] source = ShapeRenderer.RenderDefaultShape(128).PngBytes!;
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"atv-repo-icon-file-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(sourcePath, source);
+        try
+        {
+            var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyIconFile] = sourcePath });
+            using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+            h.Engine.Working("session", "T", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+            var view = h.Store.FindAll().Single();
+            byte[] actual = File.ReadAllBytes(view.IconUri.LocalPath);
+            byte[] expected = RasterNormalizer.Normalize(source, IconService.DefaultSizePx).PngBytes!;
+            CollectionAssert.AreEqual(expected, actual);
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [TestMethod]
+    public void DisallowedKeys_DeepLinkAndOperationalKnobs_AreIgnored_AndLogged()
+    {
+        var discovery = FakeDiscovery(
+            allowed: new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "S" },
+            disallowed: ["deep-link", "idle-running", "watchdog-poll-interval"]);
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        Uri callerDeepLink = new("https://example.invalid/caller-supplied-deep-link");
+        h.Engine.Working("session", "T", null, DefaultIconUri, callerDeepLink, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        var view = h.Store.FindAll().Single();
+        Assert.AreEqual("S", view.Subtitle, "the allowlisted key must still apply.");
+        Assert.AreEqual(callerDeepLink, view.DeepLink, "deep-link must be COMPLETELY unaffected by anything in the repo file -- it isn't even allowlisted.");
+        Assert.IsTrue(h.Logs.Any(l => l.Contains("deep-link", StringComparison.Ordinal) && l.Contains("idle-running", StringComparison.Ordinal)),
+            "disallowed keys must be ignored AND durably logged, never silently dropped.");
+    }
+
+    [TestMethod]
+    public void MalformedRepoFile_CreateStillSucceeds_UsesDefaults_LogsTheIssue()
+    {
+        var discovery = FakeDiscovery(status: RepoConfigParseStatus.Malformed, allowed: new Dictionary<string, string>());
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        var outcome = h.Engine.Working("session", "Explicit Title", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.IsTrue(outcome.Success, "a malformed repo file must never block a create -- non-disruptive posture.");
+        Assert.AreEqual("Explicit Title", h.Store.FindAll().Single().Title);
+        Assert.IsTrue(h.Logs.Any(l => l.Contains("Malformed", StringComparison.Ordinal)), "a malformed repo file must produce a durable log entry.");
+    }
+
+    // ==== AC4: grouping intent -- real IconUri glomming =========================
+
+    [TestMethod]
+    public void Grouping_TwoSessionsSameRepo_ShareOneExactIconUri()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyGroup] = "true" }, repoRootDir: @"C:\repoA", repoName: "repoA");
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        h.Engine.Working("session-1", "T1", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+        h.Engine.Working("session-2", "T2", "S", DefaultIconUri, Link, "goal", Now.AddMinutes(1), iconToken: IconTokens.Default, iconExplicit: false);
+
+        var uri1 = h.Store.FindAll().Single(t => t.Title == "T1").IconUri;
+        var uri2 = h.Store.FindAll().Single(t => t.Title == "T2").IconUri;
+        Assert.AreEqual(uri1, uri2, "two sessions in the same repo must share ONE exact icon URI.");
+    }
+
+    [TestMethod]
+    public void Grouping_DifferentRepos_StayVisuallySeparate_DifferentIconUri()
+    {
+        var discoveryA = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyGroup] = "true" }, repoRootDir: @"C:\repoA", repoName: "repoA");
+        var discoveryB = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyGroup] = "true" }, repoRootDir: @"C:\repoB", repoName: "repoB");
+
+        using var iconsDir = new Persistence.TempDirectory();
+        using var recycleDir = new Persistence.TempDirectory();
+        using var groupsDir = new Persistence.TempDirectory();
+        var icons = new IconService(iconsDir.Path, recycleDir.Path);
+        var groupRegistry = new IconGroupRegistry(groupsDir.Path);
+
+        // Two engines sharing the SAME icon/group infrastructure (as production
+        // does, one process per repo) but different discovery results -- proves
+        // cross-repo separation independent of any single harness's plumbing.
+        using var hA = new SemanticEngineHarness(withIcons: false, discoverRepo: () => discoveryA);
+        using var hB = new SemanticEngineHarness(withIcons: false, discoverRepo: () => discoveryB);
+        var engineA = new Atv.Semantics.SemanticEngine(hA.Store, hA.Sidecar, hA.RecycleBin, hA.Gate, SemanticEngineHarness.Ttl, hA.Ops, icons, hA.Logs.Add, discoverRepo: () => discoveryA, groupRegistry: groupRegistry);
+        var engineB = new Atv.Semantics.SemanticEngine(hB.Store, hB.Sidecar, hB.RecycleBin, hB.Gate, SemanticEngineHarness.Ttl, hB.Ops, icons, hB.Logs.Add, discoverRepo: () => discoveryB, groupRegistry: groupRegistry);
+
+        engineA.Working("session-a", "TA", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+        engineB.Working("session-b", "TB", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        var uriA = hA.Store.FindAll().Single().IconUri;
+        var uriB = hB.Store.FindAll().Single().IconUri;
+        Assert.AreNotEqual(uriA, uriB, "different repos' cards must stay visually separate -- different icon URIs.");
+    }
+
+    [TestMethod]
+    public void Grouping_WithoutGroupKey_EachSessionGetsItsOwnIconUri_NoAccidentalGlom()
+    {
+        // Group NOT set -- ordinary per-handle placement, sanity control. Mirrors
+        // what Dispatcher actually does: place the fallback icon PER HANDLE
+        // before calling the engine (a shared fallback Uri would be a test bug,
+        // not a product one -- the product never passes the same fallback Uri
+        // for two different handles).
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string>());
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        Uri fallback1 = h.Icons!.Place("session-1", IconTokens.Default);
+        Uri fallback2 = h.Icons!.Place("session-2", IconTokens.Default);
+        h.Engine.Working("session-1", "T1", "S", fallback1, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+        h.Engine.Working("session-2", "T2", "S", fallback2, Link, "goal", Now.AddMinutes(1), iconToken: IconTokens.Default, iconExplicit: false);
+
+        var uri1 = h.Store.FindAll().Single(t => t.Title == "T1").IconUri;
+        var uri2 = h.Store.FindAll().Single(t => t.Title == "T2").IconUri;
+        Assert.AreNotEqual(uri1, uri2, "without grouping intent, sessions must NOT accidentally glom.");
+    }
+
+    [TestMethod]
+    public void Grouping_OwnerRemoved_NextCreateInRepoBecomesTheNewOwner()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyGroup] = "true" });
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        h.Engine.Working("session-1", "T1", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+        var uri1 = h.Store.FindAll().Single().IconUri;
+
+        h.Ops.Remove("session-1", Now.AddMinutes(1));
+        Assert.IsEmpty(h.Store.FindAll());
+
+        h.Engine.Working("session-2", "T2", "S", DefaultIconUri, Link, "goal", Now.AddMinutes(2), iconToken: IconTokens.Default, iconExplicit: false);
+        var uri2 = h.Store.FindAll().Single().IconUri;
+
+        Assert.AreNotEqual(uri1, uri2, "the old owner's file was reaped on remove -- the next creator self-heals into a fresh ownership.");
+    }
+
+    [TestMethod]
+    public void Grouping_NoGitRootFound_DegradesGracefully_NeverThrows()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeyGroup] = "true" }, repoRootDir: null, repoName: null, branch: null);
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery);
+
+        var outcome = h.Engine.Working("session", "T", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.IsTrue(outcome.Success, "grouping with no discoverable repo root must degrade gracefully, never throw/fail the create.");
+    }
+
+    // ==== AC5: full precedence, end-to-end through the engine ==================
+
+    [TestMethod]
+    public void Subtitle_RepoBeatsUserFile_EndToEnd()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-repo" });
+        var userFile = new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-user" };
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery, presentationUserFile: userFile);
+
+        h.Engine.Working("session", "T", null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.AreEqual("from-repo", h.Store.FindAll().Single().Subtitle);
+    }
+
+    [TestMethod]
+    public void Subtitle_EnvBeatsRepo_EndToEnd()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-repo" });
+        var env = new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-env" };
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery, presentationEnv: env);
+
+        h.Engine.Working("session", "T", null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.AreEqual("from-env", h.Store.FindAll().Single().Subtitle);
+    }
+
+    [TestMethod]
+    public void Subtitle_FlagBeatsEverything_EndToEnd()
+    {
+        var discovery = FakeDiscovery(allowed: new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-repo" });
+        var env = new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-env" };
+        var userFile = new Dictionary<string, string> { [RepoSettings.KeySubtitle] = "from-user" };
+        using var h = new SemanticEngineHarness(withIcons: true, discoverRepo: () => discovery, presentationEnv: env, presentationUserFile: userFile);
+
+        // The caller's own explicit --subtitle (a non-null `subtitle` param).
+        h.Engine.Working("session", "T", "from-flag", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        Assert.AreEqual("from-flag", h.Store.FindAll().Single().Subtitle);
+    }
+
+    [TestMethod]
+    public void NoDiscoverRepoWired_DegradesToPrePhase17Behavior()
+    {
+        // No discoverRepo at all -- e.g. every other pre-phase-17 test's harness.
+        using var h = new SemanticEngineHarness(withIcons: true);
+
+        h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
+
+        var view = h.Store.FindAll().Single();
+        Assert.AreEqual("", view.Title);
+        Assert.AreEqual("", view.Subtitle);
+        Assert.AreEqual(DefaultIconUri, view.IconUri);
+    }
+}

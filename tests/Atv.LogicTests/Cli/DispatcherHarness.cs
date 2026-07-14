@@ -40,7 +40,7 @@ internal sealed class DispatcherHarness : IDisposable
     public RecycleBin RecycleBin { get; }
     public IconService Icons { get; }
     public TaskOperations Ops { get; }
-    public SemanticEngine Engine { get; }
+    public SemanticEngine Engine { get; private set; }
     public FailureLog Log { get; }
 
     /// <summary>The v2 `-` stdin convention's test seam (ERGO-31, LIFE-24 S2-walk item 1) -- defaults empty; a test that needs a specific piped value sets this before dispatching.</summary>
@@ -83,6 +83,16 @@ internal sealed class DispatcherHarness : IDisposable
     /// <summary>Backing field for <c>doctor</c>'s dev-facing Developer Mode probe.</summary>
     public bool DoctorDeveloperModeEnabled { get; set; } = true;
 
+    /// <summary>
+    /// ERGO-30 (phase 17) repo-defaults wiring: unset (<see langword="null"/>)
+    /// by default, so every pre-existing test using this harness keeps
+    /// exercising zero repo-file access (matches <see cref="SemanticEngine"/>'s
+    /// own degradation). A test that needs repo-defaults support sets this
+    /// BEFORE calling <see cref="BuildDispatcher"/> (the engine is constructed
+    /// there, not lazily).
+    /// </summary>
+    public Func<RepoDiscoveryResult>? DiscoverRepo { get; set; }
+
     /// <summary>Backing field for <c>doctor</c>'s watchdog-liveness probe.</summary>
     public bool DoctorWatchdogRunning { get; set; }
 
@@ -118,19 +128,28 @@ internal sealed class DispatcherHarness : IDisposable
     public MemoryStream StdoutMirror { get; } = new();
     public MemoryStream StderrMirror { get; } = new();
 
+    private readonly WriteGate _gate;
+
     public DispatcherHarness()
     {
         Sidecar = new SidecarStore(_sidecarDir.Path);
         RecycleBin = new RecycleBin(_recycleDir.Path);
         Icons = new IconService(_iconsDir.Path, _recycleDir.Path);
-        var gate = new WriteGate(_mutex);
-        Ops = new TaskOperations(Store, Sidecar, RecycleBin, gate, TimeSpan.FromDays(1), icons: Icons);
-        Engine = new SemanticEngine(Store, Sidecar, RecycleBin, gate, TimeSpan.FromDays(1), Ops, icons: Icons);
+        _gate = new WriteGate(_mutex);
+        Ops = new TaskOperations(Store, Sidecar, RecycleBin, _gate, TimeSpan.FromDays(1), icons: Icons);
+        // Built fresh in BuildDispatcher() (not here) so a test can set
+        // DiscoverRepo AFTER constructing the harness but BEFORE building the
+        // dispatcher -- Engine itself is stateless composition over the fields
+        // above, so rebuilding it is free of any state loss.
+        Engine = BuildEngine();
         Log = new FailureLog(Path.Combine(_appDataDir.Path, "atv.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
     }
 
+    private SemanticEngine BuildEngine() => new(Store, Sidecar, RecycleBin, _gate, TimeSpan.FromDays(1), Ops, icons: Icons, discoverRepo: DiscoverRepo);
+
     public Dispatcher BuildDispatcher(bool json = false, bool strict = false, bool verbose = false, WatchdogMode watchdogMode = WatchdogMode.Off)
     {
+        Engine = BuildEngine();
         var output = new Output(Stdout, Stderr, json);
         var posture = new Posture(Log, output, strict, verbose);
         Action ensureWatchdog = () => EnsureWatchdog.Run(watchdogMode, WatchdogMutexName, ProcessHost, InProcHost, WatchdogLogs.Add);
@@ -145,7 +164,8 @@ internal sealed class DispatcherHarness : IDisposable
             ConfigPath: Path.Combine(_appDataDir.Path, "atv-config.json"),
             AppDataFolder: _appDataDir.Path,
             SidecarDir: _sidecarDir.Path,
-            LogPath: Path.Combine(_appDataDir.Path, "atv.log"));
+            LogPath: Path.Combine(_appDataDir.Path, "atv.log"),
+            DiscoverRepo: DiscoverRepo);
         return new Dispatcher(
             Ops,
             Engine,

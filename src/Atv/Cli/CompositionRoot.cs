@@ -59,7 +59,26 @@ public static class CompositionRoot
         var posture = new Posture(b.Log, output, global.Strict, global.Verbose);
 
         var ops = new TaskOperations(b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, msg => b.Log.Append("ops", null, msg, DateTimeOffset.Now), b.Icons);
-        var engine = new SemanticEngine(b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, ops, b.Icons, msg => b.Log.Append("engine", null, msg, DateTimeOffset.Now));
+
+        // ERGO-30 (phase 17): the repo-scoped-defaults discovery delegate is
+        // built ONCE here (closing over `global.Cwd` + the real process cwd)
+        // but does NOTHING until invoked -- merely constructing this closure
+        // performs no filesystem walk. SemanticEngine only ever calls it from
+        // its upsert CREATE branch (AC3); DoctorContext below shares the exact
+        // same delegate for `doctor`'s own unconditional diagnostic call.
+        Func<RepoDiscoveryResult> discoverRepo = () => RepoSettings.Discover(global.Cwd, Environment.CurrentDirectory);
+        IReadOnlyList<string> presentationKeys = RepoSettings.AllowlistKeys;
+        var presentationEnv = SettingsLoader.ExtractEnvFor(ReadProcessEnvironment(), presentationKeys);
+        var presentationUserFile = SettingsLoader.ReadFileFor(b.Paths.ConfigPath, presentationKeys);
+        var groupRegistry = new IconGroupRegistry(Path.Combine(b.Paths.IconsDir, "groups"));
+
+        var engine = new SemanticEngine(
+            b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, ops, b.Icons,
+            msg => b.Log.Append("engine", null, msg, DateTimeOffset.Now),
+            discoverRepo: discoverRepo,
+            presentationEnv: presentationEnv,
+            presentationUserFile: presentationUserFile,
+            groupRegistry: groupRegistry);
 
         string watchdogMutexName = ResolveWatchdogMutexName();
         Action<string> watchdogLog = msg => b.Log.Append("watchdog", null, msg, DateTimeOffset.Now);
@@ -73,7 +92,7 @@ public static class CompositionRoot
             DeveloperModeEnabled: IsDeveloperModeEnabled,
             WatchdogRunning: () => EnsureWatchdog.IsRunning(watchdogMutexName),
             PackageName: TryGetPackageName);
-        var doctorContext = new DoctorContext(doctorProbes, b.Paths.ConfigPath, b.Paths.Root, b.Paths.SidecarDir, b.Paths.LogPath);
+        var doctorContext = new DoctorContext(doctorProbes, b.Paths.ConfigPath, b.Paths.Root, b.Paths.SidecarDir, b.Paths.LogPath, DiscoverRepo: discoverRepo);
 
         var dispatcher = new Dispatcher(
             ops,

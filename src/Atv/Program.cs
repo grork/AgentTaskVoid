@@ -83,6 +83,7 @@ static void PrintUsage()
     Console.WriteLine($"  {Branding.Command} doctor [--json] [--verbose]");
     Console.WriteLine();
     Console.WriteLine("Global options (accepted anywhere): --json --strict --verbose --watchdog-mode spawn|inproc|off --unsafe --wait-for-debugger");
+    Console.WriteLine("  --cwd <path>  Anchor for repo-scoped .atv.json defaults (ERGO-30); absent -> this process's own working directory.");
     Console.WriteLine();
     Console.WriteLine($"{Branding.Command} --version    Print the tool's version.");
     Console.WriteLine($"{Branding.Command} --help       Print this usage text.");

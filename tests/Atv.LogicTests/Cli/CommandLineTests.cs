@@ -95,6 +95,40 @@ public sealed class CommandLineTests
         Assert.IsNotNull(result.Error);
     }
 
+    // ---- ERGO-30 (phase 17): --cwd, a global option like --watchdog-mode --------
+
+    [TestMethod]
+    public void Parse_Cwd_RecognizedAnywhere_CapturesRawValue()
+    {
+        var before = CommandLine.Parse(["--cwd", @"C:\some\repo", "working", "h1"]);
+        Assert.AreEqual(@"C:\some\repo", before.Global.Cwd);
+
+        var after = CommandLine.Parse(["working", "h1", "--cwd", @"C:\other\repo"]);
+        Assert.AreEqual(@"C:\other\repo", after.Global.Cwd);
+    }
+
+    [TestMethod]
+    public void Parse_Cwd_Absent_IsNull()
+    {
+        var result = CommandLine.Parse(["working", "h1"]);
+        Assert.IsNull(result.Global.Cwd);
+    }
+
+    [TestMethod]
+    public void Parse_Cwd_MissingValue_Errors()
+    {
+        var result = CommandLine.Parse(["working", "h1", "--cwd"]);
+        Assert.IsNotNull(result.Error);
+    }
+
+    [TestMethod]
+    public void Parse_Cwd_OnDoctor_Recognized()
+    {
+        var result = CommandLine.Parse(["--cwd", @"C:\some\repo", "doctor"]);
+        Assert.AreEqual("doctor", result.Verb);
+        Assert.AreEqual(@"C:\some\repo", result.Global.Cwd);
+    }
+
     [TestMethod]
     public void Parse_WaitForDebugger_Recognized()
     {

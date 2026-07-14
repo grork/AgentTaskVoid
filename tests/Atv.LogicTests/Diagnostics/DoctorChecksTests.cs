@@ -1,3 +1,4 @@
+using Atv.Config;
 using Atv.Diagnostics;
 
 namespace Atv.LogicTests.Diagnostics;
@@ -23,7 +24,8 @@ public sealed class DoctorChecksTests
         string appDataFolder = @"C:\fake",
         string sidecarDir = @"C:\fake\sidecar",
         string logPath = @"C:\fake\atv.log",
-        string? packageName = null)
+        string? packageName = null,
+        Func<RepoDiscoveryResult>? discoverRepo = null)
     {
         var probes = new DoctorProbes(
             PackageFullName: () => packageFullName,
@@ -31,7 +33,7 @@ public sealed class DoctorChecksTests
             DeveloperModeEnabled: () => devMode,
             WatchdogRunning: () => watchdogRunning,
             PackageName: () => packageName);
-        return new DoctorContext(probes, configPath, appDataFolder, sidecarDir, logPath);
+        return new DoctorContext(probes, configPath, appDataFolder, sidecarDir, logPath, DiscoverRepo: discoverRepo);
     }
 
     [TestMethod]
@@ -190,4 +192,81 @@ public sealed class DoctorChecksTests
         Assert.IsTrue(result.Ok, "Developer Mode/watchdog are informational only -- they must never make doctor's overall verdict a failure.");
     }
 
+    // ---- ERGO-30 (phase 17) AC7: repo-defaults discovery surfacing ----------------
+
+    [TestMethod]
+    public void Run_NoDiscoverRepoWired_RepoFieldsAreNull()
+    {
+        var report = DoctorChecks.Run(Context(discoverRepo: null));
+        Assert.IsNull(report.RepoAnchorPath);
+        Assert.IsNull(report.RepoAnchorSource);
+        Assert.IsNull(report.RepoConfigPath);
+        Assert.IsNull(report.RepoConfigParseStatus);
+    }
+
+    [TestMethod]
+    public void Run_RepoConfigFound_SurfacesAnchorSourceAndOkStatus()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\repo", AnchorSource: AnchorSource.CwdFlag, ConfigPath: @"C:\repo\.atv.json",
+            SearchedUpTo: @"C:\repo", ParseStatus: RepoConfigParseStatus.Ok,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: @"C:\repo", RepoName: "repo", Branch: "main");
+
+        var report = DoctorChecks.Run(Context(discoverRepo: () => discovery));
+
+        Assert.AreEqual(@"C:\repo", report.RepoAnchorPath);
+        Assert.AreEqual("--cwd", report.RepoAnchorSource);
+        Assert.AreEqual(@"C:\repo\.atv.json", report.RepoConfigPath);
+        Assert.AreEqual("ok", report.RepoConfigParseStatus);
+    }
+
+    [TestMethod]
+    public void Run_RepoConfigNotFound_SurfacesNullPathAndSearchedUpTo_ProcessCwdSource()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\somewhere", AnchorSource: AnchorSource.ProcessCwd, ConfigPath: null,
+            SearchedUpTo: @"C:\", ParseStatus: RepoConfigParseStatus.NotFound,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: null, RepoName: null, Branch: null);
+
+        var report = DoctorChecks.Run(Context(discoverRepo: () => discovery));
+
+        Assert.AreEqual("process cwd", report.RepoAnchorSource);
+        Assert.IsNull(report.RepoConfigPath);
+        Assert.AreEqual("not-found", report.RepoConfigParseStatus);
+        Assert.AreEqual(@"C:\", report.RepoSearchedUpTo);
+    }
+
+    [TestMethod]
+    public void Run_RepoConfigMalformed_IsAOneLookDiagnosis()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\repo", AnchorSource: AnchorSource.CwdFlag, ConfigPath: @"C:\repo\.atv.json",
+            SearchedUpTo: @"C:\repo", ParseStatus: RepoConfigParseStatus.Malformed,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: @"C:\repo", RepoName: "repo", Branch: null);
+
+        var report = DoctorChecks.Run(Context(discoverRepo: () => discovery));
+
+        Assert.AreEqual("malformed", report.RepoConfigParseStatus, "a deliberately malformed repo file must be a one-look diagnosis in doctor's report.");
+    }
+
+    [TestMethod]
+    public void FormatHuman_MalformedRepoConfig_MentionsItInOneLine()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\repo", AnchorSource: AnchorSource.CwdFlag, ConfigPath: @"C:\repo\.atv.json",
+            SearchedUpTo: @"C:\repo", ParseStatus: RepoConfigParseStatus.Malformed,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: @"C:\repo", RepoName: "repo", Branch: null);
+        var report = DoctorChecks.Run(Context(discoverRepo: () => discovery));
+
+        var stdout = new StringWriter();
+        var output = new Output(stdout, new StringWriter(), json: false);
+        var log = new FailureLog(Path.Combine(Path.GetTempPath(), $"atv-doctor-test-{Guid.NewGuid():N}.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
+        var posture = new Posture(log, output, strict: false, verbose: false);
+
+        Atv.Cli.Verbs.DoctorVerb.Run(output, posture, Context(discoverRepo: () => discovery), DateTimeOffset.Now);
+
+        string text = stdout.ToString();
+        StringAssert.Contains(text, "repo config:");
+        StringAssert.Contains(text, "malformed");
+    }
 }

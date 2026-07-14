@@ -378,3 +378,17 @@ are untouched by this document — see `atv --help` and `docs/configuration.md`.
 `remove <handle>` still exists for manual removal, and works identically
 against a parent handle (cascading to every live child, §5) or a child
 handle (targeting exactly that one card).
+
+## 12. `--cwd`: the repo-scoped-defaults anchor (ERGO-30, phase 17)
+
+Every verb above accepts the global option `--cwd <path>`. A well-behaved
+translator forwards the host's own project-root concept here on **every
+call** (e.g. Claude Code: `--cwd ${CLAUDE_PROJECT_DIR}`) — it costs nothing
+when the target repo has no `.atv.json`, and it is what lets that repo brand
+its own cards (title, subtitle, icon, glomming) with zero edits to the shared
+hook config. Never substitute a host-provided *file/tool* cwd for this (that
+can drift mid-session, e.g. as a tool executes in a different directory) —
+the project root is the only anchor value worth forwarding. Absent `--cwd`,
+`atv` falls back to its own process working directory (correct for direct
+human/manual use, unreliable for anything host-spawned). Full mechanics:
+`docs/configuration.md`.

@@ -162,6 +162,13 @@ file name are brand-derived (`ATV_...` / `atv-config.json`) — never
 hand-guess them; `atv doctor` prints the exact config file path for the
 current install.
 
+**Repo-scoped presentation defaults:** drop a `.atv.json` in a repo (title
+template, subtitle, icon, whether the repo's sessions glom into one taskbar
+icon) and `atv` auto-discovers it by walking up from a `--cwd <path>` anchor
+— no hook edits needed per repo. It's a presentation-only allowlist (never
+`deep-link`, never operational knobs) applied only when a card is created,
+never on an update. Full details: [`docs/configuration.md`](docs/configuration.md#repo-scoped-presentation-defaults-atvjson-ergo-30-phase-17).
+
 ## Troubleshooting a blank taskbar
 
 Run `atv doctor` (add `--verbose` for more detail). It always exits 0 and

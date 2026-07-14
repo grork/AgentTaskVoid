@@ -57,6 +57,14 @@ public static class DoctorVerb
         yield return $"sidecar dir: {r.SidecarDir}";
         yield return $"log file: {r.LogPath}";
 
+        if (r.RepoAnchorPath is not null)
+        {
+            yield return $"repo config anchor: {r.RepoAnchorPath} (source: {r.RepoAnchorSource})";
+            yield return r.RepoConfigPath is not null
+                ? $"repo config: {r.RepoConfigPath} ({r.RepoConfigParseStatus})"
+                : $"repo config: none, searched up to '{r.RepoSearchedUpTo}'";
+        }
+
         if (r.Remedy is not null)
             yield return r.Remedy;
     }
