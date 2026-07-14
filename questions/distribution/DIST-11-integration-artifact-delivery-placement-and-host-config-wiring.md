@@ -1,6 +1,6 @@
 # DIST-11: How the per-host integration artifact is delivered, placed on disk, and wired into the host's config
 **Status:** DECIDED (2026-07-13)
-**Plan:** unplanned
+**Plan:** phase-18
 **Decision:** Ship each integration as the **host's own native plugin/extension mechanism** —
 it solves delivery + placement + wiring in one, and keeps the translator artifact out of the
 `atv` MSIX entirely. This yields a clean **two-vehicle split**:

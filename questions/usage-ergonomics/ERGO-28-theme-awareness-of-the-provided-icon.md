@@ -1,6 +1,6 @@
 # ERGO-28: Theme-awareness of the icon provided to the platform
 **Status:** DECIDED (2026-07-13)
-**Plan:** unplanned
+**Plan:** phase-16
 **Decision:** Option 1 (theme-neutral rendering). Render monochrome glyphs as a contrasting
 glyph on a **filled rounded-rect / squircle tile** in a fixed accent color — one static asset
 that reads on any taskbar theme (light/dark), matching how real app icons already look. No

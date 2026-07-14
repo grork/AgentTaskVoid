@@ -1,6 +1,6 @@
 # LIFE-25: Should host hooks invoke the `atv` exe directly instead of via a PowerShell wrapper?
 **Status:** DECIDED (2026-07-11, as part of the LIFE-24 conduit/translator drill-down)
-**Plan:** unplanned
+**Plan:** phase-18
 **Decision:** No direct exec — something must parse the host payload, and it can never be
 `atv` (LIFE-10's no-host-specifics invariant; option 2's `atv hook` adapter is LIFE-24's
 rejected `atv ingest` by another name, and option 3's per-host compiled shim was rejected in

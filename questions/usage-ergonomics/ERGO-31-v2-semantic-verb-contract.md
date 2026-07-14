@@ -1,6 +1,6 @@
 # ERGO-31: The v2 semantic verb contract (the engine's public integration API)
 **Status:** DECIDED
-**Plan:** unplanned
+**Plan:** phase-15
 **Decision:** The v2 semantic verbs below are the *sole* lifecycle surface — eight verbs
 (`working`/`activity`/`blocked`/`ready`/`broken`/`agent-started`/`agent-stopped`/
 `session-ended`), a closed 10-kind vocabulary, closed `broken`/`session-ended` reason

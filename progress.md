@@ -42,6 +42,10 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 12 | Release packaging & distribution verification | ✅ | 1 | build-half PASS (committed 4a84daa); supervised smoke RENDERED ✅ 2026-07-10 |
 | 13 | Per-host integration artifacts + docs | 🔄 | 1 | Claude Code leg + all docs: PASS (1st). Copilot + Codex = deferred discrete follow-ups (operator 2026-07-10) |
 | 14 | Host-event behavior recorder + Claude Code findings | ✅ | — | COMPLETE. Core proven by real capture (INFRA-30). 14A fc5785b, 14B-artifacts 1eef442, 14B-capture findings this commit. All 8 ACs met; final reviewer byte-verified findings vs raw captures. |
+| 15 | v2 semantic engine + integration API contract | ⬜ | — | planned 2026-07-13 |
+| 16 | Icon pipeline v2: theme-neutral tile + BYO image | ⬜ | — | planned 2026-07-13 |
+| 17 | Repo-scoped presentation defaults + `--cwd` anchor | ⬜ | — | planned 2026-07-13 |
+| 18 | Claude Code v2 integration: translator + plugin | ⬜ | — | planned 2026-07-13 |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 

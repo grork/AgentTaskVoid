@@ -1,6 +1,6 @@
 # ERGO-30: A repo-scoped defaults file the tool auto-discovers (icons, titles, glomming)
 **Status:** DECIDED (2026-07-13)
-**Plan:** unplanned
+**Plan:** phase-17
 **Decision:** Yes — auto-discover a repo-local **`.atv.json`** that supplies **presentation
 defaults**, so each repo brands its own cards with zero edits to the shared hook. The value is
 **distinguishability, not grouping** — cards are already separate per-session icons; the problem

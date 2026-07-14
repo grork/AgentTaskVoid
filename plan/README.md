@@ -2,10 +2,14 @@
 
 Built 2026-07-07 from `brief.md`, `requirements.md`, and every DECIDED question under
 `questions/` (per `process.md`, discovery and answering are complete); extended
-2026-07-12 with phase 14 (INFRA-23's expansion, INFRA-24..29). DEFERRED
-questions are OUT of this build's scope: the whole interaction round-trip (INTER-1..4),
-DIST-2 (signing-cert acquisition), INFRA-12 (latency budget), INFRA-22 (GUI-subsystem
-exe / AttachConsole), LIFE-3 (wire-transport observation).
+2026-07-12 with phase 14 (INFRA-23's expansion, INFRA-24..29); extended 2026-07-13
+with phases 15–18 (the v2 semantic line — LIFE-24/ERGO-31/LIFE-25/DIST-11 — plus the
+icon and repo-config work, ERGO-28/29/30). DEFERRED questions are OUT of this build's
+scope: the whole interaction round-trip (INTER-1..4), DIST-2 (signing-cert
+acquisition), DIST-10 (engine adoption vehicle, gated on DIST-2), INFRA-12 (latency
+budget), INFRA-22 (GUI-subsystem exe / AttachConsole), INFRA-31/INFRA-32 (recorder
+legs + onboarding playbook for not-yet-testable hosts), LIFE-3 (wire-transport
+observation), ERGO-32 (raw card-control tier).
 
 Each phase file is self-contained: goal, decisions it implements (cited as
 `ID ("title")` — the full records live in `questions/`), files affected, acceptance
@@ -39,8 +43,11 @@ its file alone, consulting the cited question records only for deeper rationale.
    code testable against `FakeAppTaskStore`.
 8. **Empirical platform knowledge lives as data in one place**: the ERGO-10 safe-combo
    matrix and the fake's fidelity promises each have a single source of truth.
-9. **CLI contract is ERGO-27** ("The consolidated v1 command surface") — the plan
-   inlines what each phase needs, but ERGO-27 is the arbiter on any surface question.
+9. **CLI contract is ERGO-27** ("The consolidated v1 command surface") for phases
+   01–13 — the plan inlines what each phase needs, but ERGO-27 is the arbiter on any
+   surface question. **From phase 15 on, ERGO-31 ("The v2 semantic verb contract")
+   supersedes ERGO-27 as the arbiter** (the v1 lifecycle verbs retire; data/util
+   verbs and global flags carry forward).
 
 ## Phases and sequencing
 
@@ -60,6 +67,10 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 12 | [Release packaging & distribution verification](phase-12-release-packaging.md) | 09, 10, 11 |
 | 13 | [Per-host integration artifacts + docs](phase-13-host-integrations-and-docs.md) | 09, 10 (12 for install docs) |
 | 14 | [Host-event behavior recorder + findings corpus](phase-14-host-event-recorder.md) | — (atv-independent tooling) |
+| 15 | [v2 semantic engine + integration API contract](phase-15-v2-semantic-engine.md) | 05, 06, 08, 09 |
+| 16 | [Icon pipeline v2: theme-neutral tile + BYO image](phase-16-icon-pipeline-v2.md) | 07, 15 |
+| 17 | [Repo-scoped presentation defaults + `--cwd` anchor](phase-17-repo-scoped-defaults.md) | 06, 10, 15, 16 |
+| 18 | [Claude Code v2 integration: translator + plugin](phase-18-claude-code-v2-plugin.md) | 15, 17 (16 soft), 14's captures |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run
@@ -72,4 +83,13 @@ mappings are verified through its captures (LIFE-24 mapping rule 7) — and befo
 any LIFE-24 v2 work lands in atv. It builds the recorder core once plus the Claude
 Code leg only — the integration that proves the core (INFRA-30). The remaining per-host
 legs (Copilot CLI, Codex, pi) are each a future phase, not yet run through the process
-(INFRA-31, OPEN), to be planned when their host becomes testable.
+(INFRA-31, now DEFERRED-until-testable), to be planned when their host becomes testable.
+
+Phases 15–18 (added 2026-07-13) are the v2 line, strictly serial: 15 → 16 → 17 → 18.
+Phase 15 replaces the v1 lifecycle verbs with the ERGO-31 semantic contract (LIFE-24's
+engine); 16 extends the icon pipeline (theme-neutral tile + `--icon-file`); 17 adds the
+repo-scoped `.atv.json` presentation layer + `--cwd` anchor; 18 ships the Claude Code
+translator as a native plugin (DIST-11), superseding the phase-13 Claude Code artifact.
+The deferred phase-13 Copilot CLI/Codex legs, when their hosts become testable
+(INFRA-31), are authored against the ERGO-31 v2 surface following the phase-18 pattern —
+not the phase-13 v1 mapping.

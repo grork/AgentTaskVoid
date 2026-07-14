@@ -1,6 +1,6 @@
 # ERGO-29: Caller-supplied (external) icons — bring-your-own image, and extraction from an exe/app
 **Status:** DECIDED (2026-07-13)
-**Plan:** unplanned
+**Plan:** phase-16
 **Decision:** Support **bring-your-own image** via a dedicated `--icon-file <path>` flag
 (unambiguous against the `--icon` token/emoji space, option 2). It promotes today's hidden
 `RawPath` hatch into a supported, normalized input: accept common raster formats (PNG/JPG/ICO),

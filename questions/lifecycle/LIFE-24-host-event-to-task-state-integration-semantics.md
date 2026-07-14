@@ -1,6 +1,6 @@
 # LIFE-24: The host-event → task-state integration semantics (the mapping layer)
 **Status:** DECIDED (2026-07-13)
-**Plan:** unplanned
+**Plan:** phase-15
 **Decision:** The integration layer is the **five-state semantic model** (Blocked / Broken /
 Ready / Working / Idle) + the **seven durable mapping rules** + the **conduit / translator /
 engine layering** — hosts project their event vocabularies onto the engine's idempotent
