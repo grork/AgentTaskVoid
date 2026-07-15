@@ -45,7 +45,8 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 15 | v2 semantic engine + integration API contract | ✅ | 15A:1, 15B:2 | 15A PASS (1st); 15B PASS (2nd, 1 fix: child broken-state refusal) |
 | 16 | Icon pipeline v2: theme-neutral tile + BYO image | ✅ | 1 | PASS (1st) |
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
-| 18 | Claude Code v2 integration: translator + plugin | 🔄 | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 (live dogfood) deliberately deferred to an operator-supervised step |
+| 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
+| 19 | Route a carded subagent's `activity` to its child card, in `atv` itself | ⬜ | — | Filed 2026-07-14/15 from the phase-18 dogfood; not started |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -215,7 +216,7 @@ Everything above is committed. Do NOT re-run the executors. The only remaining p
 - **Review:** PASS (independent final reviewer; read all 4 raw captures + the doc; re-derived line counts, the 60.055 s idle delta, the 4 distinct agent_ids, the same-`prompt_id` PermissionRequest-vs-Notification agent_id bytes, SessionEnd presence+reasons, the orphaned-PreToolUse interrupt, an exhaustive did-not-fire event scan (13 event names = the Fired set), the `2.1.207` stamp; AC7 no jsonl tracked + gitignored; AC8 only claude-code host; build 0/0, tests 47/47). **All 8 phase-14 ACs met; core proven by real capture (INFRA-30).**
 - **Orchestrator tidy at sign-off:** refreshed `docs/host-events/README.md` "Status" (now says phase complete). Non-blocking note left by reviewer (not actioned, design-intent vs actual): the matrix's `PreToolUse` "Driver coverage" cell credits scripted subagent-internal `agent_id` coverage, but the scripted subagents made no internal tool calls — the `agent_id`-bearing tool events actually came from interactive-1; the Findings table attributes this correctly.
 
-### Phase 15 — v2 semantic engine 🔄 in progress
+### Phase 15 — v2 semantic engine ✅ (15A + 15B both signed off — see "Phase 15 (15A + 15B) is DONE" below)
 - **Orchestration note (2026-07-13):** resuming a fresh orchestrator session for phases 15–18. Subagent thinking level bumped to **max-thinking** (operator instruction this session, supersedes the phase-04 xhigh convention for 15–18). New escalation rule for 15–18: on a phase failing review twice, OR reviewer objections being ambiguous/contested, OR execution revealing a later phase's plan is wrong or phases less independent than assumed — spawn an **Opus 4.8 advisor** subagent to diagnose + recommend (it does not implement or change the plan); surface its recommendation to the operator before acting on it. Still one commit per phase (sub-part) after sign-off, lean mode, branch `plan-execution`.
 - **Split (orchestrator discretion, per the phase file's own sizing note):** **15A** = verb surface + five-state model + claim semantics + projection legality + stdin/normalizer + surface migration + docs (AC1–4, 7, 8, and the non-clock/non-fanout slice of AC9). **15B** = clocks (presence-gated Ready decay vs hygiene reap) + fan-out addressing (AC5, AC6, remaining AC9 coverage). Mirrors the phase-14A/14B precedent.
 
