@@ -33,10 +33,12 @@
     map.json (same directory) holds the event-independent DATA this script
     consults: tool name -> ERGO-31 kind, tool name -> the tool_input field
     that supplies the activity/question label, the StopFailure reason-token
-    map, and the one tool name (Agent) whose Pre/PostToolUse events are
+    map, the one tool name (Agent) whose Pre/PostToolUse events are
     suppressed (subagent spawn/retire is agent-started/agent-stopped, never
-    an activity line -- docs/integration-api.md SS3). atv itself never reads
-    map.json; it is a translator-only convention.
+    an activity line -- docs/integration-api.md SS3), and the one tool name
+    (TaskStop) that redirects to agent-stopped on PreToolUse instead of the
+    generic activity path (cancelling a subagent never fires SubagentStop for
+    it). atv itself never reads map.json; it is a translator-only convention.
 
 .PARAMETER Event
     The Claude Code hook_event_name this invocation is handling (SessionStart,
@@ -264,7 +266,23 @@ try {
                         if (-not [string]::IsNullOrEmpty($agentId)) { $extra += @("--agent", $agentId) }
                         if (-not [string]::IsNullOrEmpty($agentType)) { $extra += @("--name", $agentType) }
 
-                        if ($toolName -eq $script:Map.planTool) {
+                        if ($toolName -eq $script:Map.taskStopTool) {
+                            # Cancelling a subagent via TaskStop never fires SubagentStop
+                            # for it (confirmed live), so this is the only place
+                            # agent-stopped can be claimed for a cancelled agent. Only
+                            # PreToolUse acts -- PostToolUse is a deliberate no-op, so
+                            # this never needs tool_response/success shape. TaskStop is
+                            # invoked by the PARENT agent (no top-level agent_id on the
+                            # payload), so the redirect target is tool_input.task_id, not
+                            # $agentId/$extra above. Never falls through to the generic
+                            # tool-summary path below.
+                            if ($Event -eq "PreToolUse") {
+                                $taskId = Get-Prop $toolInput "task_id"
+                                if (-not [string]::IsNullOrEmpty($taskId)) {
+                                    Invoke-Atv -AtvArgs (@("agent-stopped", $sid, "--agent", $taskId) + (Get-CwdArgs)) -StdinText $null
+                                }
+                            }
+                        } elseif ($toolName -eq $script:Map.planTool) {
                             $label = Get-PlanLabel -ToolInput $toolInput
                             if ($null -ne $label) {
                                 $argList = @("activity", $sid, "--kind", "plan", "--label", "-") + $extra + (Get-CwdArgs)

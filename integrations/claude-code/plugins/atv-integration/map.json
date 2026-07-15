@@ -29,6 +29,8 @@
 
   "planTool": "TodoWrite",
 
+  "taskStopTool": "TaskStop",
+
   "brokenReason": {
     "rate_limit": "rate-limit",
     "overloaded": "overloaded",

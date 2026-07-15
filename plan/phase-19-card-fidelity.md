@@ -1,10 +1,12 @@
 # Phase 19: Card fidelity — subagent activity routing + the never-blank title chain
 
-**Status:** 19A + 19B DONE (committed). 19C (AC11 live dogfood) in progress
-2026-07-15 — surfaced a third defect (Part C, below) mid-run: found, diagnosed, and fixed
-within this same phase per the operator's explicit ruling that live-dogfood findings against
-AC11's own text are phase-19 scope, not a deferred concern. AC11 must be re-run after Part C
-lands before the phase can be signed off.
+**Status:** 19A + 19B + Part C (19D) + Part D DONE (committed). 19C (AC11 live dogfood) in
+progress — two live-dogfood re-runs each surfaced a further defect beyond the original Part
+A/B scope (Part C: a premature `ready` mid-fan-out; Part D: a cancelled subagent's card/parent
+state never clean up), both found, diagnosed, and fixed within this same phase per the
+operator's explicit ruling that live-dogfood findings against AC11's own text are phase-19
+scope, not a deferred concern. AC11 must be re-run once more, covering the cancellation
+scenario, before the phase can be signed off.
 **Depends on:** phase 15 (ERGO-31 §5's fan-out addressing, `EngineMemory.CardedAgentLoci`),
 phase 17 (the `--cwd` anchor + `ApplyRepoDefaults` chain ERGO-33 terminates), phase 18 (the
 Claude Code translator that surfaced both gaps live).
@@ -421,4 +423,84 @@ step, following the phase-18 pattern.
 - Extending the title/subtitle default chain to child cards (ratified out, above).
 - Re-capturing Claude Code's event corpus to confirm `session_title` (explicitly not a build
   gate per ERGO-33's verification posture — AC11 covers it live).
+
+---
+
+# Part D — a cancelled subagent (`TaskStop`) never retires its card or unblocks the parent
+
+## Root cause (found live, phase-19 AC11 re-run dogfood, 2026-07-15)
+
+Operator scenario: ask for 3 parallel subagents each running a 10s-sleep script, then ask
+Claude to terminate them before they finish. Two symptoms: one child card was orphaned
+(never cleaned up), and the parent never reached `Completed`.
+
+Confirmed directly from a `claude --debug-file` capture plus the matching session transcript
+(`tool_use` entries): the operator's cancellation goes through Claude Code's real `TaskStop`
+tool, `tool_input: {"task_id": "<agent-id>"}` — the same id format used everywhere else as
+`agent_id`. Of the 3 targeted agents, 2 had already completed naturally by the time `TaskStop`
+reached them (`"Task X is not running (status: completed)"`, a harmless validation no-op); the
+third was genuinely cancelled (Claude Code's own internal log: `agent_completion ...
+exitPath=cancelled`).
+
+The decisive finding: **Claude Code never fires a `SubagentStop` hook for a cancelled agent** —
+only for one that completes naturally. Confirmed by direct comparison in the same capture: the
+naturally-completing sibling got its `SubagentStop` hook registered within 1ms of its own
+completion event; the cancelled agent got no `SubagentStop` hook registered anywhere in the
+rest of the session (an explicit enumeration of the full hook registry at that instant confirms
+its absence, not just a missed grep).
+
+`translate.ps1` only ever calls `atv agent-stopped` from the `SubagentStop` case, and
+`TaskStop` wasn't in `map.json`'s `suppressedTools` or given any special handling, so it fell
+through to the generic tool handler (noise: an `activity --kind tool --name TaskStop --label
+<task_id>` claim landing on the parent, since `TaskStop` is invoked by the parent agent itself
+— no top-level `agent_id` on the payload to redirect with). Two structural consequences,
+both confirmed live:
+
+1. **Orphaned child card** — only `agent-stopped` retires a child card; it was never called for
+   the cancelled agent.
+2. **Parent stuck forever, not just prematurely** — Part C's `refuseIfActiveChildren` guard
+   (this same phase) refuses `ready` while the addressed handle's `ActiveAgentLoci` is
+   non-empty. That's correct for the premature-mid-fanout case Part C targets, but it turns
+   into a permanent deadlock here: the cancelled agent's locus never leaves `ActiveAgentLoci`
+   because nothing ever calls `agent-stopped` for it, so `ready` is refused indefinitely, not
+   just until the fan-out naturally finishes.
+
+## Decided fix (ratified 2026-07-15)
+
+Translator-only — no engine change. `ClaimAgentStopped`'s retire path and `ActiveAgentLoci`
+bookkeeping are already correct and idempotent (confirmed by reading `SemanticEngine.cs`
+directly): a redundant `agent-stopped` call for an already-retired or never-carded agent is a
+documented clean no-op, and any `agent-stopped` call unconditionally removes that id from
+`ActiveAgentLoci` regardless of carding state — exactly what both symptoms need.
+
+`map.json` gains `taskStopTool: "TaskStop"` (mirrors the existing `planTool` precedent — a
+single named-tool lookup, not a new sub-language). `translate.ps1`'s `PreToolUse`/`PostToolUse`
+handler gains a new branch: on `PreToolUse` only, read `task_id` from `tool_input` and call
+`atv agent-stopped <sid> --agent <task_id>` (mirroring the existing `SubagentStop` call shape
+exactly); `PostToolUse:TaskStop` and an absent/empty `task_id` are both deliberate no-ops.
+`TaskStop` never falls through to the generic tool-summary path either way. Pre-only was chosen
+specifically so this never needs to parse `tool_response`/success shape — the stop intent alone
+is sufficient justification, and the idempotent retire path already makes a redundant call
+(the already-completed-naturally case, observed live) safe.
+
+## Files affected (Part D)
+
+```
+integrations/claude-code/plugins/atv-integration/map.json       # new taskStopTool field
+integrations/claude-code/plugins/atv-integration/translate.ps1  # new TaskStop branch, PreToolUse-only
+tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs  # 4 new tests
+```
+
+## Acceptance criteria (Part D, automated)
+
+17. **Cancellation maps to agent-stopped:** `PreToolUse:TaskStop` with `tool_input.task_id`
+    present produces exactly one `atv` call, `agent-stopped <sid> --agent <task_id>` (plus
+    `--cwd` when a project dir is set), no stdin — never the generic activity path.
+18. **No-ops:** `PostToolUse:TaskStop` (regardless of `tool_response`) and `PreToolUse:TaskStop`
+    with an absent/empty `task_id` both produce zero `atv` calls.
+19. **Never generic:** a `TaskStop` call never produces an `activity`/`--name TaskStop` line
+    under any circumstance.
+
+AC11 (the live dogfood) must be RE-RUN once more, this time including a subagent-cancellation
+scenario (parallel subagents, cancelled before completion), before phase 19 can be signed off.
 - ERGO-32's raw card-control tier; the deferred Copilot CLI/Codex legs (INFRA-31).

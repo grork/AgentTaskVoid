@@ -267,6 +267,68 @@ public sealed class ClaudeCodeTranslatorTests
         Assert.AreEqual("(2/3) Implement feature", calls[0].Stdin?.TrimEnd());
     }
 
+    // ---- TaskStop -> agent-stopped (PreToolUse only; PostToolUse is a no-op) --
+
+    [TestMethod]
+    public void PreToolUse_TaskStop_MapsTo_AgentStopped_UsingTaskIdAsAgentId()
+    {
+        // Confirmed root cause (live dogfood capture): cancelling a subagent via
+        // TaskStop never fires SubagentStop for that agent, so this is the only
+        // place agent-stopped can be claimed for it. TaskStop is invoked by the
+        // PARENT agent -- there is no top-level agent_id on the payload -- so
+        // the redirect target is tool_input.task_id instead.
+        string payload = """{"session_id":"sess-1","hook_event_name":"PreToolUse","tool_name":"TaskStop","tool_input":{"task_id":"some-agent-id"},"tool_use_id":"t1"}""";
+
+        var calls = RunTranslator("PreToolUse", payload, projectDir: @"C:\proj");
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "agent-stopped", "sess-1", "--agent", "some-agent-id", "--cwd", @"C:\proj" }, calls[0].Argv);
+        Assert.IsTrue(string.IsNullOrWhiteSpace(calls[0].Stdin), $"Expected no meaningful stdin; PowerShell may still deliver a harmless trailing newline atv never reads (no flag requests it). Got: {calls[0].Stdin}");
+    }
+
+    [TestMethod]
+    public void PreToolUse_TaskStop_WithoutTaskId_IsNoOp()
+    {
+        // Defensive, mirroring SubagentStart/SubagentStop's own agentId guard:
+        // agent-stopped structurally requires --agent, so an absent task_id
+        // must never produce a flagless call, and must never fall through to
+        // the generic tool-summary path either.
+        string payload = """{"session_id":"sess-1","hook_event_name":"PreToolUse","tool_name":"TaskStop","tool_input":{},"tool_use_id":"t1"}""";
+
+        var calls = RunTranslator("PreToolUse", payload, projectDir: @"C:\proj");
+
+        Assert.IsEmpty(calls);
+    }
+
+    [TestMethod]
+    public void PostToolUse_TaskStop_IsNoOp()
+    {
+        // Firing only on Pre avoids needing tool_response/success shape at all --
+        // 2 of 3 targeted agents had already finished naturally by the time
+        // TaskStop reached them in the live capture, and agent-stopped's retire
+        // path is already a documented clean no-op for that case.
+        string payload = """{"session_id":"sess-1","hook_event_name":"PostToolUse","tool_name":"TaskStop","tool_input":{"task_id":"some-agent-id"},"tool_response":{"success":true},"tool_use_id":"t1"}""";
+
+        var calls = RunTranslator("PostToolUse", payload, projectDir: @"C:\proj");
+
+        Assert.IsEmpty(calls);
+    }
+
+    [TestMethod]
+    public void PreToolUse_TaskStop_NeverFallsThroughToGenericToolActivity()
+    {
+        // TaskStop must never be routed through the generic tool handler --
+        // no "activity --kind tool --name TaskStop" line, ever.
+        string payload = """{"session_id":"sess-1","hook_event_name":"PreToolUse","tool_name":"TaskStop","tool_input":{"task_id":"some-agent-id"},"tool_use_id":"t1"}""";
+
+        var calls = RunTranslator("PreToolUse", payload, projectDir: null);
+
+        Assert.HasCount(1, calls);
+        Assert.AreEqual("agent-stopped", calls[0].Argv[0]);
+        Assert.IsFalse(calls[0].Argv.Contains("TaskStop"), "TaskStop must never appear as a --name value (that would mean the generic tool path ran).");
+        Assert.IsFalse(calls[0].Argv.Contains("activity"), "TaskStop must never produce an activity claim.");
+    }
+
     // ---- PermissionRequest -> blocked --question - ---------------------------
 
     [TestMethod]
