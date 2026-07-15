@@ -46,7 +46,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 16 | Icon pipeline v2: theme-neutral tile + BYO image | ✅ | 1 | PASS (1st) |
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
-| 19 | Card fidelity: subagent activity routing + the never-blank title chain | 🔄 | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st); 19C (AC11 live dogfood) still pending re-run, operator-supervised |
+| 19 | Card fidelity: subagent activity routing + the never-blank title chain | 🔄 | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11 formal sign-off) still open — see sub-tracking |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -63,8 +63,8 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 19A | Part A: carded-subagent `activity` redirect + regression/baseline tests (AC1–7) | ✅ | 1 | PASS (1st, committed `c2d2efd`) |
 | 19B | Part B: ERGO-33 engine default + `session_title` forwarding (AC8–10) | ✅ | 1 | PASS (1st, committed `1d61385`) |
 | 19D | Part C: premature `ready` mid-fan-out — found live during 19C itself (AC12–16) | ✅ | 1 | PASS (1st, committed `3e82800`) |
-| 19E | Part D: cancelled subagent (`TaskStop`) never fires `SubagentStop` — found live during 19C's re-run (AC17–19) | ✅ | 1 | PASS (1st) — translator-only fix, `map.json`+`translate.ps1`; not yet committed |
-| 19C | AC11: live dogfood covering both parts | 🔄 | — | **Operator-supervised, not subagent-able.** Two runs so far each surfaced a further defect (19D, then 19E) beyond original Part A/B scope; must be RE-RUN once more, covering the cancellation scenario, before phase 19 can sign off |
+| 19E | Part D: cancelled subagent (`TaskStop`) never fires `SubagentStop` — found live during 19C's re-run (AC17–19) | ✅ | 1 | PASS (1st, committed `15cb1cf`). **Live-confirmed 2026-07-15**: re-run of the 3-subagent-cancel scenario in the scratch repo, operator report "worked like I expected" — child card retired, parent unblocked. (First live attempt against this fix showed no effect; root cause was a stale scratch-repo plugin copy, not the fix itself — `atv.exe`'s dev-loop refresh doesn't touch the separately-copied `translate.ps1`/`map.json` under the scratch repo's `.claude/skills/`; re-synced and confirmed.) |
+| 19C | AC11: live dogfood covering both parts | 🔄 | — | **Operator-supervised, not subagent-able.** Three runs so far each surfaced a further defect (19D, then 19E) beyond original Part A/B scope, all now fixed and live-confirmed individually. Part A/B's original combined scenario (≥2-subagent fan-out, non-blank title) has not yet had one single clean end-to-end re-run since 19D+19E landed — TBD with operator whether the separately-confirmed pieces suffice for sign-off or one more full run is wanted |
 
 **Scope note for the executor/reviewer loop (2026-07-15):** subagents run **AC1–AC10 only**.
 19A and 19B are independent (no shared code, no ordering dependency) and take one commit each
