@@ -205,10 +205,28 @@ that session.
 
 The child handle is exactly `<session-handle>#<agent_id>` — deterministic, so
 a translator (or a human) can always compute it without asking `atv`
-anything. It is addressable by `list`/`remove` and every other semantic verb
-like any other handle: once minted, a subagent's own further activity should
-target the CHILD handle directly (e.g. `atv activity <session>#<agent_id>
---kind read --label file.ts`), not the parent.
+anything, and it is addressable by `list`/`remove` and every other semantic
+verb like any other handle.
+
+**But a translator should keep addressing the PARENT, with `--agent`, even
+after the child is minted.** Card *existence* is not deterministic — minting
+happens engine-side, at the 2nd concurrent `agent-started` — so a stateless
+translator has no reliable way to know whether a given `agent_id` is carded
+yet at the moment it emits an `activity` call. `atv` resolves this itself:
+`activity <session> --kind <k> --label <l> --agent <id>` checks, under its
+own write lock, whether `<id>` is already a carded child of `<session>`. If
+so, the CONTENT lands on the child card — exactly as if you had addressed
+`<session>#<id>` directly — while the parent card's own step content is left
+untouched (only its same-locus block-clearing, §5.1, still runs on the
+parent). If `<id>` is not carded (a lone worker that hasn't crossed the
+2nd-concurrent threshold yet, or an agent that has already `agent-stopped`),
+the call lands on the addressed parent handle instead — a late activity from
+a retired agent never resurrects its child card. Addressing the child handle
+directly also works (e.g. `atv activity <session>#<agent_id> --kind read
+--label file.ts`, useful for manual/scripted use once you already know the
+id is carded) and produces an identical result — the redirect above is what
+makes the PARENT-addressed form just as correct for a translator that can't
+know that in advance.
 
 A child card is scaffolding: it starts Working (a bare step baseline) and can
 reach Ready via its own `ready` call — and that is the ENTIRE reachable

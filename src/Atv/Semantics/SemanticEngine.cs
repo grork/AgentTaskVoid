@@ -144,9 +144,124 @@ public sealed class SemanticEngine
 
     // ==== activity ===========================================================
 
-    /// <summary>ERGO-31 §1's <c>activity</c> row: the current activity line (altitude 3). Clears the locus attributed to <paramref name="agentId"/> (or the parent locus if absent) -- AC3's "activity against a Blocked card drops the question and re-enters Working" for the single-locus case; when OTHER loci remain blocked (LIFE-24's concurrent-block case), the card stays Blocked showing the latest remaining question instead.</summary>
+    /// <summary>
+    /// ERGO-31 §1's <c>activity</c> row: the current activity line (altitude
+    /// 3). Clears the locus attributed to <paramref name="agentId"/> (or the
+    /// parent locus if absent) -- AC3's "activity against a Blocked card
+    /// drops the question and re-enters Working" for the single-locus case;
+    /// when OTHER loci remain blocked (LIFE-24's concurrent-block case), the
+    /// card stays Blocked showing the latest remaining question instead.
+    ///
+    /// Phase 19A (ERGO-31 §5's redirect): when <paramref name="agentId"/>
+    /// names an already-carded child of <paramref name="handle"/>
+    /// (<see cref="EngineMemory.CardedAgentLoci"/>), the whole claim is
+    /// redirected -- see <see cref="ActivityCore"/>.
+    /// </summary>
     public OperationOutcome Activity(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimActivity(ctx, kind, label, agentId, name), iconToken: iconToken, iconExplicit: iconExplicit);
+    {
+        ValidateHandle(handle);
+        OperationOutcome? outcome = null;
+        bool ran = _writeGate.TryRun(() =>
+            outcome = ActivityCore(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass, iconToken, iconExplicit));
+        return ran ? outcome! : GateUnavailable(handle);
+    }
+
+    /// <summary>
+    /// Phase 19A: whether to redirect is decided HERE, inside the SAME
+    /// <see cref="WriteGate"/> critical section that performs the eventual
+    /// write(s) (design note, invariant #5) -- reading
+    /// <see cref="EngineMemory.CardedAgentLoci"/> and then writing based on
+    /// what it said must be one atomic-under-the-mutex step, or a concurrent
+    /// writer (e.g. that very agent's own <c>agent-stopped</c>) could retire
+    /// the locus between the read and the write. An absent or uncarded
+    /// <paramref name="agentId"/> takes the ordinary single-handle path,
+    /// byte-for-byte unchanged from pre-19A behavior (decision point 4: never
+    /// resurrects a retired child, never redirects a lone not-yet-2nd-worker).
+    /// </summary>
+    private OperationOutcome ActivityCore(
+        string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name,
+        DateTimeOffset now, bool unsafeBypass, IconToken iconToken, bool iconExplicit)
+    {
+        if (agentId is { Length: > 0 })
+        {
+            var (parentEntry, parentLive) = ResolveLive(handle);
+            EngineMemory parentMemory = parentEntry?.EngineMemory ?? EngineMemory.Empty;
+            if (parentLive is not null && parentMemory.CardedAgentLoci.Contains(agentId))
+                return ApplyRedirectedActivity(handle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass, iconToken, iconExplicit);
+        }
+
+        return ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
+            ctx => ClaimActivity(ctx, kind, label, agentId, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, iconToken, iconExplicit);
+    }
+
+    /// <summary>
+    /// Decision point 2's "exact equivalence": the CONTENT claim runs against
+    /// the CHILD's own <see cref="ClaimContext"/>/sidecar entry via
+    /// <see cref="ApplyClaimCore"/> -- the SAME pipeline (validator,
+    /// icon-forced-recreate check, sidecar write) a direct
+    /// <c>activity &lt;parentHandle&gt;#&lt;agentId&gt;</c> call would run,
+    /// never re-titled/re-subtitled by this call (a translator never sends
+    /// <c>--title</c>/<c>--subtitle</c> alongside <c>--agent</c> on
+    /// <c>activity</c>) and never re-mints/re-places an icon: <paramref
+    /// name="iconUri"/> is the SAME already-resolved <see cref="Uri"/> the
+    /// caller resolved for the PARENT handle, which is exactly the
+    /// byte-for-byte value the child was minted with
+    /// (<see cref="MintChildCard"/>), so the live branch's own
+    /// <c>live.IconUri != iconUri</c> check is false and no forced recreate
+    /// (hence no <c>IconService.Place</c> call) ever fires here.
+    ///
+    /// Decision point 3: the PARENT still gets its own same-locus block
+    /// clearing (<see cref="ClaimActivityParentLocusOnly"/>) -- content/steps
+    /// on the parent are NEVER touched by a redirect, regardless of the
+    /// child write's own outcome. Both writes share the ONE outer
+    /// <see cref="WriteGate"/> critical section <see cref="Activity"/>
+    /// already acquired (two sidecar entries, one mutex -- the design note's
+    /// "shaping problem, not a locking one").
+    ///
+    /// The returned <see cref="OperationOutcome"/> is the CHILD's own --
+    /// <see cref="OperationOutcome.Handle"/>/<see cref="OperationOutcome.View"/>
+    /// report the child card, matching what a direct child-addressed call
+    /// would return (AC2's equivalence, made observable on the outcome
+    /// itself, not just the store's end state).
+    /// </summary>
+    private OperationOutcome ApplyRedirectedActivity(
+        string parentHandle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string agentId, string? name,
+        DateTimeOffset now, bool unsafeBypass, IconToken iconToken, bool iconExplicit)
+    {
+        string childHandle = ChildHandle(parentHandle, agentId);
+        var childOutcome = ApplyClaimCore(childHandle, null, null, iconUri, deepLink, now, unsafeBypass,
+            ctx => ClaimActivity(ctx, kind, label, agentId: null, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, iconToken, iconExplicit);
+
+        ApplyClaimCore(parentHandle, null, null, iconUri, deepLink, now, unsafeBypass,
+            ctx => ClaimActivityParentLocusOnly(ctx, agentId), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, iconToken, iconExplicit);
+
+        return childOutcome;
+    }
+
+    /// <summary>
+    /// The PARENT half of a redirected <c>activity</c> claim (decision point
+    /// 3): same-locus clearing ONLY, mirroring <see cref="ClaimAgentStopped"/>'s
+    /// own "pure bookkeeping unless it actually clears a pending block" shape
+    /// -- if <paramref name="agentId"/> wasn't blocking anything, this is a
+    /// true no-op (no content/state write at all, <see cref="ApplyClaimCore"/>'s
+    /// "No content/state claim" branch); if it WAS, the parent re-projects
+    /// (Working if it was the last pending locus, still Blocked showing the
+    /// next-latest question otherwise) using its EXISTING completed/executing
+    /// steps -- never <see cref="Advance"/>d, so the parent's own step
+    /// content is always byte-unchanged by a redirect (AC1).
+    /// </summary>
+    private static ClaimResult ClaimActivityParentLocusOnly(ClaimContext ctx, string agentId)
+    {
+        bool wasBlocked = ctx.Memory.BlockedLoci.Any(l => l.AgentId == agentId);
+        var remaining = RemoveLocus(ctx.Memory.BlockedLoci, agentId);
+        var memory = ctx.Memory with { BlockedLoci = remaining };
+
+        if (!wasBlocked)
+            return new ClaimResult(null, null, memory);
+
+        var (completed, executing) = CurrentSteps(ctx);
+        return ProjectAfterLocusChange(completed, executing, memory);
+    }
 
     private static ClaimResult ClaimActivity(ClaimContext ctx, ActivityKind kind, string? label, string? agentId, string? name)
     {
