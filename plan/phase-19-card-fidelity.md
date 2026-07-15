@@ -1,7 +1,10 @@
 # Phase 19: Card fidelity — subagent activity routing + the never-blank title chain
 
-**Status:** NOT STARTED — filed 2026-07-14/15 from the phase-18 live dogfood; widened
-2026-07-15 to carry ERGO-33 as well.
+**Status:** 19A + 19B DONE (committed). 19C (AC11 live dogfood) in progress
+2026-07-15 — surfaced a third defect (Part C, below) mid-run: found, diagnosed, and fixed
+within this same phase per the operator's explicit ruling that live-dogfood findings against
+AC11's own text are phase-19 scope, not a deferred concern. AC11 must be re-run after Part C
+lands before the phase can be signed off.
 **Depends on:** phase 15 (ERGO-31 §5's fan-out addressing, `EngineMemory.CardedAgentLoci`),
 phase 17 (the `--cwd` anchor + `ApplyRepoDefaults` chain ERGO-33 terminates), phase 18 (the
 Claude Code translator that surfaced both gaps live).
@@ -151,6 +154,106 @@ The parent's memory still needs its `BlockedLoci` update written (point 3), so a
 `activity` touches **two** sidecar entries under the one write mutex (invariant #5 — the
 mutex is already held across the whole read-modify-write, so this is a shaping problem, not
 a locking one).
+
+---
+
+# Part C — a premature `ready` mid-fan-out (found during AC11's own live dogfood)
+
+## Root cause (found live, phase-19 AC11 dogfood, 2026-07-15)
+
+Claude Code's own top-level turn ends (`Stop` fires) as soon as it dispatches Task-tool
+subagent calls — it does NOT wait for the subagents to finish. Confirmed directly from a
+`claude --debug-file` capture: `[engine] turn 2 end (turns=3 ... stop=end_turn)` at
+`16:51:18.742`, only ~10s after the Task dispatch and 3–24s *before* either child's own
+`SubagentStop`. `translate.ps1`'s mapping (`Stop -> ready <sid> --summary -`) is unconditional,
+so the PARENT card is claimed into `Completed` while its children are still demonstrably
+running.
+
+**Why this was invisible before Part A, and why AC11's dogfood is what surfaced it:**
+`ProjectAfterLocusChange` (`SemanticEngine.cs:1042-1055`) makes ANY `activity` claim that lands
+on a card unconditionally re-project it to `Running`, regardless of the card's prior state —
+by design, this is how a card recovers out of Blocked. Before Part A, an uncarded/lone
+subagent's activity (and, pre-Part-A, even a CARDED subagent's activity) kept landing on the
+parent, so the premature `Completed` state was masked by a flicker: `ready` fires, then the
+very next tool-call activity line flips it straight back to `Running`, often within a second.
+Confirmed live in a single-subagent trial (`atv-dogfood-p19-2-debug.log`): `Stop` fires at
+`17:12:12.400`, ~4s after dispatch, but the lone (uncarded) subagent's own Glob/Read activity
+keeps landing on the parent every 1-3s and self-heals it back to `Running` every time — the
+operator never observed a stuck `Completed` state in that trial. **Part A's own redirect (by
+design) removes that accidental self-healing**: once concurrency hits 2 and both children are
+carded, EVERY subsequent activity claim is redirected to the children (Part A's whole point),
+so nothing is left to land on the parent and flip it back. The premature `Completed` state now
+sticks for the entire fan-out — confirmed live via `atv list --json`
+(`atv-dogfood-p19-debug.log` trial): parent `state:"completed"` while both children show
+`state:"running"` with real, distinct content.
+
+This is a regression Part A's own change exposes at the parent-card level, even though every
+one of Part A's own AC1-7 tests pass (none of them modeled a `ready` claim arriving mid-fanout —
+a timing-dependent interaction only a live dogfood surfaces). Ratified in-session
+2026-07-15 (operator correction: "All of these issues are phase-19 scope" — the LIFE-24
+"separate deferred concern" framing this was initially given was wrong; AC11's own text,
+"the parent shows only its own activity," is what this violates).
+
+## Decided fix (ratified 2026-07-15)
+
+`ClaimReady` (`SemanticEngine.cs:301-318`, called from `Ready`, `SemanticEngine.cs:298-299`)
+structurally refuses the `Completed` transition when the addressed handle currently has any
+active agent locus — `ctx.Memory.ActiveAgentLoci.Count > 0` (the FULL active set, not
+`CardedAgentLoci` — a lone, not-yet-carded subagent's activity is *designed* to land on the
+parent per Part A's own decision point 4, so the parent legitimately still has real, delegated
+work outstanding even below the 2-concurrent carding threshold). A refused claim is a true
+no-op: live state/content untouched entirely, mirroring the existing `refuseIfChild` structural
+pattern already used by `Blocked`/`Broken` in `ApplyClaimCore` (`SemanticEngine.cs:594-614`) —
+add a parallel `refuseIfActiveChildren` condition alongside it (checked against the ADDRESSED
+handle's OWN `EngineMemory.ActiveAgentLoci`, resolved from `entry` exactly like the existing
+check resolves `entry?.EngineMemory?.ParentHandle`), not a bespoke check duplicated elsewhere.
+
+**Scope: `Ready` only.** `Broken`/`StopFailure` is architecturally similar (also a turn-end
+event, per its own doc comment, also clears every pending blocked locus) but was never observed
+hitting this in either dogfood trial. Operator decision (2026-07-15): leave `Broken` untouched —
+do not speculatively extend the refusal there.
+
+**Why this does not lose the turn summary (verified against the live capture, not assumed):**
+`Stop` fires once per top-level turn, and Claude Code's own engine produces a NEW top-level turn
+once the parent actually processes the subagents' results — confirmed directly in the capture:
+turn 3 starts at `16:51:47.125`, right after both children's `SubagentStop`
+(`16:51:21.890`/`16:51:42.524`), ending in its own `Stop` at `16:51:52.242`; turn 4 ends with
+another `Stop` at `16:52:10.612` carrying a substantial synthesis (`resultLen=1556`). By the time
+turn 4's `Stop` fires, `ActiveAgentLoci` is genuinely empty, so under this fix that claim
+succeeds normally with the real, accurate summary — the premature turn-2 `Stop` is the only one
+refused. The lifecycle becomes: Working throughout the fan-out, then genuinely `Completed` with
+an accurate summary once the parent has actually finished synthesizing the results — not merely
+harmless, but the *correct* sequence.
+
+## Files affected (Part C)
+
+```
+src/Atv/Semantics/SemanticEngine.cs   # ApplyClaimCore: new refuseIfActiveChildren condition
+                                       # Ready/ClaimReady: pass it, mirroring refuseIfChild
+tests/Atv.LogicTests/Semantics/SemanticEngineFanOutTests.cs  # or a sibling file, matching 19A's
+                                                               # SemanticEngineActivityRedirectTests.cs precedent
+```
+
+## Acceptance criteria (Part C, automated)
+
+12. **Refusal while active:** with `agent-started` registered for at least one agent (single,
+    uncarded worker OR ≥2 carded fan-out), a `ready` claim (bare or with `--summary`) against the
+    parent is refused — the card's live state AND content are byte-unchanged, matching the
+    existing `refuseIfChild` refusal shape (`OutcomeKind.RefusedInvalidArgument`, or whatever
+    outcome kind the existing structural refusals use — match it, don't invent a new one).
+13. **Recovery once clear:** once every active agent has `agent-stopped` (`ActiveAgentLoci`
+    empty again), a subsequent `ready` claim succeeds normally — Completed, with whatever
+    summary/content it carries.
+14. **Single-worker case covered:** the refusal fires for a lone, never-carded worker too (gated
+    on `ActiveAgentLoci`, not `CardedAgentLoci`) — a regression test for the exact single-agent
+    live-dogfood scenario (`ready` arriving while one uncarded subagent is still active).
+15. **`Broken` untouched:** a locking test confirms `ClaimBroken`/`Broken()` does NOT gain the
+    same refusal — out of scope by the ratified decision above.
+16. **No regression:** `blocked`/`agent-started`/`agent-stopped`/`activity` behavior (all of
+    Part A's AC1-7, and the ordinary non-fan-out `ready` path) unchanged.
+
+AC11 (the live dogfood) must be RE-RUN after this fix lands, covering both the single- and
+multi-subagent cases this finding came from, before phase 19 can be signed off as complete.
 
 ---
 

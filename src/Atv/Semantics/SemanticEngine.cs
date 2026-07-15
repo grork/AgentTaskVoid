@@ -191,7 +191,7 @@ public sealed class SemanticEngine
         }
 
         return ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
-            ctx => ClaimActivity(ctx, kind, label, agentId, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, iconToken, iconExplicit);
+            ctx => ClaimActivity(ctx, kind, label, agentId, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit);
     }
 
     /// <summary>
@@ -230,10 +230,10 @@ public sealed class SemanticEngine
     {
         string childHandle = ChildHandle(parentHandle, agentId);
         var childOutcome = ApplyClaimCore(childHandle, null, null, iconUri, deepLink, now, unsafeBypass,
-            ctx => ClaimActivity(ctx, kind, label, agentId: null, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, iconToken, iconExplicit);
+            ctx => ClaimActivity(ctx, kind, label, agentId: null, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit);
 
         ApplyClaimCore(parentHandle, null, null, iconUri, deepLink, now, unsafeBypass,
-            ctx => ClaimActivityParentLocusOnly(ctx, agentId), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, iconToken, iconExplicit);
+            ctx => ClaimActivityParentLocusOnly(ctx, agentId), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit);
 
         return childOutcome;
     }
@@ -294,9 +294,9 @@ public sealed class SemanticEngine
 
     // ==== ready ==============================================================
 
-    /// <summary>ERGO-31 §1's <c>ready</c> row: bare preserves the current step content; <paramref name="summary"/> swaps to a <c>TextSummaryResult</c>. A turn-end event -- clears EVERY pending blocked locus (LIFE-24: turn-end events are never <c>--agent</c>-scoped). 15B: also the ONLY claim that ever (re)starts the LIFE-24 §6 Ready decay clock -- ONLY on a genuine transition INTO Ready (the card's prior live state was not already Completed); re-asserting an already-held Ready never restarts it (ERGO-31's idempotency rule, extended to the clock).</summary>
+    /// <summary>ERGO-31 §1's <c>ready</c> row: bare preserves the current step content; <paramref name="summary"/> swaps to a <c>TextSummaryResult</c>. A turn-end event -- clears EVERY pending blocked locus (LIFE-24: turn-end events are never <c>--agent</c>-scoped). 15B: also the ONLY claim that ever (re)starts the LIFE-24 §6 Ready decay clock -- ONLY on a genuine transition INTO Ready (the card's prior live state was not already Completed); re-asserting an already-held Ready never restarts it (ERGO-31's idempotency rule, extended to the clock). Phase 19 Part C: the ONLY verb structurally refused while the addressed handle still has active agent loci (<see cref="ApplyClaimCore"/>'s <c>refuseIfActiveChildren</c>) -- a translator's turn-end `Stop -> ready` mapping can arrive mid-fan-out, before its subagents actually finish; see the phase-19 write-up for why <c>Broken</c> deliberately does not get the same treatment.</summary>
     public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now), iconToken: iconToken, iconExplicit: iconExplicit);
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now), refuseIfActiveChildren: true, refusedVerbPhrase: "ready", iconToken: iconToken, iconExplicit: iconExplicit);
 
     private static ClaimResult ClaimReady(ClaimContext ctx, string? summary, DateTimeOffset now)
     {
@@ -581,19 +581,21 @@ public sealed class SemanticEngine
         Action<ClaimResult>? afterWrite = null,
         bool refuseIfChild = false,
         string? refusedVerbPhrase = null,
+        bool refuseIfActiveChildren = false,
         IconToken iconToken = default,
         bool iconExplicit = true)
     {
         ValidateHandle(handle);
         OperationOutcome? outcome = null;
         bool ran = _writeGate.TryRun(() =>
-            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase, iconToken, iconExplicit));
+            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase, refuseIfActiveChildren, iconToken, iconExplicit));
         return ran ? outcome! : GateUnavailable(handle);
     }
 
     private OperationOutcome ApplyClaimCore(
         string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, DateTimeOffset now, bool unsafeBypass,
         Func<ClaimContext, ClaimResult> computeClaim, Action<ClaimResult>? afterWrite, bool refuseIfChild, string? refusedVerbPhrase,
+        bool refuseIfActiveChildren,
         IconToken iconToken, bool iconExplicit)
     {
         var (entry, live) = ResolveLive(handle);
@@ -609,6 +611,28 @@ public sealed class SemanticEngine
         if (refuseIfChild && entry?.EngineMemory?.ParentHandle is { } parentHandle)
         {
             string reason = ChildRefusalReason(handle, parentHandle, refusedVerbPhrase ?? "this verb");
+            LogRefusal(handle, reason);
+            return new OperationOutcome(OutcomeKind.RefusedInvalidArgument, handle, reason, live);
+        }
+
+        // Phase 19 Part C (found live, AC11's own dogfood): Claude Code's own
+        // top-level turn ends (Stop fires) as soon as it dispatches Task-tool
+        // subagent calls, without waiting for them to finish, so a translator's
+        // unconditional Stop -> `ready` mapping would claim the ADDRESSED
+        // handle into Completed while it still has real, delegated work
+        // outstanding. Checked against the addressed handle's OWN
+        // EngineMemory.ActiveAgentLoci (the FULL active set, resolved from
+        // `entry` exactly like the refuseIfChild check above resolves
+        // ParentHandle) -- deliberately NOT CardedAgentLoci: a lone,
+        // not-yet-carded subagent's activity is designed to land on the parent
+        // (decision point 4), so the parent legitimately still has real
+        // outstanding work below the 2-concurrent carding threshold too. A
+        // true no-op refusal, same shape as refuseIfChild above. `Ready` is the
+        // only verb wired to this (operator decision 2026-07-15) -- `Broken`
+        // is deliberately left untouched.
+        if (refuseIfActiveChildren && entry?.EngineMemory?.ActiveAgentLoci is { Count: > 0 })
+        {
+            string reason = ActiveChildrenRefusalReason(handle, refusedVerbPhrase ?? "this verb");
             LogRefusal(handle, reason);
             return new OperationOutcome(OutcomeKind.RefusedInvalidArgument, handle, reason, live);
         }
@@ -1070,6 +1094,10 @@ public sealed class SemanticEngine
     /// <summary>ERGO-31 §5's single reason-string builder for every "this verb is not valid against a fan-out child" refusal (<c>blocked</c>/<c>broken</c> via <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check, <c>session-ended --reason error</c> via <see cref="SessionEndedErrorCore"/>) -- one phrasing, so the three refusal messages never drift from each other.</summary>
     private static string ChildRefusalReason(string handle, string parentHandle, string verbPhrase)
         => $"'{handle}' is a fan-out child card (parent '{parentHandle}') -- {verbPhrase} is not valid against a child; direct it to the parent handle instead (ERGO-31 §5).";
+
+    /// <summary>Phase 19 Part C's reason-string builder for the <c>refuseIfActiveChildren</c> refusal (<see cref="ApplyClaimCore"/>) -- parallel to <see cref="ChildRefusalReason"/>, but for a different structural reason: the addressed handle still has active/delegated agent work outstanding, so claiming Completed now would be premature (found live, AC11's own dogfood, 2026-07-15).</summary>
+    private static string ActiveChildrenRefusalReason(string handle, string verbPhrase)
+        => $"'{handle}' still has active/delegated agent work outstanding -- {verbPhrase} would prematurely claim Completed while at least one agent has not yet reported agent-stopped; wait for every active agent to stop first.";
 
     private void LogRefusal(string handle, string reason) => Log($"{handle}: refused -- {reason}");
 
