@@ -56,6 +56,25 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 14B-artifacts | Matrix (AC4) + conduit template + driver/stage harness + cue script | ✅ | 1 | PASS (1st). 30-event matrix (only WorktreeCreate skip); recorder proven stdout-silent; staged-conduit smoke byte-faithful; cue disable/restore authored-not-run. |
 | 14B-capture | Live Claude Code capture (AC5) + findings (AC6) | ✅ | — | PASS. 4 real captures; findings byte-verified vs raw JSONL by final reviewer; LIFE-24 items 2 & 3 answered; SessionEnd sync-teardown proven. |
 
+### Phase 19 sub-tracking (single plan file; 19A/19B independent, 19C supervised)
+
+| Sub | Scope | Status | Attempts | Outcome |
+|-----|-------|--------|----------|---------|
+| 19A | Part A: carded-subagent `activity` redirect + regression/baseline tests (AC1–7) | ⬜ | — | Not started |
+| 19B | Part B: ERGO-33 engine default + `session_title` forwarding (AC8–10) | ⬜ | — | Not started |
+| 19C | AC11: live dogfood covering both parts | ⬜ | — | **Operator-supervised, not subagent-able** — the automated loop halts after 19B and hands back |
+
+**Scope note for the executor/reviewer loop (2026-07-15):** subagents run **AC1–AC10 only**.
+19A and 19B are independent (no shared code, no ordering dependency) and take one commit each
+after their own sign-off; they are split so Part A's `ApplyClaim` architecture change gets its
+own review surface and a halt there does not entangle Part B's mechanical work. AC11 (19C) is
+excluded from both subagents for the same reasons as phase 18's AC5/AC6 — see the phase-18
+orchestration note below. The same hard constraints carry over verbatim: never touch
+`~/.claude/settings.json` or this repo's `.claude/settings.local.json`, never launch a real
+`claude`/`claude -p` session, never fire a real hook, exact-PID-only process handling, no raw
+Ctrl+C. The orchestrator runs 19C directly with the operator, same pattern as phases
+12/13/14/18.
+
 ## Checkpoint C1 — manual taskbar dogfood (after Phase 10, before Phase 11) ✅ RENDERED
 
 **OUTCOME (2026-07-10): RENDERED ✅.** Operator visually confirmed a real taskbar icon. Orchestrator drove `dotnet run -- -- start dogfood-c1 --title "ATV taskbar dogfood" --subtitle "…" --icon FavoriteStarFill` under dev-interactive identity (`Agentaskvoid-bbbb1168_016qghrny08mj`); `list --json` returned the live card `[{"handle":"dogfood-c1","state":"running",…}]` and the sidecar `dogfood-c1.json` was on disk; the operator eyeballed the taskbar and saw the new standalone star icon ("looks good"); `clear` then emptied it (`list`→`[]`, sidecar dir empty), so the operator also watched it vanish. **This is the first human confirmation that `AppTaskInfo` actually paints on this machine's Win11 taskbar — the product's core premise, previously only programmatic.** Also CLOSES the long-deferred visual items: phase-07 AC6 (drawn Segoe glyph renders on the taskbar), phase-08 AC4, phase-09 AC4 taskbar-empties eyeball, phase-10 AC4. `IsSupported() -> true` on this build; the `CLASS_E_CLASSNOTAVAILABLE` risk did not materialize here. **Dev-run note for future sessions:** the `winapp`-redirected `dotnet run` needs a DOUBLE `--` to pass app args (`dotnet run --project src/Atv -- -- <verb> …`); a single `--` is rejected by winapp ("Unrecognized argument"). The packaged app's stdout DOES pipe back to the console.

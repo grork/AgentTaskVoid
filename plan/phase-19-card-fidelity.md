@@ -23,6 +23,32 @@ branch) and neither depends on the other. They are one phase because they share 
 **validation cost**: one supervised build-and-dogfood cycle rather than two. Part A first —
 it is the harder design and the phase's original identity.
 
+## Execution structure (read this first)
+
+Three passes, serial, matching the 14A/14B and 15A/15B pattern already in `progress.md`:
+
+| Sub | Scope | Who |
+|-----|-------|-----|
+| **19A** | Part A — the redirect + its regression and baseline tests (AC1–7) | executor + reviewer subagents |
+| **19B** | Part B — ERGO-33's engine and translator halves (AC8–10) | executor + reviewer subagents |
+| **19C** | AC11 — the live dogfood, covering both parts at once | **orchestrator + operator, supervised** |
+
+19A and 19B are independent (no shared code, no ordering dependency) and get **one commit
+each after their own sign-off**. They are split rather than run as one pass because Part A
+changes `ApplyClaim`'s architecture while Part B is mechanical — separate review surfaces,
+and a Part A halt does not entangle Part B.
+
+**19C cannot be delegated to a subagent.** AC1–AC10 are fully automated and are the entire
+subagent scope; AC11 needs the real platform, a real Claude Code session, and a human
+eyeball. When 19B is signed off, the automated loop **stops and hands back to the operator**
+rather than attempting AC11. This is the phase-12/13/14/18 pattern, and phase 18's
+orchestration note (`progress.md`, phase-18 section) records the constraints that apply
+verbatim here: **never** touch `~/.claude/settings.json` or this repo's
+`.claude/settings.local.json`, never launch a real `claude`/`claude -p` session from a
+subagent, never fire a real hook, exact-PID-only process handling, and no raw Ctrl+C. Those
+last two are not hygiene — both mechanisms have crashed a Claude Code session in this project
+before.
+
 ---
 
 # Part A — Route a carded subagent's `activity` to its child card
