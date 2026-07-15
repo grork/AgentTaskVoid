@@ -1,12 +1,15 @@
 # Phase 19: Card fidelity — subagent activity routing + the never-blank title chain
 
-**Status:** 19A + 19B + Part C (19D) + Part D DONE (committed). 19C (AC11 live dogfood) in
-progress — two live-dogfood re-runs each surfaced a further defect beyond the original Part
+**Status:** DONE — phase 19 signed off 2026-07-15. 19A + 19B + Part C (19D) + Part D all
+committed. Three live-dogfood rounds each surfaced a further defect beyond the original Part
 A/B scope (Part C: a premature `ready` mid-fan-out; Part D: a cancelled subagent's card/parent
-state never clean up), both found, diagnosed, and fixed within this same phase per the
-operator's explicit ruling that live-dogfood findings against AC11's own text are phase-19
-scope, not a deferred concern. AC11 must be re-run once more, covering the cancellation
-scenario, before the phase can be signed off.
+state never cleaned up), all found, diagnosed, fixed, and individually live-confirmed within
+this same phase per the operator's explicit ruling that live-dogfood findings against AC11's
+own text are phase-19 scope, not a deferred concern. AC11 sign-off is on accumulated evidence
+across those rounds (operator decision, 2026-07-15) rather than one final single clean
+end-to-end re-run — every part (fan-out routing, non-blank titles, mid-fanout `ready` refusal,
+cancellation cleanup) has been separately confirmed live at this point; a dedicated final run
+would only re-confirm already-verified mechanics.
 **Depends on:** phase 15 (ERGO-31 §5's fan-out addressing, `EngineMemory.CardedAgentLoci`),
 phase 17 (the `--cwd` anchor + `ApplyRepoDefaults` chain ERGO-33 terminates), phase 18 (the
 Claude Code translator that surfaced both gaps live).

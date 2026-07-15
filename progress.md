@@ -46,7 +46,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 16 | Icon pipeline v2: theme-neutral tile + BYO image | ✅ | 1 | PASS (1st) |
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
-| 19 | Card fidelity: subagent activity routing + the never-blank title chain | 🔄 | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11 formal sign-off) still open — see sub-tracking |
+| 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -64,7 +64,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 19B | Part B: ERGO-33 engine default + `session_title` forwarding (AC8–10) | ✅ | 1 | PASS (1st, committed `1d61385`) |
 | 19D | Part C: premature `ready` mid-fan-out — found live during 19C itself (AC12–16) | ✅ | 1 | PASS (1st, committed `3e82800`) |
 | 19E | Part D: cancelled subagent (`TaskStop`) never fires `SubagentStop` — found live during 19C's re-run (AC17–19) | ✅ | 1 | PASS (1st, committed `15cb1cf`). **Live-confirmed 2026-07-15**: re-run of the 3-subagent-cancel scenario in the scratch repo, operator report "worked like I expected" — child card retired, parent unblocked. (First live attempt against this fix showed no effect; root cause was a stale scratch-repo plugin copy, not the fix itself — `atv.exe`'s dev-loop refresh doesn't touch the separately-copied `translate.ps1`/`map.json` under the scratch repo's `.claude/skills/`; re-synced and confirmed.) |
-| 19C | AC11: live dogfood covering both parts | 🔄 | — | **Operator-supervised, not subagent-able.** Three runs so far each surfaced a further defect (19D, then 19E) beyond original Part A/B scope, all now fixed and live-confirmed individually. Part A/B's original combined scenario (≥2-subagent fan-out, non-blank title) has not yet had one single clean end-to-end re-run since 19D+19E landed — TBD with operator whether the separately-confirmed pieces suffice for sign-off or one more full run is wanted |
+| 19C | AC11: live dogfood covering both parts | ✅ | — | **Operator-supervised, not subagent-able. Signed off 2026-07-15 on accumulated evidence (operator decision), not one single final clean run.** Three live rounds total, each surfacing a further defect beyond original Part A/B scope (19D, then 19E), all fixed and individually live-confirmed: fan-out routing + non-blank titles (Part A/B, earlier rounds), mid-fanout `ready` refusal (19D), cancellation cleanup (19E, this round). Operator judged a dedicated final combined run would only re-confirm already-verified mechanics |
 
 **Scope note for the executor/reviewer loop (2026-07-15):** subagents run **AC1–AC10 only**.
 19A and 19B are independent (no shared code, no ordering dependency) and take one commit each
@@ -466,5 +466,49 @@ started).
 **Phase 19: 19A + 19B DONE.** AC1–AC10 all automated and signed off. Only AC11 (19C, the live
 dogfood covering both parts at once, operator-supervised) remains — the orchestrator hands back
 here per the phase file's execution structure. Not run yet this session.
+
+### Phase 19D (Part C) + 19E (Part D) + AC11 sign-off — found live, fixed, and confirmed within this same phase
+
+AC11's live dogfood surfaced two further defects beyond Part A/B's original scope, both
+diagnosed from real `claude --debug-file` captures and the durable `atv.log` (never from
+assumption), fixed via the same TDD executor loop, and committed separately:
+
+- **19D (Part C, `3e82800`):** a premature `ready` mid-fan-out — Claude Code's `Stop` fires as
+  soon as it dispatches Task-tool subagent calls, not when they finish, so the unconditional
+  `Stop -> ready` translator mapping claimed the parent `Completed` while children were still
+  demonstrably running. Fixed with a new `refuseIfActiveChildren` structural refusal
+  (`SemanticEngine.cs`, mirrors the existing `refuseIfChild` pattern) gating `Ready` on the
+  addressed handle's `ActiveAgentLoci`. Full root-cause detail in
+  `plan/phase-19-card-fidelity.md`'s Part C section.
+- **19E (Part D, `15cb1cf`):** a cancelled subagent (Claude Code's `TaskStop` tool) never fires
+  `SubagentStop` — confirmed by direct comparison in a live capture (a naturally-completing
+  sibling got `SubagentStop` within 1ms of completion; the cancelled agent never got one,
+  anywhere in the rest of the session). Since `translate.ps1` only ever called `agent-stopped`
+  from `SubagentStop`, this orphaned the cancelled agent's card and, worse, made 19D's own
+  `refuseIfActiveChildren` refuse `ready` on the parent *permanently* (the locus never left
+  `ActiveAgentLoci`). Fixed translator-only: `TaskStop`'s `tool_input.task_id` is the same id
+  format used everywhere as `agent_id`, so `PreToolUse:TaskStop` now maps directly to
+  `agent-stopped <sid> --agent <task_id>`. No engine change needed. Full detail in the phase
+  file's Part D section.
+- **Diagnostic infrastructure added along the way (`d69d341`):** two new always-on log
+  categories, `trace-in` (every CLI call as received, before any parsing/routing/engine logic)
+  and `trace-out` (what was actually applied, every outcome kind) in `Dispatcher.cs`/
+  `CompositionRoot.cs`. Used to definitively separate "the event never reached atv" from "atv's
+  own logic mishandled it" — concretely, a controlled direct-CLI concurrency stress test (up to
+  50 concurrent real `agent-started` calls, zero losses) first ruled out `WriteGate` mutex
+  contention as the source of an earlier-observed multi-second card-appearance delay, before
+  the `TaskStop` investigation found the real, distinct defect above.
+- **First live attempt at verifying 19E showed no effect** — not a fix regression, but a
+  process gap: the scratch dogfood repo's plugin copy (`translate.ps1`/`map.json` under its
+  `.claude/skills/`) is a separate file tree from `atv.exe`, and refreshing the dev-loop
+  package registration (`dotnet run`) does not touch it. Re-synced by hand; re-run confirmed
+  the fix immediately ("worked like I expected").
+- **AC11 sign-off (2026-07-15, operator decision):** on accumulated evidence across three live
+  rounds rather than one final single clean end-to-end re-run — fan-out routing and non-blank
+  titles (Part A/B, earlier rounds), mid-fanout `ready` refusal (19D), and cancellation cleanup
+  (19E) have each been separately confirmed live at this point; a dedicated final combined run
+  was judged to only re-confirm already-verified mechanics.
+
+**Phase 19 is DONE.** All parts (A, B, C, D) implemented, tested, and live-confirmed.
 
 _(Further per-phase notes appended below as phases execute.)_
