@@ -49,7 +49,7 @@ public sealed class DispatcherRemoveTests
         int exit = h.Run(dispatcher, "remove", "never-seen");
 
         Assert.AreEqual(0, exit);
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]

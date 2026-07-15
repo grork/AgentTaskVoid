@@ -144,7 +144,7 @@ public sealed class ListVerbTests
 
         Assert.AreEqual(0, exit);
         Assert.AreEqual("", h.Stdout.ToString());
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]

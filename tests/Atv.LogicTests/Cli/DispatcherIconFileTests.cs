@@ -99,7 +99,7 @@ public sealed class DispatcherIconFileTests
 
         Assert.AreEqual(0, exit);
         Assert.IsEmpty(h.Store.FindAll(), "a usage-error call must never reach the engine as a claim.");
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]

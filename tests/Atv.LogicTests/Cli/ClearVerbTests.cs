@@ -152,7 +152,7 @@ public sealed class ClearVerbTests
         int exit = h.Run(dispatcher, "clear");
 
         Assert.AreEqual(0, exit);
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]

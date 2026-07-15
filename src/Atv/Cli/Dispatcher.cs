@@ -57,6 +57,8 @@ public sealed class Dispatcher
     private readonly Stream _stdoutMirror;
     private readonly Stream _stderrMirror;
     private readonly TextReader _stdin;
+    private readonly Action<string> _traceIn;
+    private readonly Action<string> _traceOut;
 
     public Dispatcher(
         TaskOperations ops,
@@ -75,7 +77,9 @@ public sealed class Dispatcher
         Func<IReadOnlyList<string>, IChildProcess> spawnChild,
         Stream stdoutMirror,
         Stream stderrMirror,
-        TextReader stdin)
+        TextReader stdin,
+        Action<string> traceIn,
+        Action<string> traceOut)
     {
         _ops = ops;
         _engine = engine;
@@ -94,11 +98,18 @@ public sealed class Dispatcher
         _stdoutMirror = stdoutMirror;
         _stderrMirror = stderrMirror;
         _stdin = stdin;
+        _traceIn = traceIn;
+        _traceOut = traceOut;
     }
 
     /// <summary>Dispatches one lifecycle-verb invocation. Callers must have already handled <see cref="ParseResult.ShowHelp"/>/<see cref="ParseResult.ShowVersion"/>/a bare (no-verb) invocation -- those never reach here (Program.cs's job, needs no identity/platform/Posture at all).</summary>
     public int Run(ParseResult parsed, DateTimeOffset now)
     {
+        // AC11 "trace-in": the raw call as received, before ANY parsing/routing/engine
+        // logic runs -- unconditional, every verb, ahead of Capability.Check/EnsureWatchdog.
+        // Deliberately does not touch stdin (free-text "-" is read later, per-verb-body).
+        _traceIn($"verb={parsed.Verb ?? "(none)"} handle={FirstOrNull(parsed.Positionals) ?? "(none)"} agent={parsed.Flags.GetValueOrDefault("agent") ?? "(none)"}");
+
         if (parsed.ShowHelp || parsed.ShowVersion)
             throw new ArgumentException("Help/version requests must be handled by the caller before reaching Dispatcher.Run.", nameof(parsed));
 
@@ -144,7 +155,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.Working(handle, title, subtitle, iconUri, deepLink, goal, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("working", outcome);
     }
 
     // ---- activity -------------------------------------------------------------------
@@ -169,7 +180,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.Activity(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("activity", outcome);
     }
 
     // ---- blocked --------------------------------------------------------------------
@@ -195,7 +206,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.Blocked(handle, title, subtitle, iconUri, deepLink, question, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("blocked", outcome);
     }
 
     // ---- ready ----------------------------------------------------------------------
@@ -217,7 +228,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.Ready(handle, title, subtitle, iconUri, deepLink, summary, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("ready", outcome);
     }
 
     // ---- broken ---------------------------------------------------------------------
@@ -245,7 +256,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.Broken(handle, title, subtitle, iconUri, deepLink, reason, detail, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("broken", outcome);
     }
 
     // ---- agent-started / agent-stopped -----------------------------------------------
@@ -268,7 +279,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.AgentStarted(handle, title, subtitle, iconUri, deepLink, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("agent-started", outcome);
     }
 
     private VerbResult AgentStoppedBody(ParseResult p, DateTimeOffset now)
@@ -288,7 +299,7 @@ public sealed class Dispatcher
 
         Uri iconUri = _icons.Place(handle, token);
         var outcome = _engine.AgentStopped(handle, title, subtitle, iconUri, deepLink, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
-        return MapOutcome(outcome);
+        return MapOutcome("agent-stopped", outcome);
     }
 
     // ---- session-ended (no identity flags, no upsert -- ERGO-31 §1 intro) -----------
@@ -308,7 +319,7 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        return MapOutcome(_engine.SessionEnded(handle, reason, now));
+        return MapOutcome("session-ended", _engine.SessionEnded(handle, reason, now));
     }
 
     // ---- remove -----------------------------------------------------------------------
@@ -322,7 +333,7 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        return MapOutcome(_ops.Remove(handle, now));
+        return MapOutcome("remove", _ops.Remove(handle, now));
     }
 
     // ---- run (phase 11; re-seated onto the v2 engine, phase 15) -----------------
@@ -451,18 +462,34 @@ public sealed class Dispatcher
         return true;
     }
 
-    private static VerbResult MapOutcome(OperationOutcome outcome) => outcome.Kind switch
+    private VerbResult MapOutcome(string verb, OperationOutcome outcome)
     {
-        OutcomeKind.Accepted or OutcomeKind.AcceptedUnsafe or OutcomeKind.Resurrected or OutcomeKind.Removed
-            => VerbResult.Success(outcome.Reason),
-        OutcomeKind.RefusedInvalidArgument or OutcomeKind.RefusedUnsafeCombo
-            => VerbResult.Failure(FailureKind.InvalidArguments, outcome.Reason),
-        // UnknownHandleNoOp / WriteGateUnavailable: no dedicated FailureKind exists for
-        // these (only 4 codes total, FailureLog.cs) -- ERGO-27's "all behavior identical...
-        // only the logged reason and strict exit code differ" is satisfied by bucketing
-        // them as Generic, still logged/exit-coded like every other failure.
-        _ => VerbResult.Failure(FailureKind.Generic, outcome.Reason),
-    };
+        // AC11 "trace-out": what was actually applied, right after the engine's
+        // claim-processing call returns -- every outcome (success, refusal, failure),
+        // not just the "interesting" mint/retire events the "engine" log already covers.
+        _traceOut(FormatTraceOut(verb, outcome));
+
+        return outcome.Kind switch
+        {
+            OutcomeKind.Accepted or OutcomeKind.AcceptedUnsafe or OutcomeKind.Resurrected or OutcomeKind.Removed
+                => VerbResult.Success(outcome.Reason),
+            OutcomeKind.RefusedInvalidArgument or OutcomeKind.RefusedUnsafeCombo
+                => VerbResult.Failure(FailureKind.InvalidArguments, outcome.Reason),
+            // UnknownHandleNoOp / WriteGateUnavailable: no dedicated FailureKind exists for
+            // these (only 4 codes total, FailureLog.cs) -- ERGO-27's "all behavior identical...
+            // only the logged reason and strict exit code differ" is satisfied by bucketing
+            // them as Generic, still logged/exit-coded like every other failure.
+            _ => VerbResult.Failure(FailureKind.Generic, outcome.Reason),
+        };
+    }
+
+    private static string FormatTraceOut(string verb, OperationOutcome outcome)
+    {
+        string msg = $"verb={verb} handle={outcome.Handle} kind={outcome.Kind}";
+        if (outcome.View is { } view)
+            msg += $" title={view.Title} step={view.ExecutingStep} state={view.State}";
+        return msg;
+    }
 
     private static string? FirstOrNull(IReadOnlyList<string> positionals) => positionals.Count > 0 ? positionals[0] : null;
 }

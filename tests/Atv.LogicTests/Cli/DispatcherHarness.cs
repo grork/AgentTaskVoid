@@ -190,10 +190,23 @@ internal sealed class DispatcherHarness : IDisposable
             },
             stdoutMirror: StdoutMirror,
             stderrMirror: StderrMirror,
-            stdin: Stdin);
+            stdin: Stdin,
+            traceIn: msg => Log.Append("trace-in", null, msg, ClockNow),
+            traceOut: msg => Log.Append("trace-out", null, msg, ClockNow));
     }
 
     public int Run(Dispatcher dispatcher, params string[] args) => dispatcher.Run(CommandLine.Parse(args), Now);
+
+    /// <summary>
+    /// Every durable log entry EXCLUDING AC11's always-on "trace-in"/
+    /// "trace-out" diagnostic lines (src/Atv/Cli/Dispatcher.cs) -- those fire
+    /// unconditionally on every <see cref="Dispatcher.Run"/> call, additive
+    /// to (never a replacement for) the verb-outcome-level entries
+    /// (Posture/"ops"/"engine"/etc.) the pre-existing exact-count assertions
+    /// below were written against.
+    /// </summary>
+    public IReadOnlyList<LogEntry> LogEntriesExcludingTrace()
+        => [.. Log.ReadAll().Where(e => e.Verb is not "trace-in" and not "trace-out")];
 
     public void Dispose()
     {

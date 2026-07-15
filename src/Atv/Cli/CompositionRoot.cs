@@ -114,7 +114,12 @@ public static class CompositionRoot
             // ERGO-31's "-" stdin convention (LIFE-24 S2-walk item 1): explicit UTF-8,
             // never the console's ambient code-page encoding -- Console.In can silently
             // mojibake non-ASCII text on a non-UTF-8 console code page.
-            stdin: new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)));
+            stdin: new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)),
+            // AC11: diagnostic instrumentation for the concurrent-fan-out latency investigation --
+            // "trace-in" (raw call received) / "trace-out" (what was applied), wired the same way
+            // as every other FailureLog category below ("ops"/"engine"/"watchdog"/"writegate"/"icon").
+            traceIn: msg => b.Log.Append("trace-in", null, msg, DateTimeOffset.Now),
+            traceOut: msg => b.Log.Append("trace-out", null, msg, DateTimeOffset.Now));
 
         return new RootContext(dispatcher, b.Settings, b.Warnings);
     }

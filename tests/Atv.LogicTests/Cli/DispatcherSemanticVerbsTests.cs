@@ -32,7 +32,7 @@ public sealed class DispatcherSemanticVerbsTests
         int exit = h.Run(dispatcher, verb, "h1");
 
         Assert.AreEqual(0, exit);
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
         Assert.IsEmpty(h.Store.FindAll(), "a retired v1 verb token must never reach the engine as a valid claim.");
     }
 

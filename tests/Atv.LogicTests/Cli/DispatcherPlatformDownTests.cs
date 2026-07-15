@@ -24,8 +24,8 @@ public sealed class DispatcherPlatformDownTests
         Assert.AreEqual("", h.Stdout.ToString());
         Assert.AreEqual("", h.Stderr.ToString());
         Assert.IsEmpty(h.Store.FindAll());
-        Assert.HasCount(1, h.Log.ReadAll());
-        Assert.AreEqual("working", h.Log.ReadAll()[0].Verb);
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
+        Assert.AreEqual("working", h.LogEntriesExcludingTrace()[0].Verb);
     }
 
     [TestMethod]
@@ -50,7 +50,7 @@ public sealed class DispatcherPlatformDownTests
 
         Assert.AreEqual(0, exit);
         Assert.IsEmpty(h.Store.FindAll());
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]
@@ -74,7 +74,7 @@ public sealed class DispatcherPlatformDownTests
         int exit = h.Run(dispatcher, "remove", "h1");
 
         Assert.AreEqual(0, exit);
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]
@@ -86,7 +86,7 @@ public sealed class DispatcherPlatformDownTests
         int exit = h.Run(dispatcher, "activity", "h1", "--kind", "shell", "--label", "npm test");
 
         Assert.AreEqual(0, exit);
-        Assert.HasCount(1, h.Log.ReadAll());
+        Assert.HasCount(1, h.LogEntriesExcludingTrace());
     }
 
     [TestMethod]
