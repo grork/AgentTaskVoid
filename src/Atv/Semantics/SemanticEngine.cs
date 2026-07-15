@@ -776,14 +776,17 @@ public sealed class SemanticEngine
     /// <summary>
     /// The sole entry point into ERGO-30's repo-scoped defaults, called ONLY
     /// from <see cref="ApplyClaimCore"/>'s genuine-creation branch. Resolves,
-    /// per key, <c>flag &gt; env &gt; repo-file &gt; user-file</c>
-    /// (<see cref="SettingsLoader.ResolvePresentationKey"/>): the caller's own
+    /// per key, <c>flag &gt; env &gt; repo-file &gt; user-file &gt; built-in
+    /// default</c> (<see cref="SettingsLoader.ResolvePresentationKey"/> for
+    /// the first four layers; ERGO-33 adds the fifth): the caller's own
     /// explicit value always wins outright (<paramref name="title"/>/
     /// <paramref name="subtitle"/> are already <see langword="null"/> unless
     /// explicitly claimed; icon/icon-file via <paramref name="iconExplicit"/>).
     /// When <see cref="_discoverRepo"/> is <see langword="null"/> (a caller
     /// that never wired repo support -- most existing tests), this degrades
-    /// straight to today's pre-phase-17 behavior with zero repo-file access.
+    /// straight to today's pre-phase-17 behavior with zero repo-file access
+    /// (ERGO-33 does not touch this branch -- unreachable in the shipped CLI,
+    /// see <see cref="BuiltInDefaultTitle"/>'s remarks).
     /// </summary>
     private (string Title, string Subtitle, Uri IconUri) ApplyRepoDefaults(
         string handle, string? title, string? subtitle, Uri fallbackIconUri, IconToken iconToken, bool iconExplicit)
@@ -795,19 +798,90 @@ public sealed class SemanticEngine
         LogRepoConfigIssues(discovery);
 
         string? titleRaw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeyTitleTemplate, title, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
-        string effectiveTitle = titleRaw is null
+        string expandedTitle = titleRaw is null
             ? ""
             : title is not null
                 ? titleRaw // the caller's own explicit --title: always verbatim, never templated.
                 : RepoSettings.ExpandTemplate(titleRaw, discovery.RepoName, discovery.Branch);
+        // ERGO-33: an empty result at this point -- no layer supplied anything,
+        // OR a layer's own template expanded to empty (e.g. a repo file's
+        // "{repo}" with no discovered .git root, ERGO-30's token-drop rule) --
+        // falls through to the built-in default. Empty is never a final title.
+        string effectiveTitle = expandedTitle.Length > 0 ? expandedTitle : BuiltInDefaultTitle(discovery);
 
         string? subtitleRaw = SettingsLoader.ResolvePresentationKey(RepoSettings.KeySubtitle, subtitle, _presentationEnv, discovery.AllowedValues, _presentationUserFile);
-        string effectiveSubtitle = subtitleRaw ?? "";
+        // ERGO-33: the built-in subtitle default (branch, or "" with no git
+        // root) is ONLY the terminus for a fully-absent chain (subtitleRaw
+        // null) -- unlike title, an explicitly-empty subtitle from a layer
+        // above is left alone; only the title has a "never blank" invariant.
+        string effectiveSubtitle = subtitleRaw ?? BuiltInDefaultSubtitle(discovery);
 
         Uri effectiveIconUri = ResolveCreateTimeIcon(handle, fallbackIconUri, iconToken, iconExplicit, discovery);
 
         return (effectiveTitle, effectiveSubtitle, effectiveIconUri);
     }
+
+    /// <summary>
+    /// ERGO-33's built-in title default -- the chain's final terminus,
+    /// reached only when <c>--title &gt; env &gt; repo template &gt; user
+    /// file</c> are all absent or resolve to empty. Never blank:
+    /// <c>&lt;anchor-folder&gt;</c> alone, or <c>&lt;anchor-folder&gt;
+    /// (&lt;repo-folder&gt;)</c> when a <c>.git</c> root resolves to a
+    /// DIFFERENTLY-NAMED folder than the anchor (suppressed when the two
+    /// names coincide -- e.g. the anchor IS the repo root -- so a card is
+    /// never titled <c>AppTaskInfoCli (AppTaskInfoCli)</c>). An anchor with
+    /// no last path segment (a drive root, <c>C:\</c>) floors out at
+    /// <see cref="Branding.Name"/> (ERGO-18 -- derived, never re-literal).
+    /// Only ever consulted from <see cref="ApplyRepoDefaults"/>'s
+    /// <see cref="_discoverRepo"/>-wired branch -- <c>CompositionRoot</c>
+    /// wires it unconditionally in the shipped CLI (falling back to
+    /// <see cref="Environment.CurrentDirectory"/>), so the no-discoverRepo
+    /// branch above (still "" today) is unreachable in production.
+    /// </summary>
+    private static string BuiltInDefaultTitle(RepoDiscoveryResult discovery)
+    {
+        string anchorName;
+        try { anchorName = AnchorFolderName(discovery.AnchorPath); }
+        catch (Exception) { anchorName = ""; } // A malformed anchor must never throw (FAIL-1) -- floors out below.
+
+        if (anchorName.Length == 0)
+            return Branding.Name;
+
+        if (discovery.RepoName is { Length: > 0 } repoName && !string.Equals(anchorName, repoName, StringComparison.OrdinalIgnoreCase))
+            return $"{anchorName} ({repoName})";
+
+        return anchorName;
+    }
+
+    /// <summary>ERGO-33's built-in subtitle default: the branch when a <c>.git</c> root resolved, else empty (subtitle has no "never blank" invariant -- unlike title, empty is a legitimate final subtitle).</summary>
+    private static string BuiltInDefaultSubtitle(RepoDiscoveryResult discovery) => discovery.Branch ?? "";
+
+    /// <summary>
+    /// The anchor path's own last path segment, robust to a trailing
+    /// separator and to a bare drive root (<c>C:\</c>, which
+    /// <see cref="Path.GetFileName(string)"/> alone would NOT report as
+    /// segment-less once naively trimmed -- <c>"C:"</c> has no separator
+    /// character left for it to split on). Returns <c>""</c> for a drive (or
+    /// UNC share) root, which <see cref="BuiltInDefaultTitle"/> reads as "no
+    /// last path segment" -- the brand-name floor case.
+    /// </summary>
+    private static string AnchorFolderName(string anchorPath)
+    {
+        string normalized;
+        try { normalized = Path.GetFullPath(anchorPath); }
+        catch (Exception) { normalized = anchorPath; }
+
+        string trimmedPath = normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string? root = SafeGetPathRoot(normalized);
+        string trimmedRoot = (root ?? "").TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (trimmedRoot.Length > 0 && string.Equals(trimmedPath, trimmedRoot, StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        return Path.GetFileName(trimmedPath);
+    }
+
+    private static string? SafeGetPathRoot(string path) { try { return Path.GetPathRoot(path); } catch (Exception) { return null; } }
 
     /// <summary>
     /// Resolves the CREATE-time icon <see cref="Uri"/>: an env/repo-file/

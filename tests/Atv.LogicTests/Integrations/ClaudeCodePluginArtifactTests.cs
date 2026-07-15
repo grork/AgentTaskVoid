@@ -295,18 +295,49 @@ public sealed class ClaudeCodePluginArtifactTests
     }
 
     [TestMethod]
-    public void Translator_NeverPassesIdentityFlags_PreservesRepoBrandingPrecedence()
+    public void Translator_NeverPassesSubtitleOrIconFlags_PreservesRepoBrandingPrecedence()
     {
         // Deliberate design decision (see integrations/claude-code/README.md's
         // "Deliberately no identity flags" section): SemanticEngine.ApplyRepoDefaults
         // resolves title/subtitle/icon as flag > env > repo (.atv.json) > user
-        // config > default -- a hard-coded --title/--subtitle/--icon on every
-        // call would permanently block phase 17's repo-branding feature for
-        // every repo using this plugin. Locks the decision in against
-        // accidental regression.
+        // config > default -- a hard-coded --subtitle/--icon/--icon-file on
+        // every call would permanently block phase 17's repo-branding feature
+        // for every repo using this plugin. Locks the decision in against
+        // accidental regression. --title is EXEMPT as of ERGO-33 (phase 19B)
+        // -- see Translator_TitleFlag_OnlyConditionallyForwarded_ViaSessionTitle
+        // below for why a conditional, user-intent-gated --title does not
+        // reopen this concern.
         string content = File.ReadAllText(TranslatorPath);
-        foreach (string flag in new[] { "\"--title\"", "\"--subtitle\"", "\"--icon\"", "\"--icon-file\"" })
+        foreach (string flag in new[] { "\"--subtitle\"", "\"--icon\"", "\"--icon-file\"" })
             Assert.DoesNotContain(flag, content, $"translate.ps1 must never pass {flag} -- it would always beat a repo's .atv.json (flag > repo precedence), blocking AC6's premise.");
+    }
+
+    [TestMethod]
+    public void Translator_TitleFlag_OnlyConditionallyForwarded_ViaSessionTitle()
+    {
+        // ERGO-33 (phase 19B): --title is the ONE identity flag translate.ps1
+        // conditionally forwards -- Claude Code's own session_title, present
+        // only when the user explicitly named the session. A value present
+        // only on explicit user intent does not reopen the "hard-coded
+        // constant" concern the sibling test above locks in (a constant would
+        // ALWAYS beat the repo layer; a conditional, user-named value is
+        // exactly what the chain's first stop is for). Proves --title appears
+        // EXACTLY ONCE in the whole script -- inside Get-TitleArgs's own
+        // IsNullOrEmpty-gated branch -- never hard-coded unconditionally into
+        // any event's call site.
+        string content = File.ReadAllText(TranslatorPath);
+
+        const string titleFlagLiteral = "\"--title\"";
+        int occurrences = Regex.Matches(content, Regex.Escape(titleFlagLiteral)).Count;
+        Assert.AreEqual(1, occurrences, "--title must appear exactly once in the script -- inside Get-TitleArgs, never duplicated into an unconditional call site.");
+
+        int getTitleArgsStart = content.IndexOf("function Get-TitleArgs", StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, getTitleArgsStart, "Get-TitleArgs must exist -- the conditional-forwarding helper, mirroring Get-CwdArgs's own pattern.");
+        int getTitleArgsEnd = content.IndexOf("\n}", getTitleArgsStart, StringComparison.Ordinal);
+        string getTitleArgsBody = content[getTitleArgsStart..getTitleArgsEnd];
+
+        Assert.Contains(titleFlagLiteral, getTitleArgsBody, "the --title literal must live inside Get-TitleArgs.");
+        Assert.Contains("IsNullOrEmpty", getTitleArgsBody, "Get-TitleArgs must gate on presence, mirroring Get-CwdArgs's own conditional-forwarding pattern.");
     }
 
     [TestMethod]

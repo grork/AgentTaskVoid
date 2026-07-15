@@ -73,15 +73,25 @@ env/config, applying identity-wide.
 The phase-13 v1 artifact passed its own recurring identity values (icon
 token, title text) directly as `--flag`s baked into the hook config. The
 phase-18 v2 Claude Code plugin (`integrations/claude-code/`) deliberately
-does **not**: `translate.ps1` never passes `--title`/`--subtitle`/`--icon` at
-all, so those stay unset (`$null`) on every call — which is exactly what lets
-the `--flag > env > repo file > user config file > default` precedence chain
-below actually reach the repo layer. Since a caller-supplied flag always wins
-over `.atv.json`'s `title-template`/`subtitle`/`icon` (`ApplyRepoDefaults` in
-`src/Atv/Semantics/SemanticEngine.cs`), a translator that hard-coded identity
-flags on every call would permanently block repo branding for that field —
-this is the same "with zero hook edits at all" property phase 17 was built
-for. This config file remains for *your own* machine-wide overrides (idle
+does **not**: `translate.ps1` never passes `--subtitle`/`--icon`/`--icon-file`
+at all, so those stay unset (`$null`) on every call — which is exactly what
+lets the `--flag > env > repo file > user config file > built-in default`
+precedence chain below actually reach the repo layer. Since a caller-supplied
+flag always wins over `.atv.json`'s `title-template`/`subtitle`/`icon`
+(`ApplyRepoDefaults` in `src/Atv/Semantics/SemanticEngine.cs`), a translator
+that hard-coded identity flags on every call would permanently block repo
+branding for that field — this is the same "with zero hook edits at all"
+property phase 17 was built for.
+
+`--title` is the one exception (ERGO-33, phase 19): `translate.ps1` forwards
+Claude Code's own `session_title` as `--title`, but only on `UserPromptSubmit`
+(the card-creating event) and only when the user explicitly named the
+session — absent otherwise. This is a conditional, user-intent-gated value,
+not a hard-coded constant, so it does not block repo branding: a session the
+user never named still falls through to `.atv.json`'s `title-template`, then
+the user config, then the built-in default below.
+
+This config file remains for *your own* machine-wide overrides (idle
 periods, watchdog mode); per-host presentation choices, where a host
 integration chooses to set any, live in the integration artifact itself,
 editable by copying and adjusting that artifact's hook commands — or, since
@@ -148,6 +158,36 @@ the shared task namespace — `list`/`clear` are unaffected.
 A malformed or oversized (>64 KiB) `.atv.json` is ignored, logged, and never
 blocks a create (`atv` exits 0 unless `--strict`) — same non-disruptive
 posture as every other failure path in this tool.
+
+### The built-in default: never a blank title (ERGO-33, phase 19)
+
+`title-template`/`subtitle` above are the **repo** layer of the chain; when
+every layer — `--flag`, env, `.atv.json`, and the user config file — is
+absent (or a layer's own template expands to empty, e.g. `{repo}` with no
+discovered `.git` root), the engine's own **built-in default** is the
+terminus. Title is never left blank:
+
+| Anchor (`--cwd`/process cwd) | `.git` root | Built-in default title |
+|---|---|---|
+| `C:\Source\AppTaskInfoCli` | same directory | `AppTaskInfoCli` |
+| `C:\src\monorepo\packages\web` | `C:\src\monorepo` | `web (monorepo)` |
+| `C:\Users\dhopt\Downloads` | none found | `Downloads` |
+
+The default is the anchor directory's own last path segment, plus the repo
+folder name in parentheses when the anchor sits below the discovered `.git`
+root — suppressed when the two names coincide (never `AppTaskInfoCli
+(AppTaskInfoCli)`). An anchor with no last path segment (a bare drive root,
+`C:\`) floors out at the brand name (`Agentaskvoid`) instead. The built-in
+default **subtitle** is the resolved git branch when a `.git` root is found,
+empty otherwise — subtitle has no never-blank guarantee (an anchor with no
+repo legitimately has no branch to show).
+
+A host integration can feed the chain's `--flag` layer itself with the
+host's own session name: see `integrations/claude-code/README.md` for how
+the Claude Code plugin forwards `session_title` as `--title`, conditional on
+the user having explicitly named the session (never a hard-coded constant,
+which would permanently block repo branding — only a genuinely user-supplied
+value is forwarded).
 
 ### Example
 

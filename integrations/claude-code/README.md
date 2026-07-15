@@ -96,7 +96,7 @@ plugin bundle, nothing is left behind in `settings.json` to hand-clean.
 | Claude Code event | Matcher | `atv` call | Notes |
 |---|---|---|---|
 | `SessionStart` | *(all sources)* | *(no-op, except `source:"compact"` → `activity <sid> --kind compacting`)* | No session-start verb exists (ERGO-31). |
-| `UserPromptSubmit` | *(none)* | `working <sid> --goal -` | Prompt text via stdin. |
+| `UserPromptSubmit` | *(none)* | `working <sid> --goal -` (+ `--title <session_title>` when the user explicitly named the session, ERGO-33) | Prompt text via stdin. |
 | `PreToolUse` / `PostToolUse` | *(none)* | `activity <sid> --kind <map> --label -` (+ `--agent`/`--name` when the payload carries them) | `Agent` (subagent spawn) is suppressed — no activity line, ever (agent-started/-stopped own that). `TodoWrite` composes a `(n/m) <item>` plan label in code. An unmapped tool falls to `--kind tool --name <tool_name> --label -`. |
 | `PermissionRequest` | *(none)* | `blocked <sid> --question -` (+ `--agent` when present) | Attribution keys off `PermissionRequest`, **not** `Notification` (phase-14 capture finding 5). |
 | `Notification` | `idle_prompt` only | `ready <sid>` | `permission_prompt` is a deliberate no-op — `PermissionRequest` already owns Blocked. Fires ~60s post-turn, once, focus-independent (phase-14 finding). |
@@ -117,20 +117,39 @@ alone carries no `-ProjectDir` (`session-ended` takes no `--cwd`, no upsert).
 
 No hook line ever passes `--strict` (FAIL-1's non-disruptive posture).
 
-## Deliberately no identity flags (`--title`/`--subtitle`/`--icon`)
+## Deliberately no identity flags, except the host's own session name (`--title`)
 
 Unlike the phase-13 v1 artifact, `translate.ps1` never passes
-`--title`/`--subtitle`/`--icon` on any call. This is intentional:
+`--subtitle`/`--icon`/`--icon-file` on any call. This is intentional:
 `SemanticEngine.ApplyRepoDefaults` (`src/Atv/Semantics/SemanticEngine.cs`)
 resolves title/subtitle/icon with `--flag > env > repo (.atv.json) > user
-config > default` precedence — a caller-supplied flag **always** wins over a
-repo's `title-template`/`subtitle`/`icon`. A translator that hard-coded
-`--title "Claude Code"` on every call would permanently block phase 17's
-repo-branding feature for every repo using this plugin. Leaving these unset
-lets `.atv.json` (or, absent that, `atv`'s own defaults — the Robot glyph,
-an empty title) resolve them instead. A repo with no `.atv.json` therefore
-gets an empty-titled card by design (a pre-existing engine trade-off, not
-introduced here) — add a `.atv.json` to brand it.
+config > built-in default` precedence — a caller-supplied flag **always**
+wins over a repo's `title-template`/`subtitle`/`icon`. A translator that
+hard-coded `--subtitle "Claude Code"` on every call would permanently block
+phase 17's repo-branding feature for every repo using this plugin. Leaving
+these unset lets `.atv.json` (or, absent that, `atv`'s own defaults) resolve
+them instead.
+
+`--title` is the one exception (ERGO-33, phase 19): on `UserPromptSubmit` —
+the event that creates the card — `translate.ps1` forwards Claude Code's own
+`session_title` field as `--title`, but **only when the user has explicitly
+named the session**; it is absent otherwise, and no `--title` token is passed
+at all. This does not reopen the concern above: that argument is against a
+**hard-coded constant**, which would always win regardless of repo config. A
+value present only on explicit user intent is exactly what the top of the
+`--flag > env > repo > user > built-in default` chain is for, and every other
+event still passes no identity flags at all.
+
+A repo with no `.atv.json` and no user-named session no longer gets an
+empty-titled card: `SemanticEngine.ApplyRepoDefaults` now terminates the
+chain in a built-in default derived from the `--cwd`/repo anchor — the
+anchor folder's own name, plus the repo folder name in parentheses when the
+anchor sits below the discovered `.git` root (suppressed when the two
+coincide), floored at the brand name (`Agentaskvoid`) for an anchor with no
+last path segment (a bare drive root). The default subtitle is the resolved
+git branch when a `.git` root is found, empty otherwise. Empty is never the
+final title — see `docs/configuration.md`'s defaults table for the full
+chain and examples.
 
 ## Assumptions flagged (never captured live in phase 14)
 

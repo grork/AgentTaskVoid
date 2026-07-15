@@ -93,6 +93,17 @@ function Get-CwdArgs {
     return @("--cwd", $ProjectDir)
 }
 
+function Get-TitleArgs {
+    # ERGO-33's chain top: the host's own session name, forwarded as --title
+    # ONLY when the user actually named this session -- absent/empty means
+    # nothing rides argv at all, and the chain falls through to the repo/
+    # folder built-in default (SemanticEngine.ApplyRepoDefaults). Same
+    # present-only-when-non-empty convention as Get-CwdArgs above.
+    param($SessionTitle)
+    if ([string]::IsNullOrEmpty($SessionTitle)) { return @() }
+    return @("--title", $SessionTitle)
+}
+
 function Invoke-Atv {
     # Discipline 2: $StdinText (when supplied) travels to atv via a piped
     # stdin, matched by a literal "-" in $AtvArgs on the caller's side --
@@ -233,7 +244,13 @@ try {
                 "UserPromptSubmit" {
                     $prompt = Get-Prop $payload "prompt"
                     if ($null -eq $prompt) { $prompt = "" }
-                    Invoke-Atv -AtvArgs (@("working", $sid, "--goal", "-") + (Get-CwdArgs)) -StdinText $prompt
+                    # ERGO-33: this is the event that creates the card, so the
+                    # host's session_title (present only when the user
+                    # explicitly named this session) rides --title here and
+                    # nowhere else -- no translator state needed.
+                    $sessionTitle = Get-Prop $payload "session_title"
+                    $argList = @("working", $sid, "--goal", "-") + (Get-TitleArgs $sessionTitle) + (Get-CwdArgs)
+                    Invoke-Atv -AtvArgs $argList -StdinText $prompt
                 }
 
                 { $_ -in @("PreToolUse", "PostToolUse") } {

@@ -55,6 +55,122 @@ public sealed class ClaudeCodeTranslatorTests
         CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-" }, calls[0].Argv);
     }
 
+    // ---- ERGO-33 (phase 19B): session_title -> --title, UserPromptSubmit only -
+
+    [TestMethod]
+    public void UserPromptSubmit_WithSessionTitle_ForwardsTitleFlag()
+    {
+        string payload = """{"session_id":"sess-1","hook_event_name":"UserPromptSubmit","prompt":"hi","session_title":"My Session"}""";
+
+        var calls = RunTranslator("UserPromptSubmit", payload, projectDir: @"C:\proj");
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-", "--title", "My Session", "--cwd", @"C:\proj" }, calls[0].Argv);
+        Assert.AreEqual("hi", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void UserPromptSubmit_WithoutSessionTitle_OmitsTitleTokenEntirely()
+    {
+        // Distinct from UserPromptSubmit_MapsTo_Working_WithGoalOnStdin above --
+        // this is ERGO-33's explicit "absent -> no --title token at all" claim,
+        // not incidental to a payload shape that never had the field.
+        string payload = """{"session_id":"sess-1","hook_event_name":"UserPromptSubmit","prompt":"hi"}""";
+
+        var calls = RunTranslator("UserPromptSubmit", payload, projectDir: @"C:\proj");
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-", "--cwd", @"C:\proj" }, calls[0].Argv);
+    }
+
+    [TestMethod]
+    public void UserPromptSubmit_EmptySessionTitle_TreatedAsAbsent_OmitsTitleTokenEntirely()
+    {
+        string payload = """{"session_id":"sess-1","hook_event_name":"UserPromptSubmit","prompt":"hi","session_title":""}""";
+
+        var calls = RunTranslator("UserPromptSubmit", payload, projectDir: null);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-" }, calls[0].Argv);
+    }
+
+    [TestMethod]
+    public void OtherEvents_NeverForwardTitle_EvenWhenSessionTitleHappensToBePresentInPayload()
+    {
+        // session_title is only ever documented on SessionStart/UserPromptSubmit
+        // (ERGO-33), but this proves the UserPromptSubmit-only gate
+        // STRUCTURALLY -- not merely "the field never shows up elsewhere in
+        // practice" -- by planting it in payloads for events that must never
+        // act on it.
+        string preToolUse = """{"session_id":"sess-1","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"session_title":"Sneaky Title","tool_use_id":"t1"}""";
+        var preCalls = RunTranslator("PreToolUse", preToolUse, projectDir: null);
+        Assert.HasCount(1, preCalls);
+        Assert.IsFalse(preCalls[0].Argv.Contains("--title"), "PreToolUse must never forward --title.");
+
+        string stop = """{"session_id":"sess-1","hook_event_name":"Stop","last_assistant_message":"done","session_title":"Sneaky Title"}""";
+        var stopCalls = RunTranslator("Stop", stop, projectDir: null);
+        Assert.HasCount(1, stopCalls);
+        Assert.IsFalse(stopCalls[0].Argv.Contains("--title"), "Stop must never forward --title.");
+
+        string sessionEnd = """{"session_id":"sess-1","hook_event_name":"SessionEnd","reason":"other","session_title":"Sneaky Title"}""";
+        var endCalls = RunTranslator("SessionEnd", sessionEnd, projectDir: null);
+        Assert.HasCount(1, endCalls);
+        Assert.IsFalse(endCalls[0].Argv.Contains("--title"), "SessionEnd must never forward --title.");
+    }
+
+    [TestMethod]
+    public void UserPromptSubmit_SessionTitle_NonAsciiAndEmbeddedNewlines_ReachTheStubIntactViaArgv()
+    {
+        // session_title rides ARGV, not stdin -- --title has no "-" stdin
+        // sentinel (Dispatcher.ResolveFreeText is never consulted for title;
+        // see Dispatcher.cs's plain p.Flags.GetValueOrDefault("title")).
+        // Non-ASCII (accented Latin, CJK, emoji surrogate pair) and an
+        // embedded newline all survive PowerShell's native-command argv
+        // marshalling byte-intact -- verified here. Embedded double quotes do
+        // NOT (see the next test) -- docs/integration-api.md SS7 already
+        // documents argv quoting as unreliable for exactly that content on
+        // some Windows shells; this is that pre-existing caveat's first real
+        // instance for arbitrary (not translator-chosen) text.
+        const string original = "Fix the login bug -- café 字 test\nsecond line\nthird \U0001F600";
+        string jsonEscaped = System.Text.Json.JsonSerializer.Serialize(original);
+        string payload = $$"""{"session_id":"sess-1","hook_event_name":"UserPromptSubmit","prompt":"hi","session_title":{{jsonEscaped}}}""";
+
+        var calls = RunTranslator("UserPromptSubmit", payload, projectDir: null);
+
+        Assert.HasCount(1, calls);
+        int titleIndex = Array.IndexOf(calls[0].Argv, "--title");
+        Assert.AreNotEqual(-1, titleIndex, "must have forwarded --title.");
+        Assert.AreEqual(original, calls[0].Argv[titleIndex + 1], "non-ASCII text and embedded newlines must reach the stub byte-intact via argv.");
+    }
+
+    [TestMethod]
+    public void UserPromptSubmit_SessionTitle_EmbeddedDoubleQuote_KnownArgvLimitation_QuoteCharactersAreStripped()
+    {
+        // Documents a REAL, verified platform constraint discovered building
+        // this test (not a translator bug, and not fixable within
+        // translate.ps1): Windows PowerShell 5.1's native-command argument
+        // marshalling silently drops embedded literal double-quote
+        // characters when splatting an array to a child process -- everything
+        // else in the string (including non-ASCII and newlines, proved above)
+        // survives. A session_title containing a literal '"' is a rare,
+        // cosmetic-only edge case; docs/integration-api.md SS7 already
+        // documents argv quoting as unreliable for this exact class of
+        // content, so this is the pre-existing caveat made concrete, not a
+        // regression. Locked here so a future change that "fixes" this
+        // doesn't silently drift without updating this assertion.
+        const string withQuotes = "Say \"hello\" please";
+        const string expectedAfterArgvMarshalling = "Say hello please";
+        string jsonEscaped = System.Text.Json.JsonSerializer.Serialize(withQuotes);
+        string payload = $$"""{"session_id":"sess-1","hook_event_name":"UserPromptSubmit","prompt":"hi","session_title":{{jsonEscaped}}}""";
+
+        var calls = RunTranslator("UserPromptSubmit", payload, projectDir: null);
+
+        Assert.HasCount(1, calls);
+        int titleIndex = Array.IndexOf(calls[0].Argv, "--title");
+        Assert.AreNotEqual(-1, titleIndex, "must have forwarded --title.");
+        Assert.AreEqual(expectedAfterArgvMarshalling, calls[0].Argv[titleIndex + 1]);
+    }
+
     // ---- PreToolUse/PostToolUse -> activity --kind <map> --label - ----------
 
     [TestMethod]
