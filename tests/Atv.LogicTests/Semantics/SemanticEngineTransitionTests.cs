@@ -177,6 +177,27 @@ public sealed class SemanticEngineTransitionTests
         Assert.IsTrue(outcome.Success);
     }
 
+    [TestMethod]
+    public void Ready_BareReassertion_AfterASummaryResult_NeverProducesAnEmptyExecutingStep()
+    {
+        // Regression guard (phase-18 live dogfood, 2026-07-14): the real
+        // platform throws "executingStep cannot be empty" -- a bare `ready`
+        // (no --summary, e.g. Claude Code's idle_prompt Notification -> `ready
+        // <sid>` with no stdin) re-affirming a card whose live content is
+        // ALREADY a TextSummaryResult (a prior `ready --summary`) reads back an
+        // empty ExecutingStep. Same guard as ReadyDecay.DemoteToIdle.
+        using var h = new SemanticEngineHarness();
+        h.Engine.Working("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, "goal", Now);
+        h.Engine.Ready("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, "All finished.", Now.AddMinutes(1));
+
+        var outcome = h.Engine.Ready("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, summary: null, Now.AddMinutes(2));
+
+        Assert.IsTrue(outcome.Success, "a bare re-affirmation of an existing TextSummaryResult-held Ready card must never crash.");
+        Assert.AreEqual(AppTaskState.Completed, outcome.View!.State);
+        Assert.AreNotEqual("", outcome.View.ExecutingStep, "must never hand the platform an empty executing step.");
+        Assert.AreEqual(AdvanceModel.NoStepsYetPlaceholder, outcome.View.ExecutingStep);
+    }
+
     // ---- broken: lands Broken from any prior state ----------------------------------
 
     [TestMethod]

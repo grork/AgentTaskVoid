@@ -253,7 +253,7 @@ Everything above is committed. Do NOT re-run the executors. The only remaining p
 - **Review:** PASS (independent; reviewer reproduced build/LogicTests/AdapterTests/AOT itself, ran a real dev-loop dogfood confirming both the allowlist rejection and `doctor` output live, traced the allowlist code path end-to-end as the phase's central security property). Executor's deviation (repo-defaults logic lives in `SemanticEngine.cs` not `Operations/*` per the phase file's literal list) confirmed correct — post-phase-15, `TaskOperations` no longer owns any create/upsert path.
 - **Non-blocking notes for phase 18:** `run`-minted cards don't pick up repo title/subtitle/icon-override defaults (consistent with phase 16 excluding `run` from `--icon-file`) — translators using `run` won't get repo branding; `--cwd` is a clean `GlobalOptions` field (parallel to `--watchdog-mode`), recognized anywhere, costs nothing when absent — good shape for phase 18's `--cwd ${CLAUDE_PROJECT_DIR}` forwarding. Two narrow, untested-but-defensible precedence edge cases noted (icon-file always beats icon regardless of layer; repo `group:true` overrides an explicit caller icon on create) — not security issues, not blocking.
 
-### Phase 18 — Claude Code v2 plugin 🔄 build/offline scope ✅ signed off 1st attempt; AC5/AC6 (live dogfood) pending, operator-supervised
+### Phase 18 — Claude Code v2 plugin ✅ (signed off 1st attempt; live dogfood complete 2026-07-14/15)
 - **Orchestration note (safety-scoped, 2026-07-14):** this project's process/hook testing has previously crashed a Claude Code session (operator-confirmed incident, two known mechanisms: overly-broad process kills colliding with something waiting on the process, and raw console Ctrl+C hitting the whole console process group — see memories [[process-termination-can-crash-claude-code]] / [[raw-ctrl-c-can-crash-claude-code]]). Both the phase file's own AC5 ("LIVE dogfood... not subagent-able") and this precedent led the orchestrator to scope BOTH the executor and reviewer to AC1/2/3/4/7 only (the buildable/testable artifact), explicitly excluding AC5 (live session dogfood: Working/Blocked/Ready/fan-out/removal) and AC6 (repo branding through the real conduit). Both subagents were given hard constraints: never touch `~/.claude/settings.json` or this repo's `.claude/settings.local.json`, never launch a real `claude`/`claude -p` session, never fire a real hook, exact-PID-only process handling, no raw Ctrl+C. The orchestrator will run AC5/AC6 directly with the operator, same pattern as phases 12/13/14's supervised steps.
 - **Files:** created `integrations/claude-code/.claude-plugin/marketplace.json`, `integrations/claude-code/plugins/atv-integration/{.claude-plugin/plugin.json, hooks/hooks.json, translate.ps1, map.json}`, `tests/Atv.LogicTests/Integrations/{ClaudeCodePluginArtifactTests,ClaudeCodeTranslatorHarness,ClaudeCodeTranslatorTests}.cs`, `tests/Atv.LogicTests/Integrations/TestAssets/StubAtv/{Program.cs,StubAtv.csproj}`. Modified `integrations/claude-code/README.md` (rewritten), `README.md`, `docs/{configuration.md,integration-api.md,host-events/claude-code.md}`, `tests/Atv.LogicTests/Atv.LogicTests.csproj` (exclude StubAtv from the recursive glob). Deleted `integrations/claude-code/settings.hooks.json` (phase-13 fragment), `tests/Atv.LogicTests/Integrations/ClaudeCodeArtifactTests.cs`. **Zero `src/Atv` changes** (confirmed both by executor and independently by reviewer).
 - **Result:** LogicTests 697→**738/738**. Build 0/0. No AOT re-check needed (no `src/Atv` touched).
@@ -263,20 +263,98 @@ Everything above is committed. Do NOT re-run the executors. The only remaining p
 - **Two real PowerShell bugs found and fixed:** `$OutputEncoding = [Text.Encoding]::UTF8` silently prepends a BOM (fixed via a BOM-less `UTF8Encoding` construction); `powershell.exe -File` mishandles a bare `-` token when the target is itself a PS script (worked around by compiling the test-only stub `atv` as a real exe rather than a PS-script stub).
 - **Review:** PASS (independent; reviewer reproduced build/tests itself, live-fetched current Claude Code plugin docs from `code.claude.com` and confirmed the manifest/hooks schema against them — not memory, per the phase-13 lesson — including confirming the "skills-directory plugin" zero-config mechanism is real and accurately described; reproduced the `claude --version` check itself, 2.1.209; grep-swept for any retired v1 verb, zero hits). **Safety-constraint compliance independently confirmed**, including catching and correcting a stale claim: `~/.claude/settings.json` DOES exist (predates this session, 2026-07-13 21:58, the operator's own personal settings, no `hooks` key) — untouched by the executor either way. Minor non-blocking note: `map.json`'s `StopFailure` reason-vocabulary keys don't exactly match the current documented `error_type` values, but the code's fallback-to-`fatal` makes this harmless and the row is already flagged best-effort/uncaptured.
 - **Orchestrator fix at this checkpoint:** the reviewer's safety check surfaced that the orchestrator's own EARLIER in-session check of `~/.claude/settings.json` ("NO FILE") was itself wrong — a Bash-tool PowerShell invocation bug (`$env:USERPROFILE` is PowerShell syntax; Bash pre-mangles `$env:...` before PowerShell ever sees it). Re-checked directly via the PowerShell tool: file exists, no `hooks` key, confirming the original safety conclusion (no ambient atv hooks) was right, but for an unverified reason at the time. Lesson: use the PowerShell tool directly for PowerShell-syntax commands, never embed `$env:`/`$_`-style syntax inside a Bash `-Command` string.
-- **Remaining for Phase 18 sign-off:** AC5 (live dogfood: Working/Blocked/Ready/fan-out/removal through a real session) and AC6 (repo branding through the real conduit) — operator-supervised, to be run directly with the orchestrator, not delegated.
+#### Live dogfood (AC5/AC6), operator + orchestrator together, 2026-07-14/15
 
-#### ⏭️ HANDOFF — Phase 18 live dogfood (AC5/AC6), operator + orchestrator together, next session
-**Decided 2026-07-14:** pick this up in a fresh session (this one is long/expensive to resume). **Version drift (2.1.209 installed vs. 2.1.207 capture stamp) is NOT being pre-emptively addressed** — operator's call: proceed with the dogfood as-is, only investigate/re-capture (INFRA-29) if something actually looks wrong live. Everything else (build/offline scope, ACs 1/2/3/4/7) is done, reviewed, and committed at `1e29427` — nothing to re-verify there.
+**Setup:** an isolated scratch repo (`<temp>/atv-cc-dogfood`, own `git init`, outside
+`AppTaskInfoCli` entirely — operator's explicit choice over the repo-scoped
+`<repo>/.claude/skills/` alternative), plugin installed via README Option A
+(skills-directory, zero `settings.json` edits) — never the operator's real
+`~/.claude/skills/`. `atv` itself needed no rebuild (already registered dev-identity,
+reachable from any cwd). Claude Code was **2.1.210** at dogfood time (one further point
+past the 2.1.209 build-time note / 2.1.207 capture stamp) — no re-capture triggered, no
+behavior difference attributable to the drift was observed.
 
-**What the new session needs to do**, in order:
-1. Read this file's Phase 15–18 sections + `git log` to confirm state (tip should be `1e29427` or later).
-2. **Install the plugin** per `integrations/claude-code/README.md`'s "Install" section — Option A (skills-directory, zero-config) is the simplest for a supervised one-off: copy/symlink `integrations/claude-code/plugins/atv-integration/` into a **throwaway scratch location** for this dogfood, NOT `~/.claude/skills/` (that's the operator's real, permanent, every-project scope — don't install there for a first supervised test; use the repo-scoped `<repo>/.claude/skills/atv-integration/` variant instead, or an isolated scratch project outside the repo, operator's preference to confirm). This mirrors the `stage.ps1` throwaway-scratch pattern phases 13/14 already established — never touch the operator's real user-wide Claude Code config as a first move.
-3. **Drive AC5 one event at a time**, together, not all at once: `working` (submit a real prompt, confirm the card appears with a goal), `activity` (watch a few tool calls render), `blocked` (trigger a real permission prompt, confirm the question shows and clears via same-locus attribution), `ready` (let a turn finish, confirm the summary), fan-out (spawn ≥2 parallel subagents, confirm glomming child cards mint and retire), removal (`/exit`, confirm the card disappears — this is the one synchronous hook, `SessionEnd`, so watch for any teardown delay). `StopFailure`/Broken is best-effort per the README — don't force it artificially if it doesn't trigger naturally.
-4. **Drive AC6:** add a `.atv.json` to the scratch/dogfood repo (title-template/subtitle/icon/group per `docs/configuration.md`'s allowlist), confirm it brands the card through the real `--cwd ${CLAUDE_PROJECT_DIR}` forwarding.
-5. Record the outcome in this file (RENDERED ✅ per event / DID-NOT-RENDER ❌ + what was actually observed, same evidence bar as Checkpoint C1 and the phase-12 supervised smoke), flip phase 18 to fully ✅, commit.
-6. **Safety, non-negotiable** (see [[process-termination-can-crash-claude-code]] / [[raw-ctrl-c-can-crash-claude-code]] in memory): no raw Ctrl+C anywhere near this console; no broad/name-based process kills if anything needs stopping (exact PID only); if anything seems to be hanging or misbehaving, stop and ask the operator rather than forcing it. If the dogfood needs to be aborted mid-way, prefer disabling/removing the plugin cleanly (per the README's Uninstall section) over anything more forceful.
+**Per-event evidence** (same bar as Checkpoint C1):
+- **`working`** ✅ RENDERED — card appeared with the real goal text within ~1s; reproduced
+  twice (two fresh sessions, two different handles), confirmed both visually and via
+  `atv list --json`.
+- **`activity`** ✅ RENDERED — tool-call lines updated live.
+- **`blocked`** ✅ RENDERED — a real `PermissionRequest` (denied a PowerShell parse-check)
+  correctly set state `needsAttention` with the real question text, same-locus attributed.
+- **`blocked` recovery** ✅ CONFIRMED, with a real finding: a **denied** permission request
+  aborts the whole Claude Code turn (`turn ended in error: [ede_diagnostic] turn aborted
+  (aborted_tools) stop_reason=tool_use`, per a `claude --debug-file` capture) — and that
+  abort path fires **no `Stop` hook at all** (none registered in the capture, vs. a normal
+  turn's clear `Registering async hook ... (Stop)` line). Not a plugin bug: there is no
+  Claude Code hook for "turn aborted by a manual permission denial." The card recovers on
+  the very next `UserPromptSubmit` (confirmed live) or on `SessionEnd`. Separately
+  investigated and ruled out as a fix: Claude Code's `PermissionDenied` hook exists but
+  fires only for auto-mode-classifier denials, never a manual interactive deny — confirmed
+  empirically by wiring `PermissionDenied` into the **scratch-only** `hooks.json` copy and
+  observing zero registration in a `--debug-file` capture of a real manual denial (the
+  committed `integrations/claude-code` plugin was never touched by this experiment).
+- **fan-out** ✅ RENDERED — 2 real parallel subagents; durable-log timestamps show both
+  child cards minted together at spawn and each retired **independently**, ~9.5s apart, at
+  its own real completion time — correct `agent-started`/`agent-stopped` → mint/retire.
+- **removal (`SessionEnd`)** ✅ CONFIRMED on `/exit`.
+- **AC6 repo branding** ✅ CONFIRMED — a `.atv.json` (`title-template`/`subtitle`/`icon`/
+  `group`) dropped into the scratch repo; a **new** session (repo-config discovery is
+  create-only, per `docs/configuration.md`) rendered title `atv-cc-dogfood (master)` with
+  the configured subtitle/icon, and `atv doctor --verbose` confirmed the file was found and
+  parsed `ok` — the real `--cwd ${CLAUDE_PROJECT_DIR}` conduit, not a synthetic call.
+- **Ready→Paused decay** (phase 15B, not a phase-18 AC but validated live here for the
+  first time) ✅ CONFIRMED — operator let a `Completed` card sit undisturbed and observed
+  the watchdog demote it to `Paused` after the designed ~5-minute presence-gated
+  `ReadyDecayThreshold`, exactly matching `src/Atv/Watchdog/ReadyDecay.cs`.
+- **`StopFailure`/Broken:** not exercised, per the README's own best-effort note — not
+  forced artificially.
 
-**Resume prompt for the new session** (give this to the fresh session verbatim):
-> Continue the AppTaskInfoCli plan/ execution. Read `progress.md`'s "Phase 18" section in full, specifically the "HANDOFF — Phase 18 live dogfood" block, then `integrations/claude-code/README.md`. Everything up through phase 18's build/offline scope is done and committed (tip `1e29427` or later, branch `plan-execution`) — the only remaining work in the whole plan/ tree is Phase 18's AC5 (live dogfood through a real Claude Code session) and AC6 (repo branding through the real conduit), both operator-supervised and NOT subagent-able. Walk me through installing the plugin into a throwaway/scratch location (not my real `~/.claude/skills/`) and driving each event one at a time — don't fire everything at once. Do not worry about the Claude Code version drift (2.1.209 vs the 2.1.207 capture stamp) unless we actually see something wrong live. Follow the safety constraints in memory around process termination and Ctrl+C — ask before anything that could be destructive.
+**Findings surfaced** (all live-only signal; none were visible in the offline/doc-only
+build — the recurring lesson of this whole integration):
+
+1. **Fixed this session — real, reproducible `atv` bug.** `SemanticEngine.ClaimReady`'s
+   bare (no-`--summary`) re-affirmation of an already-`TextSummaryResult`-held Ready card
+   threw `"Unhandled exception: ... executingStep cannot be empty"` against the real
+   platform — hit on **every** real session, ~60s after each `ready`, via Claude Code's
+   `idle_prompt` `Notification` → bare `ready <sid>` call (harmless in effect, swallowed by
+   `translate.ps1`'s FAIL-1 `Invoke-Atv` wrapper, but silently broken every time, and
+   littering the durable log). Root cause: `CurrentSteps(ctx)` reads back an empty
+   `ExecutingStep` for a `TextSummaryResult`-held card, and the no-summary path fed that
+   straight into a new `SequenceOfSteps` — the same hazard `ReadyDecay.DemoteToIdle`
+   already guards against, but `ClaimReady` didn't. **Fix:** identical guard
+   (`executing.Length > 0 ? executing : AdvanceModel.NoStepsYetPlaceholder`) in
+   `src/Atv/Semantics/SemanticEngine.cs`'s `ClaimReady`. New regression test
+   `Ready_BareReassertion_AfterASummaryResult_NeverProducesAnEmptyExecutingStep`
+   (`tests/Atv.LogicTests/Semantics/SemanticEngineTransitionTests.cs`; LogicTests
+   738→**739/739**). Live-verified against the real platform both pre-fix (reproduced the
+   exact log line) and post-fix (clean, `executingStep` reads back `"Not started yet."`,
+   zero log entries) — required a rebuild via `dotnet run` (a plain `dotnet build` does
+   NOT refresh the loose-layout dev registration) after the prior watchdog process
+   self-exited (cleared the live card, no process kill needed).
+2. **Filed as `plan/phase-19-fanout-activity-child-routing.md` (not fixed this session).**
+   A carded subagent's own tool-call activity renders on the **parent** card instead of its
+   own child card — `docs/integration-api.md` §5's already-decided addressing rule ("a
+   subagent's own further activity should target the CHILD handle directly... not the
+   parent") isn't implemented. Root cause is in `atv` itself, not the translator:
+   `translate.ps1` already sends the documented `atv activity <session> --agent <agentId>
+   ...` call shape correctly; `SemanticEngine.ClaimActivity` just never consults the
+   engine's own `EngineMemory.CardedAgentLoci` (which already knows whether `agentId` has a
+   minted child card) to redirect the claim there — it only ever uses `agentId` for
+   `blocked`-locus clearing. No translator change needed; the fix is engine-side claim
+   routing, its own design pass (see the phase file for why).
+3. **ERGO-33 filed (OPEN):** operator feedback that an empty default title (no
+   `.atv.json`) reads as unpolished; proposes a built-in fallback title (e.g. the last path
+   segment of the resolved anchor). Not decided, not implemented.
+
+**Resulting file changes this session:** `src/Atv/Semantics/SemanticEngine.cs` (the
+`ClaimReady` fix), `tests/Atv.LogicTests/Semantics/SemanticEngineTransitionTests.cs` (+1
+regression test), `plan/phase-19-fanout-activity-child-routing.md` (new),
+`plan/README.md` (phase table +1 row), `questions/usage-ergonomics/ERGO-33-...md` (new)
++ its README index line. `integrations/claude-code/` itself: **zero changes** — the
+shipped phase-18 plugin was correct as committed at `1e29427` throughout this dogfood.
+
+**Phase 18 is DONE.** All 7 ACs are signed off — build/offline (1/2/3/4/7, prior attempt)
+and live (5/6, this session). Next open item in the plan/ tree: phase 19 (filed, not
+started).
 
 _(Further per-phase notes appended below as phases execute.)_

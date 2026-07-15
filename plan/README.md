@@ -71,6 +71,7 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 16 | [Icon pipeline v2: theme-neutral tile + BYO image](phase-16-icon-pipeline-v2.md) | 07, 15 |
 | 17 | [Repo-scoped presentation defaults + `--cwd` anchor](phase-17-repo-scoped-defaults.md) | 06, 10, 15, 16 |
 | 18 | [Claude Code v2 integration: translator + plugin](phase-18-claude-code-v2-plugin.md) | 15, 17 (16 soft), 14's captures |
+| 19 | [Route a carded subagent's `activity` to its child card, in `atv` itself](phase-19-fanout-activity-child-routing.md) | 15, 18 |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run

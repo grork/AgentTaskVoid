@@ -188,7 +188,11 @@ public sealed class SemanticEngine
         var (completed, executing) = CurrentSteps(ctx);
         AppTaskContentDto content = summary is not null
             ? new AppTaskContentDto.TextSummaryResult(Normalizer.Normalize(summary, FieldBudgets.Summary))
-            : new AppTaskContentDto.SequenceOfSteps(completed, executing);
+            // Bare re-affirmation (no --summary) of a card whose live content is
+            // ALREADY a TextSummaryResult (a prior `ready --summary`) reads back
+            // an empty ExecutingStep -- the platform throws on a genuinely empty
+            // executing step (same guard as ReadyDecay.DemoteToIdle).
+            : new AppTaskContentDto.SequenceOfSteps(completed, executing.Length > 0 ? executing : AdvanceModel.NoStepsYetPlaceholder);
 
         bool wasAlreadyReady = ctx.Live?.State == AppTaskState.Completed;
         ReadyDecayState decay = wasAlreadyReady && ctx.Memory.ReadyDecay is { } existing
