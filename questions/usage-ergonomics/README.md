@@ -37,4 +37,4 @@ identifying and updating tasks, cleanup, input modeling, grouping, and wrapping.
 - [`ERGO-30`: A repo-scoped defaults file the tool auto-discovers (icons, titles, glomming)](./ERGO-30-repo-scoped-defaults-config.md) -- DECIDED
 - [`ERGO-31`: The v2 semantic verb contract (the engine's public integration API)](./ERGO-31-v2-semantic-verb-contract.md) -- DECIDED
 - [`ERGO-32`: A low-level / raw card-control API](./ERGO-32-low-level-raw-card-control-api.md) -- DEFERRED
-- [`ERGO-33`: A built-in default title (folder/repo name) when no `.atv.json` provides one](./ERGO-33-default-title-fallback-to-anchor-folder-name.md) -- OPEN
+- [`ERGO-33`: The card title/subtitle chain, ending in a never-blank default](./ERGO-33-card-title-subtitle-chain-never-blank-default.md) -- DECIDED
