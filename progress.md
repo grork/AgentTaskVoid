@@ -46,7 +46,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 16 | Icon pipeline v2: theme-neutral tile + BYO image | ✅ | 1 | PASS (1st) |
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
-| 19 | Card fidelity: subagent activity routing + the never-blank title chain | ⬜ | — | Filed 2026-07-14/15 from the phase-18 dogfood; widened 2026-07-15 to also carry ERGO-33 (shared live-validation cycle); not started |
+| 19 | Card fidelity: subagent activity routing + the never-blank title chain | 🔄 | 19A:1, 19B:1 | 19A PASS (1st); 19B PASS (1st); 19C (AC11 live dogfood) still pending, operator-supervised |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -60,9 +60,9 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 
 | Sub | Scope | Status | Attempts | Outcome |
 |-----|-------|--------|----------|---------|
-| 19A | Part A: carded-subagent `activity` redirect + regression/baseline tests (AC1–7) | ⬜ | — | Not started |
-| 19B | Part B: ERGO-33 engine default + `session_title` forwarding (AC8–10) | ⬜ | — | Not started |
-| 19C | AC11: live dogfood covering both parts | ⬜ | — | **Operator-supervised, not subagent-able** — the automated loop halts after 19B and hands back |
+| 19A | Part A: carded-subagent `activity` redirect + regression/baseline tests (AC1–7) | ✅ | 1 | PASS (1st, committed `c2d2efd`) |
+| 19B | Part B: ERGO-33 engine default + `session_title` forwarding (AC8–10) | ✅ | 1 | PASS (1st, committed `1d61385`) |
+| 19C | AC11: live dogfood covering both parts | ⬜ | — | **Operator-supervised, not subagent-able** — the automated loop halted after 19B and handed back; ready to run |
 
 **Scope note for the executor/reviewer loop (2026-07-15):** subagents run **AC1–AC10 only**.
 19A and 19B are independent (no shared code, no ordering dependency) and take one commit each
@@ -379,5 +379,90 @@ shipped phase-18 plugin was correct as committed at `1e29427` throughout this do
 **Phase 18 is DONE.** All 7 ACs are signed off — build/offline (1/2/3/4/7, prior attempt)
 and live (5/6, this session). Next open item in the plan/ tree: phase 19 (filed, not
 started).
+
+### Phase 19A — carded-subagent `activity` redirect ✅ (signed off 1st attempt; committed `c2d2efd`)
+- **Concurrency note:** 19A and 19B executors ran as parallel subagents in the SAME working
+  directory (not separate worktrees) — an orchestrator experiment, not standing practice. Both
+  landed non-overlapping hunks in `src/Atv/Semantics/SemanticEngine.cs` (19A: `Activity`/
+  `ClaimActivity` region ~L146-266; 19B: `ApplyRepoDefaults`/title-default region ~L664-886) and
+  both independently verified the full LogicTests suite green with both sets of changes present
+  (767/767). No merge conflicts; both executors reported transient build/read artifacts from the
+  shared `obj`/`bin` (spurious failures, one false "file reverted" read) that resolved cleanly on
+  retry/rebuild — no data loss. **Given the coordination overhead this cost (both executors had
+  to actively work around each other, and the orchestrator then had to git-stash-surgery the two
+  parts apart before independent review — see below), future phases should default back to
+  serial execution or real `git worktree` isolation for split sub-phases, not same-directory
+  parallel subagents.**
+- **Orchestrator isolation step (between executor and reviewer):** since 19A/19B's only shared
+  file (`SemanticEngine.cs`) had cleanly non-overlapping hunks, the orchestrator split the diff
+  with `git apply --cached` (staged exactly 19A's hunk + its 3 whole-file additions) then
+  `git stash push --keep-index -u` (set 19B's remaining changes aside), leaving the working tree
+  with ONLY Part A's diff for the 19A reviewer. After 19A's commit, `git stash pop` auto-merged
+  cleanly (non-overlapping hunks) to restore Part B for its own isolated review. Verified clean
+  before/after each step (`git status`/`git diff --stat`).
+- **Files:** `src/Atv/Semantics/SemanticEngine.cs` (new `ActivityCore`/`ApplyRedirectedActivity`/
+  `ClaimActivityParentLocusOnly`, `Activity()` now owns its own `WriteGate.TryRun`); new
+  `tests/Atv.LogicTests/Semantics/SemanticEngineActivityRedirectTests.cs` (13 tests, AC1-7 —
+  a sibling file to `SemanticEngineFanOutTests.cs` rather than an addition to it, a reasonable
+  deviation from the phase file's file list); `tests/Atv.LogicTests/Persistence/
+  CountingAppTaskStore.cs` (+`CreateCallCount`, proves AC6's no-`IconService.Place` claim
+  structurally since `IconService` is sealed/no-interface); `docs/integration-api.md` §5
+  (redirect mechanism documented, replacing stale "translator should address the child" prose).
+- **Result:** a carded agent's `activity` now redirects the CONTENT claim to the child's own
+  sidecar entry (same `ApplyClaimCore` pipeline a direct child call takes, byte-identical icon
+  URI reuse, zero new `IconService.Place`/`Create` calls) while the PARENT still gets its
+  same-locus block-clearing in the same `WriteGate` critical section (two sidecar writes, one
+  mutex — the design note's "shaping problem, not a locking one"). Uncarded/retired agentId
+  falls through unchanged (never resurrects a retired child); `blocked --agent` untouched
+  (parent-only, decision point 1).
+- **Review:** PASS (independent reviewer, re-ran build/tests itself: 752/752 LogicTests + 13/13
+  new redirect tests in isolation, NativeAOT clean 4.88 MB). All 7 ACs judged individually with
+  specific test evidence; traced AC6's structural proof through the actual `Place`/`Create` call
+  graph to confirm soundness; confirmed invariant #5 (one `WriteGate` critical section, two
+  sidecar writes) by code read; confirmed `blocked --agent` genuinely untouched. One
+  self-corrected mid-review slip (reviewer briefly edited the tracked file for a revert
+  experiment instead of a scratch copy, caught it, `git checkout --` reverted, verified clean) —
+  no impact on the verdict.
+
+### Phase 19B — ERGO-33: never-blank title/subtitle chain ✅ (signed off 1st attempt; committed `1d61385`)
+- **Files:** `src/Atv/Semantics/SemanticEngine.cs` (`ApplyRepoDefaults` now falls through to new
+  `BuiltInDefaultTitle`/`BuiltInDefaultSubtitle`/`AnchorFolderName`/`SafeGetPathRoot` when every
+  layer above is absent or resolves empty); `tests/Atv.LogicTests/Semantics/
+  SemanticEngineRepoDefaultsTests.cs` (+9: 3 table rows, equal-names suppression, drive-root
+  brand floor, empty-template fallthrough, extended 5-layer precedence terminus, child-card
+  lock); `integrations/claude-code/plugins/atv-integration/translate.ps1` (new `Get-TitleArgs`,
+  mirrors `Get-CwdArgs`, wired only into `UserPromptSubmit`); `tests/Atv.LogicTests/
+  Integrations/ClaudeCodeTranslatorTests.cs` (+6) and `.../ClaudeCodePluginArtifactTests.cs`
+  (one pre-existing test fixed — it asserted `--title` is never passed, now false under
+  ERGO-33); `integrations/claude-code/README.md` + `docs/configuration.md` (defaults documented).
+- **Result:** default title = `<anchor-folder>`, or `<anchor-folder> (<repo-folder>)` below a
+  differently-named `.git` root (suppressed when equal), floored at `Branding.Name` for a bare
+  drive root; default subtitle = branch or empty; any layer resolving to empty (including an
+  explicit-but-empty `--title ""`, not just a template's empty expansion) falls through to the
+  default — reviewer traced this broader reading against ERGO-33's unqualified "never renders a
+  blank title again" and judged it the only consistent mechanism, not an overreach. Translator
+  forwards `session_title` as `--title` on `UserPromptSubmit` only, when present.
+- **Real platform finding (documented, not a blocker):** PowerShell 5.1 native-argv marshalling
+  silently strips embedded literal double-quotes from `--title`'s value (non-ASCII and newlines
+  survive intact) — reviewer independently reproduced it. Matches the pre-existing
+  `docs/integration-api.md` §7 argv-quoting caveat; this is that caveat's first concrete
+  instance now that `--title` carries arbitrary host text instead of translator-chosen
+  constants. Structurally unfixable in scope (no free spare stdin slot on `UserPromptSubmit`);
+  documented rather than hidden.
+- **Review:** PASS (independent reviewer, re-ran build/tests itself: 767/767 LogicTests +
+  28/28 + 32/32 + 20/20 isolated; NativeAOT clean 4.88 MB). Also independently built the stub-atv
+  harness and drove `translate.ps1` as a real subprocess itself for AC10, rather than trusting
+  the test file. Confirmed `MintChildCard` untouched (child titles stay out of the chain) and
+  the unreachable-`_discoverRepo`-null path unweakened.
+- **Non-blocking notes carried forward:** (a) no test locks the CLI-reachable "explicit
+  `--title \"\"`" case as distinct from "template expands to empty" — same code path, just not
+  independently exercised; (b) `docs/integration-api.md` §7's blanket "translator-chosen
+  constants, never arbitrary text" claim is now stale for `--title` specifically — worth fixing
+  whenever that doc is next touched (not required by Part B's file list, which only assigns §5
+  to Part A).
+
+**Phase 19: 19A + 19B DONE.** AC1–AC10 all automated and signed off. Only AC11 (19C, the live
+dogfood covering both parts at once, operator-supervised) remains — the orchestrator hands back
+here per the phase file's execution structure. Not run yet this session.
 
 _(Further per-phase notes appended below as phases execute.)_
