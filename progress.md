@@ -62,8 +62,8 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 |-----|-------|--------|----------|---------|
 | 19A | Part A: carded-subagent `activity` redirect + regression/baseline tests (AC1–7) | ✅ | 1 | PASS (1st, committed `c2d2efd`) |
 | 19B | Part B: ERGO-33 engine default + `session_title` forwarding (AC8–10) | ✅ | 1 | PASS (1st, committed `1d61385`) |
-| 19D | Part C: premature `ready` mid-fan-out — found live during 19C itself (AC12–16) | ⬜ | — | Filed 2026-07-15; diagnosed + ratified live with the operator during the AC11 dogfood; not yet implemented |
-| 19C | AC11: live dogfood covering both parts | 🔄 | — | **Operator-supervised, not subagent-able.** First run surfaced Part C (19D) mid-flight; AC11 must be RE-RUN after 19D lands before phase 19 can sign off |
+| 19D | Part C: premature `ready` mid-fan-out — found live during 19C itself (AC12–16) | ✅ | 1 | PASS (1st, committed `3e82800`) |
+| 19C | AC11: live dogfood covering both parts | 🔄 | — | **Operator-supervised, not subagent-able.** First run surfaced Part C (19D) mid-flight; must be RE-RUN now that 19D is committed, before phase 19 can sign off |
 
 **Scope note for the executor/reviewer loop (2026-07-15):** subagents run **AC1–AC10 only**.
 19A and 19B are independent (no shared code, no ordering dependency) and take one commit each
