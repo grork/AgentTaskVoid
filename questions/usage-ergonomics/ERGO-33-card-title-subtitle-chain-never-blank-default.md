@@ -1,6 +1,6 @@
 # ERGO-33: The card title/subtitle chain, ending in a never-blank default
 **Status:** DECIDED (2026-07-14)
-**Plan:** unplanned
+**Plan:** phase-19
 **Decision:** A card never renders a blank title again. Title and subtitle resolve through
 ERGO-26's ("Config file location and format") EXISTING precedence chain -- no new machinery --
 terminating in a built-in default derived from the anchor the caller already passes:

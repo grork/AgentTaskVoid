@@ -71,7 +71,7 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 16 | [Icon pipeline v2: theme-neutral tile + BYO image](phase-16-icon-pipeline-v2.md) | 07, 15 |
 | 17 | [Repo-scoped presentation defaults + `--cwd` anchor](phase-17-repo-scoped-defaults.md) | 06, 10, 15, 16 |
 | 18 | [Claude Code v2 integration: translator + plugin](phase-18-claude-code-v2-plugin.md) | 15, 17 (16 soft), 14's captures |
-| 19 | [Route a carded subagent's `activity` to its child card, in `atv` itself](phase-19-fanout-activity-child-routing.md) | 15, 18 |
+| 19 | [Card fidelity: subagent activity routing + the never-blank title chain](phase-19-card-fidelity.md) | 15, 17, 18 |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run
@@ -94,3 +94,11 @@ translator as a native plugin (DIST-11), superseding the phase-13 Claude Code ar
 The deferred phase-13 Copilot CLI/Codex legs, when their hosts become testable
 (INFRA-31), are authored against the ERGO-31 v2 surface following the phase-18 pattern —
 not the phase-13 v1 mapping.
+
+Phase 19 (filed 2026-07-14/15, widened 2026-07-15) is phase-18-live-dogfood fallout: two
+independent card-fidelity defects that share one supervised validation cycle. Part A
+implements ERGO-31 §5's already-decided fan-out addressing rule (a carded subagent's
+`activity` currently renders on the parent card), and closes the coverage gap that let it
+ship — the fan-out suite tested child-card lifecycle exhaustively but never child-card
+*content*. Part B consumes ERGO-33, terminating ERGO-26's precedence chain in a never-blank
+built-in default. Everything is automated except one final live dogfood.

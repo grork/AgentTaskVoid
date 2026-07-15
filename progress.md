@@ -46,7 +46,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 16 | Icon pipeline v2: theme-neutral tile + BYO image | ✅ | 1 | PASS (1st) |
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
-| 19 | Route a carded subagent's `activity` to its child card, in `atv` itself | ⬜ | — | Filed 2026-07-14/15 from the phase-18 dogfood; not started |
+| 19 | Card fidelity: subagent activity routing + the never-blank title chain | ⬜ | — | Filed 2026-07-14/15 from the phase-18 dogfood; widened 2026-07-15 to also carry ERGO-33 (shared live-validation cycle); not started |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -332,7 +332,8 @@ build — the recurring lesson of this whole integration):
    zero log entries) — required a rebuild via `dotnet run` (a plain `dotnet build` does
    NOT refresh the loose-layout dev registration) after the prior watchdog process
    self-exited (cleared the live card, no process kill needed).
-2. **Filed as `plan/phase-19-fanout-activity-child-routing.md` (not fixed this session).**
+2. **Filed as phase 19 (not fixed this session)** — now `plan/phase-19-card-fidelity.md`,
+   renamed 2026-07-15 when the phase widened to carry ERGO-33 as well.
    A carded subagent's own tool-call activity renders on the **parent** card instead of its
    own child card — `docs/integration-api.md` §5's already-decided addressing rule ("a
    subagent's own further activity should target the CHILD handle directly... not the
@@ -343,13 +344,15 @@ build — the recurring lesson of this whole integration):
    minted child card) to redirect the claim there — it only ever uses `agentId` for
    `blocked`-locus clearing. No translator change needed; the fix is engine-side claim
    routing, its own design pass (see the phase file for why).
-3. **ERGO-33 filed (OPEN):** operator feedback that an empty default title (no
-   `.atv.json`) reads as unpolished; proposes a built-in fallback title (e.g. the last path
-   segment of the resolved anchor). Not decided, not implemented.
+3. **ERGO-33 filed:** operator feedback that an empty default title (no `.atv.json`) reads
+   as unpolished. DECIDED later the same day (2026-07-14) after widening from "the built-in
+   default" to the whole title/subtitle chain; consumed into phase 19 on 2026-07-15. Not
+   implemented.
 
 **Resulting file changes this session:** `src/Atv/Semantics/SemanticEngine.cs` (the
 `ClaimReady` fix), `tests/Atv.LogicTests/Semantics/SemanticEngineTransitionTests.cs` (+1
-regression test), `plan/phase-19-fanout-activity-child-routing.md` (new),
+regression test), `plan/phase-19-fanout-activity-child-routing.md` (new; since renamed
+`plan/phase-19-card-fidelity.md`),
 `plan/README.md` (phase table +1 row), `questions/usage-ergonomics/ERGO-33-...md` (new)
 + its README index line. `integrations/claude-code/` itself: **zero changes** — the
 shipped phase-18 plugin was correct as committed at `1e29427` throughout this dogfood.
