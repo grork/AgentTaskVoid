@@ -136,18 +136,17 @@ events into the [v2 semantic verb surface](docs/integration-api.md)
 | Host | Status | Artifact |
 |---|---|---|
 | **Claude Code** | Supported now | [`integrations/claude-code/`](integrations/claude-code/) — a native **Claude Code plugin** (bundles the hooks declaration + translator + install/uninstall README; install = add the plugin, zero `settings.json` hand-edits) |
-| GitHub Copilot CLI | Planned | Not yet shipped in this build — see the addition criterion below |
+| GitHub Copilot CLI | Supported now | [`integrations/copilot-cli/`](integrations/copilot-cli/) — native plugin + hook translator, captured and live-dogfooded against Copilot CLI 1.0.71 |
 | Codex | Planned | Not yet shipped in this build — see the addition criterion below |
 
 Claude Code, Copilot CLI, and Codex are the three hosts targeted for v1
 (`questions/lifecycle/LIFE-8-which-agent-hosts-are-in-scope-for-hook-coverage.md`);
-Copilot CLI and Codex are being tackled as discrete follow-up passes, not
-included in this build, and will be authored against the v2 surface
-following the phase-18 Claude Code plugin's pattern when their hosts become
-testable (INFRA-31). The criterion for adding *any* host (these two or a
-future one) is the same: it needs a usable hook/notification surface that
-maps onto the verb set above without host-specific branching living inside
-`atv` itself, plus enough demand to justify maintaining the artifact.
+the Copilot CLI artifact is now built and live-confirmed against the v2
+surface; Codex remains a discrete follow-up. The criterion
+for adding any future host is unchanged: it needs a usable hook/notification
+surface that maps onto the verb set above without host-specific branching
+living inside `atv` itself, plus enough demand to justify maintaining the
+artifact.
 
 To wire up Claude Code right now: read
 [`integrations/claude-code/README.md`](integrations/claude-code/README.md) —

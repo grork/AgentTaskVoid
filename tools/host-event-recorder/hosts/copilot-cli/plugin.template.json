@@ -1,0 +1,9 @@
+{
+  "name": "atv-copilot-hostrec",
+  "description": "Temporary local plugin that records GitHub Copilot CLI hook payloads for Agentaskvoid integration research.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Agentaskvoid"
+  },
+  "hooks": "hooks/hooks.json"
+}

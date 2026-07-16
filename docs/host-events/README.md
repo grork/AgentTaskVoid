@@ -119,6 +119,12 @@ the safe/skip matrix, conduit template, and stage/driver/cue harness live under
 `docs/host-events/claude-code.md` and `tools/host-event-recorder/hosts/claude-code/`,
 and that doc's **Findings** section holds the confirmed results from four real
 captures (2026-07-12/13, Claude Code 2.1.207), including the `SessionEnd`
-sync-at-teardown proof and answers to LIFE-24 empirical items 2 and 3. Future host
-legs (Copilot CLI, Codex, pi -- INFRA-31, OPEN) follow the conventions above from
-this doc.
+sync-at-teardown proof and answers to LIFE-24 empirical items 2 and 3.
+
+The **Copilot CLI recorder leg is complete** (2026-07-16, host 1.0.71): its
+safe matrix, local-plugin stage/driver/cue artifacts, five real captures (112
+records), and distilled findings live under `docs/host-events/copilot-cli.md`
+and `tools/host-event-recorder/hosts/copilot-cli/`. The findings resolve the
+session/resume, permission-vs-notification, subagent-tool, compaction, interrupt,
+and teardown questions needed before authoring the production translator.
+Codex and pi remain future INFRA-31 legs.

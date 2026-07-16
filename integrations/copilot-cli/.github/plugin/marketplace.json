@@ -1,0 +1,17 @@
+{
+  "name": "agentaskvoid-copilot",
+  "owner": {
+    "name": "Agentaskvoid"
+  },
+  "metadata": {
+    "description": "GitHub Copilot CLI integrations for Agentaskvoid.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "atv-integration",
+      "source": "./plugins/atv-integration",
+      "description": "Drives Agentaskvoid taskbar cards from GitHub Copilot CLI hooks."
+    }
+  ]
+}

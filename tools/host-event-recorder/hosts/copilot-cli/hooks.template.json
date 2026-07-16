@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event sessionStart",
+        "timeoutSec": 10
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event userPromptSubmitted",
+        "timeoutSec": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event preToolUse",
+        "timeoutSec": 10
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event postToolUse",
+        "timeoutSec": 10
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event postToolUseFailure",
+        "timeoutSec": 10
+      }
+    ],
+    "permissionRequest": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event permissionRequest",
+        "timeoutSec": 10
+      }
+    ],
+    "notification": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event notification",
+        "timeoutSec": 10
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event agentStop",
+        "timeoutSec": 10
+      }
+    ],
+    "subagentStart": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event subagentStart",
+        "timeoutSec": 10
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event subagentStop",
+        "timeoutSec": 10
+      }
+    ],
+    "errorOccurred": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event errorOccurred",
+        "timeoutSec": 10
+      }
+    ],
+    "preCompact": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event preCompact",
+        "timeoutSec": 10
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event sessionEnd",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

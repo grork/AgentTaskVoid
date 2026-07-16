@@ -1,0 +1,11 @@
+{
+  "name": "atv-integration",
+  "description": "Drives Agentaskvoid taskbar cards from GitHub Copilot CLI session, tool, permission, compaction, subagent, and lifecycle events.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Agentaskvoid"
+  },
+  "license": "MIT",
+  "keywords": ["atv", "agentaskvoid", "taskbar", "task-tracking", "hooks"],
+  "hooks": "hooks/hooks.json"
+}

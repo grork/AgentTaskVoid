@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'userPromptSubmitted'",
+        "timeoutSec": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'preToolUse'",
+        "timeoutSec": 10
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "matcher": "ask_user|task",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'postToolUse'",
+        "timeoutSec": 10
+      }
+    ],
+    "notification": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'notification'",
+        "timeoutSec": 10
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'agentStop'",
+        "timeoutSec": 10
+      }
+    ],
+    "preCompact": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'preCompact'",
+        "timeoutSec": 10
+      }
+    ],
+    "errorOccurred": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'errorOccurred'",
+        "timeoutSec": 10
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'sessionEnd'",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

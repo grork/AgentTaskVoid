@@ -140,13 +140,18 @@ wording (LIFE-24 S1-walk).
 - **Child-card handle** is derived deterministically as **`<session-handle>#<agent_id>`**, so
   `list --json` enumerates parent + children addressably and `remove <child-handle>` targets
   one. `remove <parent>` and `session-ended <parent>` **cascade** to children.
-- **Name-only hosts** (`agent-started --name <n>` with no `--agent <id>` — e.g. Copilot CLI,
-  whose subagent events carry a name but no instance id): no child card is minted (concurrent
-  same-name agents are indistinguishable). The agent surfaces as a **parent-card activity
-  line** ("Delegating to general-purpose" + state + elapsed) — LIFE-24 mapping rule 5's
-  degraded resolution. Grounded by the phase-14 finding that Claude Code's `PermissionRequest`
-  and every subagent-scoped tool event carry `agent_id` (full resolution), while
-  `Notification:permission_prompt` does not (attribution reads `PermissionRequest`).
+- **Name-only hosts** (`agent-started --name <n>` with no `--agent <id>`): no child card is
+  minted (concurrent same-name agents are indistinguishable). The agent surfaces as a
+  parent-card activity line — LIFE-24 mapping rule 5's degraded resolution.
+- **Copilot CLI amendment (2026-07-16, host 1.0.71 capture):** raw
+  `subagentStart`/`subagentStop` remain name-only, but the surrounding Task-tool hooks expose a
+  caller-supplied unique task `name`, while the child's first hook repeats the exact task
+  prompt under its `call_*` child session id. The Copilot integration therefore keeps a
+  short-lived, plugin-local prompt-hash bridge (`pending hash -> parent/task`, atomically
+  claimed into `call_* -> parent/task`) and supplies that task name as `--agent`. This enables
+  the ordinary full-resolution engine contract without adding Copilot logic or correlation
+  state to `atv` itself. Ambiguous identical prompts fail open to the name-only/degraded
+  behavior; raw prompts are never persisted.
 
 ## 5. Supersession of ERGO-27 and the contract doc
 

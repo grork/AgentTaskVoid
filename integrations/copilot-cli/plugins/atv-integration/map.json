@@ -1,0 +1,31 @@
+{
+  "_comment": "Translator-only data. Agentaskvoid itself never reads this file.",
+  "toolKind": {
+    "view": "read",
+    "create": "write",
+    "edit": "edit",
+    "apply_patch": "edit",
+    "glob": "search",
+    "grep": "search",
+    "rg": "search",
+    "powershell": "shell",
+    "bash": "shell",
+    "web_fetch": "fetch",
+    "web_search": "web-search",
+    "update_todo": "plan"
+  },
+  "toolLabelField": {
+    "view": "path",
+    "create": "file_path",
+    "edit": "file_path",
+    "glob": "pattern",
+    "grep": "pattern",
+    "rg": "pattern",
+    "powershell": "command",
+    "bash": "command",
+    "web_fetch": "url",
+    "web_search": "query",
+    "read_agent": "agent_id",
+    "write_agent": "agent_id"
+  }
+}

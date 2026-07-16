@@ -17,7 +17,10 @@ Claude Code plugin: [`integrations/claude-code/`](../integrations/claude-code/)
 `integrations/claude-code/README.md`'s event-mapping table show every
 mechanism this document describes (the `-` stdin convention, `--cwd`
 forwarding, the closed kind/reason vocabularies, fan-out) applied to one
-real host.
+real host. The GitHub Copilot CLI plugin under
+[`integrations/copilot-cli/`](../integrations/copilot-cli/) is the second
+worked example; it additionally demonstrates a plugin-local correlation
+bridge for a host whose child hook events omit their parent/task identity.
 
 **Status note (2026-07-13):** this document describes the ERGO-31/LIFE-24
 v2 semantic engine as built in plan phase 15 (split into 15A and 15B for the
