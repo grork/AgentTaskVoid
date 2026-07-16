@@ -138,7 +138,7 @@ public sealed class SemanticEngine
             (completed, executing) = Advance(completed, executing, line);
         }
 
-        var memory = ctx.Memory with { Goal = goal ?? ctx.Memory.Goal, BlockedLoci = [], ReadyDecay = null };
+        var memory = ctx.Memory with { Goal = goal ?? ctx.Memory.Goal, BlockedLoci = [], ReadyDecay = null, LastSummary = null };
         return new ClaimResult(new AppTaskContentDto.SequenceOfSteps(completed, executing), AppTaskState.Running, memory);
     }
 
@@ -289,7 +289,7 @@ public sealed class SemanticEngine
 
         BlockedLocus latest = LatestLocus(updated);
         var content = (AppTaskContentDto)(new AppTaskContentDto.SequenceOfSteps(completed, executing) { Question = latest.Question });
-        return new ClaimResult(content, AppTaskState.NeedsAttention, ctx.Memory with { BlockedLoci = updated, ReadyDecay = null });
+        return new ClaimResult(content, AppTaskState.NeedsAttention, ctx.Memory with { BlockedLoci = updated, ReadyDecay = null, LastSummary = null });
     }
 
     // ==== ready ==============================================================
@@ -298,23 +298,44 @@ public sealed class SemanticEngine
     public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
         => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now), refuseIfActiveChildren: true, refusedVerbPhrase: "ready", iconToken: iconToken, iconExplicit: iconExplicit);
 
+    /// <summary>
+    /// Bug fix (2026-07-15 live dogfood): a bare re-affirmation used to fall
+    /// straight to <see cref="AdvanceModel.NoStepsYetPlaceholder"/> whenever the
+    /// live content was already a <c>TextSummaryResult</c> (a prior <c>ready
+    /// --summary</c>) -- <c>AppTaskInfo</c> has no readback for that text at
+    /// all, so <see cref="CurrentSteps"/> always comes back empty in that case.
+    /// Now <see cref="EngineMemory.LastSummary"/> -- OUR OWN remembered copy of
+    /// whatever text we last wrote -- is consulted first, so a card genuinely
+    /// HOLDS its last message through repeat done-signals (<c>Stop</c> +
+    /// <c>idle_prompt</c>) instead of resetting it. The placeholder remains the
+    /// final fallback for when there is truly nothing remembered (a schema-&lt;4
+    /// entry, or a card that reached Ready with real step content and never had
+    /// a summary at all).
+    /// </summary>
     private static ClaimResult ClaimReady(ClaimContext ctx, string? summary, DateTimeOffset now)
     {
         var (completed, executing) = CurrentSteps(ctx);
-        AppTaskContentDto content = summary is not null
-            ? new AppTaskContentDto.TextSummaryResult(Normalizer.Normalize(summary, FieldBudgets.Summary))
-            // Bare re-affirmation (no --summary) of a card whose live content is
-            // ALREADY a TextSummaryResult (a prior `ready --summary`) reads back
-            // an empty ExecutingStep -- the platform throws on a genuinely empty
-            // executing step (same guard as ReadyDecay.DemoteToIdle).
-            : new AppTaskContentDto.SequenceOfSteps(completed, executing.Length > 0 ? executing : AdvanceModel.NoStepsYetPlaceholder);
+        string? normalizedSummary = summary is not null ? Normalizer.Normalize(summary, FieldBudgets.Summary) : null;
+        string? rememberedSummary = ctx.Memory.LastSummary;
+
+        AppTaskContentDto content;
+        if (normalizedSummary is not null)
+            content = new AppTaskContentDto.TextSummaryResult(normalizedSummary);
+        else if (executing.Length == 0 && rememberedSummary is not null)
+            content = new AppTaskContentDto.TextSummaryResult(rememberedSummary);
+        else
+            // The platform throws on a genuinely empty executing step (same
+            // guard as ReadyDecay.DemoteToIdle) -- reached only when there is no
+            // remembered summary to fall back on either.
+            content = new AppTaskContentDto.SequenceOfSteps(completed, executing.Length > 0 ? executing : AdvanceModel.NoStepsYetPlaceholder);
 
         bool wasAlreadyReady = ctx.Live?.State == AppTaskState.Completed;
         ReadyDecayState decay = wasAlreadyReady && ctx.Memory.ReadyDecay is { } existing
             ? existing // re-asserting Ready never restarts the clock.
             : new ReadyDecayState(now, TimeSpan.Zero); // a genuine transition INTO Ready starts it fresh.
 
-        return new ClaimResult(content, AppTaskState.Completed, ctx.Memory with { BlockedLoci = [], ReadyDecay = decay });
+        var memory = ctx.Memory with { BlockedLoci = [], ReadyDecay = decay, LastSummary = normalizedSummary ?? rememberedSummary };
+        return new ClaimResult(content, AppTaskState.Completed, memory);
     }
 
     // ==== broken =============================================================
@@ -329,7 +350,7 @@ public sealed class SemanticEngine
         if (detail is { Length: > 0 })
             text = $"{text}: {Normalizer.Normalize(detail, FieldBudgets.Summary)}";
 
-        return new ClaimResult(new AppTaskContentDto.TextSummaryResult(text), AppTaskState.Error, ctx.Memory with { BlockedLoci = [], ReadyDecay = null });
+        return new ClaimResult(new AppTaskContentDto.TextSummaryResult(text), AppTaskState.Error, ctx.Memory with { BlockedLoci = [], ReadyDecay = null, LastSummary = null });
     }
 
     // ==== agent-started / agent-stopped (15B: fan-out child-card mint/cascade) ===
@@ -339,12 +360,27 @@ public sealed class SemanticEngine
     /// per ERGO-31 §5, mints a REAL child card at the 2nd concurrent
     /// registration (retroactively carding the 1st worker too -- both ids
     /// come back in the same <see cref="ClaimResult.NewlyCardedAgentIds"/>
-    /// list, computed by <see cref="ClaimAgentStarted"/>). Never touches the
-    /// PARENT card's own content/state (the transition table's target-state
-    /// column is blank) -- a name-only registration (no <paramref name="agentId"/>)
-    /// mints nothing at all (mapping rule 5's degraded resolution: the
-    /// translator is expected to surface it as a parent activity line via a
-    /// separate <c>activity</c> call instead).
+    /// list, computed by <see cref="ClaimAgentStarted"/>). A name-only
+    /// registration (no <paramref name="agentId"/>) mints nothing at all
+    /// (mapping rule 5's degraded resolution: the translator is expected to
+    /// surface it as a parent activity line via a separate <c>activity</c>
+    /// call instead).
+    ///
+    /// Bug fix (2026-07-16, live dogfood): a REAL registration (has an
+    /// <paramref name="agentId"/>) now ALSO advances the PARENT card's own
+    /// step (<see cref="Rendering.BuildAgentStartedLine"/>) -- previously the
+    /// transition table's target-state column was blank here, so the parent
+    /// froze on whatever activity preceded the spawn for the ENTIRE fan-out
+    /// window (confirmed live: the new child card(s) update fine via their
+    /// own redirected <c>activity</c> claims, but the parent's own step never
+    /// moved until something else, unrelated to the fan-out, happened to
+    /// claim it). Routes through the same <see cref="ProjectAfterLocusChange"/>
+    /// pipeline <see cref="ClaimActivity"/> uses, so a currently-Blocked
+    /// parent keeps showing its pending question rather than losing it.
+    /// <see cref="AgentStopped"/> deliberately does NOT get the same
+    /// treatment (operator decision 2026-07-16) -- stop events arrive in a
+    /// slow trickle well after the fact, and the child card retiring is
+    /// signal enough on its own.
     ///
     /// Known non-blocking gap (15B review): a NESTED <c>agent-started</c>
     /// against a handle that is ITSELF an already-minted child is unguarded
@@ -396,7 +432,13 @@ public sealed class SemanticEngine
         }
 
         var memory = ctx.Memory with { ActiveAgentLoci = active, CardedAgentLoci = carded, AgentNameHints = nameHints };
-        return new ClaimResult(null, null, memory, NewlyCardedAgentIds: newlyCarded);
+
+        var (completed, executing) = CurrentSteps(ctx);
+        string line = Rendering.BuildAgentStartedLine(name, agentId);
+        (completed, executing) = Advance(completed, executing, line);
+
+        var projected = ProjectAfterLocusChange(completed, executing, memory);
+        return projected with { NewlyCardedAgentIds = newlyCarded };
     }
 
     private static IReadOnlyList<AgentNameHint> UpsertNameHint(IReadOnlyList<AgentNameHint> hints, string agentId, string? name)
@@ -1066,9 +1108,10 @@ public sealed class SemanticEngine
     private static ClaimResult ProjectAfterLocusChange(IReadOnlyList<string> completed, string executing, EngineMemory memory)
     {
         // Neither outcome here is ever Ready (Running or NeedsAttention only),
-        // so the decay clock is always cleared -- matching ClaimWorking/
+        // so the decay clock -- and the remembered ready --summary text it
+        // gates, LastSummary -- are always cleared, matching ClaimWorking/
         // ClaimBlocked/ClaimBroken's own "leaving Ready clears the clock" rule.
-        memory = memory with { ReadyDecay = null };
+        memory = memory with { ReadyDecay = null, LastSummary = null };
 
         if (memory.BlockedLoci.Count == 0)
             return new ClaimResult(new AppTaskContentDto.SequenceOfSteps(completed, executing), AppTaskState.Running, memory);

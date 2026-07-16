@@ -46,6 +46,23 @@ public static partial class Rendering
         };
     }
 
+    /// <summary>
+    /// Bug fix (2026-07-16, live dogfood): the human-phrased line for a real
+    /// <c>agent-started</c> claim -- <c>"Started {name-or-agentId}"</c>.
+    /// Without this, the parent card's step froze on whatever activity
+    /// preceded the spawn for the entire fan-out window (the new child
+    /// card(s) updated fine, but the PARENT itself looked stale/wrong on its
+    /// own). Prefers the caller's own <c>--name</c> (e.g. a subagent type
+    /// like <c>general-purpose</c>) over the bare <paramref name="agentId"/>
+    /// when given -- the same name-vs-id preference <c>MintChildCard</c> uses
+    /// for a child's own title.
+    /// </summary>
+    public static string BuildAgentStartedLine(string? name, string agentId)
+    {
+        string label = name is { Length: > 0 } ? name : agentId;
+        return $"Started {Normalizer.Normalize(label, FieldBudgets.Label)}";
+    }
+
     private static string BuildToolFallback(string? name, string normalizedLabel)
     {
         string? prettyName = name is { Length: > 0 } ? PrettifyToolName(name) : null;

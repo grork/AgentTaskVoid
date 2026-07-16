@@ -89,4 +89,40 @@ public sealed class AdvanceModelTests
 
         CollectionAssert.AreEqual(new[] { "a", "b" }, original, "the caller's own list must be untouched -- Advance returns a new list");
     }
+
+    // ---- duplicate-submission no-op (bug found via live dogfood, 2026-07-15) --------
+
+    [TestMethod]
+    public void Advance_NewStepIdenticalToCurrentExecuting_IsDroppedAsANoOp()
+    {
+        var first = AdvanceModel.Advance([], "", "step one");
+
+        var result = AdvanceModel.Advance(first.CompletedSteps, first.ExecutingStep, "step one");
+
+        Assert.IsEmpty(result.CompletedSteps, "a duplicate submission of the SAME step text must never archive it into history.");
+        Assert.AreEqual("step one", result.ExecutingStep);
+    }
+
+    [TestMethod]
+    public void Advance_RepeatedIdenticalSteps_NeverProduceDuplicatesInHistory()
+    {
+        // Regression guard: Claude Code's PreToolUse AND PostToolUse hooks both
+        // translate to the same `activity` claim with an identical label for
+        // ONE real tool call (both derive the label from tool_input, never
+        // tool_response) -- without the no-op guard, every tool call would
+        // archive the step it had just set a second time, doubling every entry
+        // in the visible step history ("reading Foo.txt" showing up twice).
+        IReadOnlyList<string> completed = [];
+        string executing = "";
+
+        foreach (string step in new[] { "step1", "step1", "step2", "step2", "step3", "step3" })
+        {
+            var advanced = AdvanceModel.Advance(completed, executing, step);
+            completed = advanced.CompletedSteps;
+            executing = advanced.ExecutingStep;
+        }
+
+        Assert.AreEqual("step3", executing);
+        CollectionAssert.AreEqual(new[] { "step1", "step2" }, completed.ToArray());
+    }
 }

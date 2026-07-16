@@ -41,7 +41,7 @@ with no quote hazard (Windows forbids `"` in paths; titles are translator-set co
 | `blocked <h>` | `--question -` | `--agent <id>` | **Blocked** | none — never decays |
 | `ready <h>` | `--summary -` | — | **Ready** | **starts** presence-gated decay on a transition INTO Ready; re-assert while already Ready never restarts it |
 | `broken <h>` | `--detail -` | `--reason <token>` | **Broken** | none — never decays |
-| `agent-started <h>` | — | `--agent <id>`, `--name <n>` | registers a child locus (engine mints a child card at the 2nd concurrent start) | — |
+| `agent-started <h>` | — | `--agent <id>`, `--name <n>` | registers a child locus (engine mints a child card at the 2nd concurrent start); **Working** (or Blocked-preserved), advancing the parent's own step to `"Started {name}"` -- 2026-07-16 amendment, see below | leaves Ready → clears its decay |
 | `agent-stopped <h>` | — | `--agent <id>` | retires the child locus (fan-in) | — |
 | `session-ended <h>` | — | `--reason <token>` | `finished` → card removed · `error` → **Broken** | — |
 
@@ -68,6 +68,17 @@ with no quote hazard (Windows forbids `"` in paths; titles are translator-set co
   is a *separate* always-on clock (wall-clock + liveness), never conflated with UX decay.
 - **Idempotency:** an absent optional flag makes no claim (never clears a field); re-asserting
   an already-held state never restarts its clocks (only a transition INTO Ready starts decay).
+- **2026-07-16 amendment: `agent-started` advances the parent's step.** Found live (dogfooding
+  the two bug fixes above this amendment): a real `agent-started` (has `--agent <id>`) used to
+  leave the PARENT card's content/state completely untouched -- the transition table's
+  target-state column was blank by original design, on the theory that the new child card(s)
+  appearing was signal enough. In practice the parent itself froze on whatever activity line
+  preceded the spawn for the whole fan-out window, which reads as stale/wrong on its own even
+  though the child cards update fine. Now routes through the same `activity`-style
+  archive-then-set (`"Started {name-or-agentId}"`) via the shared post-locus-change projection,
+  so a currently-Blocked parent keeps its question rather than losing it. `agent-stopped`
+  deliberately does NOT get the same treatment (operator decision) -- stop events arrive in a
+  slow trickle well after the fact, and the child card retiring is signal enough on its own.
 
 ## 2. Canonical kind vocabulary (closed) → rendered verb word
 

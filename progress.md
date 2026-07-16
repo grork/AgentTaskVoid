@@ -511,4 +511,87 @@ assumption), fixed via the same TDD executor loop, and committed separately:
 
 **Phase 19 is DONE.** All parts (A, B, C, D) implemented, tested, and live-confirmed.
 
+### Post-phase-19 dogfood: two more bugs found live, fixed (2026-07-15)
+
+Found in further `atv-dogfood-p19` scratch-repo testing after phase 19's sign-off, diagnosed
+from the durable `atv.log` (`trace-in`/`trace-out`), fixed, and tested -- not tied to a new
+plan phase, logged here per the same convention as 19D/19E.
+
+- **Duplicate steps in the sequence.** `atv.log` showed the SAME `activity` label
+  (`step=...`) trace-in twice, milliseconds apart, for one real tool call --
+  `translate.ps1`'s `PreToolUse`/`PostToolUse` switch case both map to the identical
+  `activity` claim (label derived from `tool_input`, never `tool_response`, so Pre and Post
+  are byte-identical). Traced through `AdvanceModel.Advance`'s archive-then-set logic: Pre
+  archives the PRIOR step and sets the new label; Post then archives that SAME label (since
+  it's now "current") and re-sets it again -- every tool call left an adjacent duplicate in
+  `completedSteps`, halving the useful history under the 10-entry FIFO cap. Operator
+  direction: fix in the engine, not by dropping an event -- `AdvanceModel.Advance` now
+  short-circuits as a true no-op when `newExecutingStep == currentExecutingStep` (neither
+  archived nor re-set). `src/Atv/Operations/AdvanceModel.cs`; tests in
+  `tests/Atv.LogicTests/Operations/AdvanceModelTests.cs`.
+- **Ready→Idle (Paused) resetting the text instead of holding the last message.** Traced to
+  `ClaimReady`: a bare `ready` (no `--summary`, e.g. `idle_prompt` after a `Stop` that DID
+  carry one) re-affirming a card whose live content is already a `TextSummaryResult`
+  reads back an empty `ExecutingStep` -- `AppTaskInfo` has no readback for that text at all
+  (confirmed against `docs/windows-ui-shell-tasks/AppTaskInfo.md`: only `GetCompletedSteps()`/
+  `GetExecutingStep()` exist, no summary-text getter) -- so it fell to the
+  `NoStepsYetPlaceholder` ("Not started yet."), and `ReadyDecay.DemoteToIdle` had the
+  identical fallback on the Ready→Paused decay itself. Not a coding mistake -- a real,
+  confirmed platform write-only asymmetry -- but no design doc had actually ratified losing
+  the text as acceptable. Fixed by having the engine remember its own copy: new
+  `EngineMemory.LastSummary` (schema v3→v4, `src/Atv/Persistence/SidecarEntry.cs`), set by
+  every `ready --summary` claim, consulted by `ClaimReady`'s bare-reaffirm path AND
+  `ReadyDecay.DemoteToIdle` before falling back to the placeholder, and cleared everywhere a
+  card leaves Ready (`ClaimWorking`/`ClaimBlocked`/`ClaimBroken`/`ProjectAfterLocusChange`/
+  `DemoteToIdle` itself) -- mirrors the existing `ReadyDecay = null` "leaving Ready clears the
+  clock" idiom. `src/Atv/Semantics/SemanticEngine.cs`, `src/Atv/Watchdog/ReadyDecay.cs`; tests
+  in `SemanticEngineTransitionTests.cs` and `ReadyDecayPassTests.cs`.
+- **Parent card frozen on stale text for the whole fan-out window.** Found live in a THIRD
+  round of dogfooding (same day, after the two fixes above were already live-verified):
+  operator wrote a file, then spawned two parallel subagents -- the parent card's step stayed
+  on `"Writing sleep10.cmd"` for the entire ~40s fan-out, even though both new child cards
+  updated fine. Confirmed byte-for-byte against `atv.log`: both `agent-started` trace-outs and
+  both `agent-stopped` trace-outs left the parent's `step=` completely unchanged: `ClaimAgentStarted`
+  deliberately never touched the parent's content/state (ERGO-31's transition table target-state
+  column was blank by original design -- the theory being that the new child card appearing was
+  signal enough on its own). Fixed: a real `agent-started` (has `--agent <id>`) now advances the
+  parent's step via `Rendering.BuildAgentStartedLine` (`"Started {name-or-agentId}"`), routed
+  through the same `ProjectAfterLocusChange` pipeline `activity` already uses -- lands Working
+  from any non-Blocked prior state, but (operator decision) never clears a pending Blocked
+  question, since agent-started isn't one of LIFE-24's block-clearing trigger events.
+  `agent-stopped` deliberately did NOT get the same treatment (operator decision, 2026-07-16):
+  stop events arrive in a slow trickle well after the fact, and the child card retiring is
+  signal enough. `src/Atv/Semantics/{Rendering.cs,SemanticEngine.cs}`;
+  `questions/usage-ergonomics/ERGO-31-v2-semantic-verb-contract.md` amended (transition table
+  row + dated note); tests in `SemanticEngineTransitionTests.cs` (replaced the now-false
+  `AgentStarted_FromAnyPriorState_NeverChangesState` with 5 tests covering the new content
+  claim, the Blocked-preserving carve-out, and the archive-into-history behavior). Live-verified
+  by replaying the exact write-then-fan-out sequence against the real dev binary: parent's step
+  read `"Started general-purpose"` instead of the stale file-write text.
+- **Verification:** full `Atv.LogicTests` suite green (790/790) after all three fixes. No
+  `Atv.AdapterTests`/translator changes needed -- all three fixes are pure engine/watchdog logic.
+
+**Two OPEN loose ends surfaced during this dogfood, NOT fixed, NOT yet triaged -- flagged here
+so they aren't lost, no `questions/` doc opened yet:**
+1. **Detached watchdog holds a piped stdout handle open forever.** Invoking the bare `atv`
+   PATH alias directly from a piped/redirected terminal (bypassing the dev launch profile's
+   `ATV_WATCHDOG_MODE=off`) spawns a real detached watchdog (`EnsureWatchdog`'s default
+   "spawn" mode) that appears to inherit the caller's stdout/stderr handles -- the caller's
+   pipe never sees EOF, hanging indefinitely, even after the caller's own visible work is
+   done. Worked around during this session with `$env:ATV_WATCHDOG_MODE = "off"` before any
+   direct CLI scripting. Pre-existing behavior, not caused by any of the three fixes above --
+   only surfaced because this session drove `atv` directly via script for live verification
+   instead of through a real host's hooks (which always run with a real terminal, not a
+   redirected pipe, so this may never have been hit in normal use). Not reproduced from a
+   normal interactive terminal; only from a tool-redirected one.
+2. **A subagent's background-completion notification pollutes the parent's goal.** Observed in
+   the SAME `atv.log` capture that surfaced item 3 above: a `<task-notification><task-id>...`
+   XML fragment (Claude Code's own internal wake-up message for a backgrounded task) arrives at
+   `UserPromptSubmit` and gets forwarded verbatim as `working --goal -` by `translate.ps1`,
+   since the translator has no way to distinguish it from a real user prompt. Briefly shows raw
+   plumbing text on the card mid-fan-out instead of anything human-readable. Not a regression
+   from these fixes -- appears to be pre-existing `translate.ps1` behavior, visible in this
+   session's captures going back to the very first `atv-dogfood-p19` log excerpt read at the
+   start of this investigation.
+
 _(Further per-phase notes appended below as phases execute.)_

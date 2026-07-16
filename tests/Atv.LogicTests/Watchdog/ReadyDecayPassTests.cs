@@ -127,6 +127,9 @@ public sealed class ReadyDecayPassTests
         // A `ready --summary` swap leaves the platform holding a TextSummaryResult,
         // whose text has NO readback (INFRA-15) -- decay must still land safely on
         // Paused, which only SequenceOfSteps supports (SafeCombinationMatrix).
+        // No EngineMemory.LastSummary is seeded here, so this specifically covers
+        // the "nothing remembered" placeholder fallback -- see the next test for
+        // the (now more common) remembered-summary case.
         using var h = NewIsolatedHarness();
         var view = h.Store.Create("T", "S", WatchdogTestHarness.DeepLink, WatchdogTestHarness.IconUri,
             new AppTaskContentDto.TextSummaryResult("All done."));
@@ -138,7 +141,38 @@ public sealed class ReadyDecayPassTests
         var result = WatchdogLoop.RunTick(h.Deps(), start + h.Settings.ReadyDecayThreshold);
 
         Assert.AreEqual(1, result.ReadyDecayedCount);
-        Assert.AreEqual(AppTaskState.Paused, h.Store.Find(view.Id)!.State);
+        var found = h.Store.Find(view.Id)!;
+        Assert.AreEqual(AppTaskState.Paused, found.State);
+        Assert.AreEqual(Atv.Operations.AdvanceModel.NoStepsYetPlaceholder, found.ExecutingStep);
+    }
+
+    [TestMethod]
+    public void RunTick_ReadyDecay_DemotesUsingTheRememberedSummary_InsteadOfResettingTheText()
+    {
+        // Bug fix (found via live dogfood, 2026-07-15): the demotion used to
+        // ALWAYS reset to "Not started yet." for a TextSummaryResult-held card,
+        // even when the engine had its own remembered copy of the text
+        // (EngineMemory.LastSummary, populated by every real `ready --summary`
+        // claim) -- this is the exact "idle/paused resets the text instead of
+        // holding the last message" bug report.
+        using var h = NewIsolatedHarness();
+        var view = h.Store.Create("T", "S", WatchdogTestHarness.DeepLink, WatchdogTestHarness.IconUri,
+            new AppTaskContentDto.TextSummaryResult("All done."));
+        h.Store.Update(view.Id, AppTaskState.Completed, new AppTaskContentDto.TextSummaryResult("All done."));
+        DateTimeOffset start = WatchdogTestHarness.Now;
+        h.Sidecar.WriteWithMemory("h1", view.Id, start,
+            EngineMemory.Empty with { ReadyDecay = new ReadyDecayState(start, TimeSpan.Zero), LastSummary = "All done." });
+        h.Presence.Present = true;
+
+        var result = WatchdogLoop.RunTick(h.Deps(), start + h.Settings.ReadyDecayThreshold);
+
+        Assert.AreEqual(1, result.ReadyDecayedCount);
+        var found = h.Store.Find(view.Id)!;
+        Assert.AreEqual(AppTaskState.Paused, found.State);
+        Assert.AreEqual("All done.", found.ExecutingStep, "the Paused card must hold the last message, not reset to the placeholder.");
+
+        var entry = h.Sidecar.Read("h1")!;
+        Assert.IsNull(entry.EngineMemory!.LastSummary, "leaving Ready (even via decay) retires the remembered copy -- the demoted card's own content now holds it, readable normally from here on.");
     }
 
     // ---- state filter: only Completed(Ready) cards are ever considered --------

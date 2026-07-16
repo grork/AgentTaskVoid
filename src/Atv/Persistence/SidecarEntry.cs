@@ -16,8 +16,8 @@ namespace Atv.Persistence;
 /// </summary>
 public sealed record SidecarEntry(string Id, DateTimeOffset LastUpdate, int SchemaVersion, EngineMemory? EngineMemory = null)
 {
-    /// <summary>Bump when this shape changes; keeps forward-compat cheap (ERGO-21 DP2). Bumped 1-&gt;2 for phase 15A's <see cref="EngineMemory"/> addition, 2-&gt;3 for phase 15B's decay/fan-out fields on <see cref="Atv.Persistence.EngineMemory"/>.</summary>
-    public const int CurrentSchemaVersion = 3;
+    /// <summary>Bump when this shape changes; keeps forward-compat cheap (ERGO-21 DP2). Bumped 1-&gt;2 for phase 15A's <see cref="EngineMemory"/> addition, 2-&gt;3 for phase 15B's decay/fan-out fields, 3-&gt;4 for <see cref="Atv.Persistence.EngineMemory.LastSummary"/> (the bug-fix "remember the platform's write-only <c>TextSummaryResult</c> text ourselves" addition, 2026-07-15).</summary>
+    public const int CurrentSchemaVersion = 4;
 }
 
 /// <summary>
@@ -85,10 +85,21 @@ public sealed record AgentNameHint(string AgentId, string? Name);
 /// <see cref="ParentHandle"/> (non-null ONLY on a minted CHILD card's own
 /// sidecar entry -- <see langword="null"/> for every ordinary/parent/session
 /// handle; this is what makes a handle "a child" structurally, rather than by
-/// pattern-matching its `#` separator), and <see cref="ReadyDecay"/> (the
+/// pattern-matching its `#` separator), <see cref="ReadyDecay"/> (the
 /// Ready-&gt;Idle clock; <see langword="null"/> whenever the card is not
 /// currently accruing -- never in Ready, or Ready but not yet claimed via
-/// <c>ready</c> since the 15B upgrade).
+/// <c>ready</c> since the 15B upgrade), and <see cref="LastSummary"/> (bug fix,
+/// 2026-07-15): the text most recently written via <c>ready --summary</c>,
+/// kept here because <c>AppTaskInfo</c> has no readback for a
+/// <c>TextSummaryResult</c>'s text at all -- once written, the platform itself
+/// can never answer "what was that text" (see <see cref="Atv.Store.AppTaskView"/>'s
+/// own remarks on this asymmetry). Without this, a bare re-affirming
+/// <c>ready</c> (no <c>--summary</c> -- e.g. Claude Code's <c>idle_prompt</c>
+/// following a <c>Stop</c> that DID carry one) or the <see cref="ReadyDecay"/>
+/// demotion to Paused had no way to preserve the summary and silently
+/// replaced it with the "nothing yet" placeholder. Always <see langword="null"/>
+/// while not Ready-with-a-summary; cleared wherever <see cref="ReadyDecay"/>
+/// is cleared -- "leaving Ready" retires both together.
 /// </summary>
 public sealed record EngineMemory(
     string? Goal,
@@ -97,9 +108,10 @@ public sealed record EngineMemory(
     IReadOnlyList<string> CardedAgentLoci,
     IReadOnlyList<AgentNameHint> AgentNameHints,
     string? ParentHandle,
-    ReadyDecayState? ReadyDecay)
+    ReadyDecayState? ReadyDecay,
+    string? LastSummary = null)
 {
-    public static readonly EngineMemory Empty = new(null, [], [], [], [], null, null);
+    public static readonly EngineMemory Empty = new(null, [], [], [], [], null, null, null);
 
     /// <summary>
     /// Defensive normalization for a schema-&lt;3 entry deserialized against

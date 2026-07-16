@@ -84,19 +84,26 @@ internal static class ReadyDecay
     /// <summary>
     /// The courtesy demotion itself: Running/Completed/Paused/Error all share
     /// the safe <c>SequenceOfSteps</c> content shape (<c>SafeCombinationMatrix</c>),
-    /// so decay ALWAYS normalizes the card's content back to that shape using
-    /// whatever the platform's own step-readback fields report -- even if the
-    /// card most recently held a <c>ready --summary</c> TEXT result (whose
-    /// exact text has NO platform readback at all, INFRA-15's asymmetry, so it
-    /// cannot be preserved through this transition regardless). A blank
-    /// executing-step readback falls back to the same
+    /// so decay ALWAYS normalizes the card's content back to that shape. Bug
+    /// fix (2026-07-15 live dogfood): if the card most recently held a <c>ready
+    /// --summary</c> TEXT result, its exact text has NO platform readback at
+    /// all (<c>AppTaskInfo</c> exposes no getter for it -- an asymmetry
+    /// documented on <see cref="Atv.Store.AppTaskView"/>), so
+    /// <see cref="EngineMemory.LastSummary"/> -- the engine's OWN remembered
+    /// copy of that text -- is used instead of the platform's (empty)
+    /// step-readback fields, and the demoted card's step now shows the actual
+    /// last message instead of resetting it. Only when there is truly nothing
+    /// remembered (a schema-&lt;4 entry, or the card never held a summary) does
+    /// a blank executing-step readback fall back to the same
     /// <see cref="AdvanceModel.NoStepsYetPlaceholder"/> baseline every other
     /// "nothing to archive yet" path in this codebase uses (the real platform
     /// throws on a genuinely empty executing step).
     /// </summary>
     private static void DemoteToIdle(WatchdogDeps deps, string handle, string id, AppTaskView view, EngineMemory memory, DateTimeOffset now)
     {
-        string executing = view.ExecutingStep.Length > 0 ? view.ExecutingStep : AdvanceModel.NoStepsYetPlaceholder;
+        string executing = view.ExecutingStep.Length > 0
+            ? view.ExecutingStep
+            : memory.LastSummary ?? AdvanceModel.NoStepsYetPlaceholder;
         var content = new AppTaskContentDto.SequenceOfSteps(view.CompletedSteps, executing);
 
         var validation = Validator.Validate(content, AppTaskState.Paused, bypass: false);
@@ -110,7 +117,11 @@ internal static class ReadyDecay
         }
 
         deps.Store.Update(id, AppTaskState.Paused, content);
-        var clearedMemory = memory with { ReadyDecay = null };
+        // Leaving Ready retires both the clock and the remembered summary text
+        // together -- the demoted card's own SequenceOfSteps content now holds
+        // whatever it needed to (readable back normally from here on), so
+        // there is nothing left for LastSummary to preserve.
+        var clearedMemory = memory with { ReadyDecay = null, LastSummary = null };
         deps.Sidecar.WriteWithMemory(handle, id, now, clearedMemory);
         deps.Log($"watchdog: '{handle}' decayed Ready -> Idle (presence-gated courtesy demotion; id {id}).");
     }
