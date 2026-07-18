@@ -3,8 +3,8 @@
 This is the normative, host-agnostic contract for driving `atv` (brand
 **Agentaskvoid**) from an agent host's own event stream. It is the surface a
 translator author — first-party or third-party — targets from this document
-alone, without needing to read `atv`'s source. It supersedes the v1 lifecycle
-surface (`start`/`step`/`state`/`attention`/`done`/`fail`), which is retired.
+alone, without needing to read `atv`'s source. The v1 lifecycle surface
+(`start`/`step`/`state`/`attention`/`done`/`fail`) is retired.
 
 If you are building a new host integration, read this document top to
 bottom once, then use it as reference. The per-host translator artifacts
@@ -14,18 +14,12 @@ names — only what `atv` itself accepts and guarantees. For a worked example
 of a translator built against this exact contract, see the first-party
 Claude Code plugin: [`integrations/claude-code/`](../integrations/claude-code/)
 (DIST-11/LIFE-25) — its `translate.ps1` and
-`integrations/claude-code/README.md`'s event-mapping table show every
-mechanism this document describes (the `-` stdin convention, `--cwd`
-forwarding, the closed kind/reason vocabularies, fan-out) applied to one
-real host. The GitHub Copilot CLI plugin under
-[`integrations/copilot-cli/`](../integrations/copilot-cli/) is the second
-worked example; it additionally demonstrates a plugin-local correlation
-bridge for a host whose child hook events omit their parent/task identity.
-
-This is the current, stable contract (ERGO-31/LIFE-24): the full verb
-surface, the five-state model, claim semantics, projection legality, the
-stdin/normalizer contract, the Ready→Idle presence-gated decay clock (§6),
-and multi-card fan-out addressing (§5) are all load-bearing.
+`integrations/claude-code/README.md`'s event-mapping table apply every
+mechanism this document describes to one real host. The GitHub Copilot CLI
+plugin under [`integrations/copilot-cli/`](../integrations/copilot-cli/) is
+the second worked example; it additionally demonstrates a plugin-local
+correlation bridge for a host whose child hook events omit their
+parent/task identity.
 
 ---
 
@@ -63,7 +57,7 @@ flags `--title <text>` / `--subtitle <text>` / `--icon <token>` /
 `--icon-file <path>` / `--deep-link <uri>`, and **upserts** the card: the
 very first semantic verb call for a handle creates it. There is no separate
 "start" verb. A stateless translator should pass the identity flags on
-**every** call — re-supplying the same values is idempotent and cheap.
+every call — re-supplying the same values is idempotent and cheap.
 `--icon` and `--icon-file` are mutually exclusive — supplying both on one
 call is a usage error (see "Icons" below).
 
@@ -100,9 +94,8 @@ glyph.
 **Theme-neutral tile (ERGO-28):** every monochrome Segoe glyph — including
 the default Robot — renders as a white glyph on a fixed accent-color
 rounded-rect tile (`#0078D4`). This fixes solid-black-on-a-dark-taskbar
-invisibility without inspecting the system theme: one static asset, no
-runtime re-render (icon immutability, ERGO-25, and the URI grouping key,
-ERGO-13, both rule that out). Color emoji render bare — full-color,
+invisibility without inspecting the system theme, using one static asset
+with no runtime re-render. Color emoji render bare — full-color,
 theme-safe art that's never composited onto the tile.
 
 **`--icon-file <path>` (ERGO-29):** bring your own image — PNG, JPG, or ICO.
@@ -117,21 +110,20 @@ unavailable `--icon` token (default glyph → drawn shape), logged, never a
 hard failure.
 
 The resulting per-handle icon file is cached and moved through
-remove/expire/resurrect/purge exactly like a rendered glyph (ERGO-23) — same
-lifecycle, regardless of source. Icons are immutable per card (set once, at
-first upsert) either way (ERGO-25); cards group by icon URI (ERGO-13), so
-two callers supplying the "same" logo via different paths do not glom into
-one taskbar group.
+remove/expire/resurrect/purge exactly like a rendered glyph (ERGO-23). Icons
+are immutable per card (set once, at first upsert) either way (ERGO-25);
+cards group by icon URI (ERGO-13), so two callers supplying the "same" logo
+via different paths do not glom into one taskbar group.
 
 **Known v1 caveat:** the fixed accent tile is not verified against Windows
 high-contrast themes — it targets ordinary light/dark taskbar theming only.
 
 ## 3. The closed kind vocabulary (`activity --kind`)
 
-Kinds name the **mechanism**, never the purpose — the label carries the
+Kinds name the mechanism, never the purpose — the label carries the
 subject, and the engine owns the rendered wording. The list is closed and
-deliberately small: an unmapped tool falls back to `tool`, so the vocabulary
-never blocks integrating a new tool.
+small: an unmapped tool falls back to `tool`, so the vocabulary never
+blocks integrating a new tool.
 
 | kind | rendered word | typical source |
 |---|---|---|
@@ -195,10 +187,9 @@ onto the nearest of these five/two tokens in your translator.
 `agent-started <h> --agent <id> [--name <n>]` registers a child locus.
 Registering alone does nothing visible — the engine mints a child card only
 at the 2nd concurrent `agent-started` for a session, retroactively carding
-the 1st worker too in the same call that crosses the threshold (fan-out is
-only recognizable once a second worker appears, so there is nothing to card
-before then). A 3rd, 4th, … concurrent worker mints its own card the moment
-it registers, once fan-out is already established for that session.
+the 1st worker too in the same call that crosses the threshold. A 3rd, 4th,
+… concurrent worker mints its own card the moment it registers, once
+fan-out is already established for that session.
 
 The child handle is exactly `<session-handle>#<agent_id>` — deterministic,
 so a translator (or a human) can compute it without asking `atv` anything,
@@ -222,8 +213,7 @@ parent handle instead, so a late activity from a retired agent never
 resurrects its child card. Addressing the child handle directly also works
 (e.g. `atv activity <session>#<agent_id> --kind read --label file.ts`,
 useful once you already know the id is carded) and produces an identical
-result; the redirect above is what makes the parent-addressed form just as
-correct when a translator can't know that in advance.
+result.
 
 A child card is scaffolding: it starts Working (a bare step baseline) and
 can reach Ready via its own `ready` call — that's the entire reachable
@@ -291,11 +281,9 @@ the host side.
 - **Only Ready decays**, and only while the user had a chance to act —
   device unlocked and recent input, sampled by `atv`'s own background
   watchdog process, never something a translator measures or reports itself.
-  A card that decays lands in Idle (`Paused`) — a courtesy demotion to
-  reduce visual noise, never an inbox-zero deletion; the card is still
-  there, addressable, and list-able.
-- Blocked and Broken never decay — surviving the user's absence is their
-  whole purpose.
+  A card that decays lands in Idle (`Paused`) — the card is still there,
+  addressable, and list-able.
+- Blocked and Broken never decay; they exist to survive the user's absence.
 - A transition into Ready starts the clock fresh; re-asserting Ready while
   already Ready (e.g. a duplicate `ready` call) never restarts it — the
   same idempotency rule §2 already describes, extended to the clock.
@@ -304,15 +292,9 @@ the host side.
 - The exact decay threshold and "recent input" window are `atv`-internal
   tuning, not part of this contract — a translator never configures, queries,
   or needs to reason about either.
-- This UX decay clock is entirely separate from `atv`'s own hygiene reap
-  (an orphaned card whose owning process died without a `session-ended`
-  event, cleaned up on wall-clock staleness by the watchdog) — the two run
-  as independent passes and are never conflated. In practice the hygiene
-  reap is the more aggressive of the two for a truly abandoned card (no
-  further writes of any kind), while the decay clock is the one that fires
-  for a card the user is actively near but hasn't looked at — a translator
-  doesn't need to know the hygiene reap exists, or reason about which of the
-  two acts first on a given card.
+- A separate hygiene reap removes orphaned cards (owning process died
+  without a `session-ended` event) on wall-clock staleness — independent of
+  this decay clock, and not something a translator needs to reason about.
 
 ## 7. Free text: the `-` stdin convention
 
@@ -359,9 +341,9 @@ the rest.
 ## 9. Projection legality
 
 The engine guarantees, structurally, that it never emits a (state, content)
-pair the Shell can't safely render — the empirically-verified safe
-combination matrix is internal (`SafeCombinationMatrix.cs`) and a translator
-does not need to know its cells. Concretely: you can call `activity`
+pair the Shell can't safely render — the verified safe combination matrix
+is internal (`SafeCombinationMatrix.cs`) and a translator does not need to
+know its cells. Concretely: you can call `activity`
 directly against a card that is currently Blocked, with no intermediate
 "clear the state first" call — the engine drops the question and re-enters
 Working (or, if another locus is still blocked, re-projects Blocked with
@@ -383,14 +365,14 @@ v1-era "state running before every step" chain to reproduce.
 
 A hook/translator author should treat `atv` as something that can never
 break the host session: do not gate your own control flow on `atv`'s exit
-code unless you deliberately opted into `--strict` and specifically want
-that.
+code unless you opted into `--strict` and want that.
 
-## 11. Data / utility surface (unchanged from v1)
+## 11. Data / utility surface
 
 `list`, `run`, `clear`, `doctor`, `remove`, and the hidden `watchdog` mode
-are untouched by this document — see `atv --help` and `docs/configuration.md`.
-`remove <handle>` still exists for manual removal, and works identically
+are untouched by this document — see `atv --help` and
+[`docs/configuration.md`](configuration.md).
+`remove <handle>` exists for manual removal, and works identically
 against a parent handle (cascading to every live child, §5) or a child
 handle (targeting exactly that one card).
 
@@ -406,4 +388,4 @@ can drift mid-session, e.g. as a tool executes in a different directory) —
 the project root is the only anchor value worth forwarding. Absent `--cwd`,
 `atv` falls back to its own process working directory (correct for direct
 human/manual use, unreliable for anything host-spawned). Full mechanics:
-`docs/configuration.md`.
+[`docs/configuration.md`](configuration.md).
