@@ -16,8 +16,8 @@ file, or the run. `--verbose` surfaces any such fallback as a warning.
 - **Location:** package app-data
   (`ApplicationData.Current.LocalFolder`) — `atv-config.json` next to the
   sidecar index, recycle bin, icon cache, and log file. The path is
-  non-obvious: it's per-package-identity, so dev/test/release each get their
-  own isolated file with zero manual pinning — run `atv doctor` to print the
+  non-obvious: it's per-package-identity, so dev/test/release each resolve
+  to their own isolated file automatically — run `atv doctor` to print the
   exact resolved path (`config file: ...`) rather than guessing it.
 - **Format:** flat JSON, string keys to string values (no nested objects).
   Every tunable below uses its bare key name (e.g. `"watchdog-mode"`) as the
@@ -67,27 +67,14 @@ task. Idle periods are always env/config, applying identity-wide.
 
 ## Per-host recurring defaults (ERGO-17)
 
-`translate.ps1` (`integrations/claude-code/`) never passes
-`--subtitle`/`--icon`/`--icon-file` — those stay unset (`$null`) on every
-call, which is what lets the `--flag > env > repo file > user config file >
-built-in default` precedence chain below reach the repo layer. A
-caller-supplied flag always wins over `.atv.json`'s
-`title-template`/`subtitle`/`icon` (`ApplyRepoDefaults` in
-`src/Atv/Semantics/SemanticEngine.cs`), so a translator that hard-coded
-identity flags on every call would block repo branding for that field.
-
-`--title` is the one exception (ERGO-33): `translate.ps1` forwards Claude
-Code's own `session_title` as `--title`, but only on `UserPromptSubmit` (the
-card-creating event) and only when the user explicitly named the session —
-absent otherwise. This is a conditional, user-intent-gated value: a session
-the user never named still falls through to `.atv.json`'s `title-template`,
-then the user config, then the built-in default below.
-
-This config file remains for your own machine-wide overrides (idle periods,
-watchdog mode); per-host presentation choices, where a host integration
-chooses to set any, live in the integration artifact itself, editable by
-copying and adjusting that artifact's hook commands — or per-repo via
-`.atv.json` below, with zero hook edits.
+The Claude Code plugin leaves `--subtitle`/`--icon`/`--icon-file` unset on
+every call, and forwards `--title` only on `UserPromptSubmit`, only when the
+user explicitly named the session — see
+[`integrations/claude-code/README.md`](../integrations/claude-code/README.md)'s
+Identity flags section for why. This config file covers your own
+machine-wide overrides (idle periods, watchdog mode); per-host presentation
+choices live in the integration artifact itself, or per-repo via
+`.atv.json` below.
 
 ## Repo-scoped presentation defaults: `.atv.json` (ERGO-30)
 
@@ -120,10 +107,9 @@ human runs `atv` while standing in the repo). Where a host provides no
 usable anchor, repo config doesn't engage — it never resolves against the
 wrong directory.
 
-Discovery runs only when a card is created — the first semantic-verb call
-against a handle with no live card, never on an update to an already-live
-card. Editing `.atv.json` mid-session changes nothing about that session's
-card; the next new card picks up the edit.
+Discovery runs when a card is created. Editing `.atv.json` mid-session
+changes nothing about that session's card; the next new card picks up the
+edit.
 
 ### The allowlist (the entire trust mechanism)
 
@@ -174,9 +160,10 @@ default subtitle is the resolved git branch when a `.git` root is found,
 empty otherwise — subtitle has no never-blank guarantee (an anchor with no
 repo has no branch to show).
 
-`integrations/claude-code/README.md` covers how the Claude Code plugin feeds
-the chain's `--flag` layer with the host's own session name, conditional on
-the user having explicitly named the session.
+[`integrations/claude-code/README.md`](../integrations/claude-code/README.md)
+covers how the Claude Code plugin feeds the chain's `--flag` layer with the
+host's own session name, conditional on the user having explicitly named the
+session.
 
 ### Example
 
@@ -198,8 +185,7 @@ one taskbar icon with every other card from the same repo.
 `atv doctor` (no flags needed) prints the resolved anchor and its source
 (`--cwd` vs. process cwd), which `.atv.json` was found — or
 `none, searched up to '<root>'` — and its parse status (`ok` / `not-found` /
-`malformed` / `too-large`), so a misconfigured hook or a typo'd `.atv.json`
-is a one-look diagnosis.
+`malformed` / `too-large`).
 
 ## Diagnosing configuration problems
 
