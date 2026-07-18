@@ -2,12 +2,14 @@
 
 Wires GitHub Copilot CLI sessions to Agentaskvoid (`atv`) taskbar cards through
 a native Copilot plugin. The plugin targets only the host-agnostic v2 semantic
-API in `docs/integration-api.md`; no Copilot-specific logic lives in `atv.exe`.
+API in [docs/integration-api.md](../../docs/integration-api.md); no
+Copilot-specific logic lives in `atv.exe`.
 
 ## Compatibility
 
 Authored, captured, and live-dogfooded against GitHub Copilot CLI 1.0.71
-(2026-07-16). Raw-event findings are in `docs/host-events/copilot-cli.md` —
+(2026-07-16). Raw-event findings are in
+[docs/host-events/copilot-cli.md](../../docs/host-events/copilot-cli.md) —
 see that file for the version and capture date each finding is confirmed
 against. If a newer host version behaves differently, re-run that capture
 to update the finding.
@@ -108,10 +110,10 @@ translator.log
 ```
 
 This state is private to the plugin — atv's own product state (sidecar,
-config) is untouched by it. Every failure is fail-open: if storage is
-unavailable, the prompt is missing, or multiple identical pending prompts
-make the match ambiguous, Copilot continues normally and the integration
-degrades to parent/task lifecycle reporting rather than guessing.
+config) is untouched by it. If storage is unavailable, the prompt is
+missing, or multiple identical pending prompts make the match ambiguous,
+Copilot continues normally and the integration falls back to parent/task
+lifecycle reporting rather than guessing.
 
 ## Failure and security posture
 
@@ -125,44 +127,26 @@ degrades to parent/task lifecycle reporting rather than guessing.
 - Host errors and missing `atv` are written only to the plugin-local
   `translator.log`; they cannot break a Copilot tool call.
 
-This is especially important for `preToolUse`: Copilot fails closed when that
-hook process crashes or exits nonzero.
+This matters most for `preToolUse`: if that hook process crashes or exits
+nonzero, Copilot blocks the tool call — so the translator must exit 0 even
+when everything inside it has failed.
 
 ## Known limitations
 
 - The `call_*` child-session prefix and notification title/message shapes are
-  empirical Copilot 1.0.71 contracts. Re-capture when the installed version
-  drifts materially.
-- Concurrent identical child prompts are intentionally not correlated.
+  observed Copilot 1.0.71 behavior, not documented API. Re-capture when the
+  installed version changes significantly.
+- Concurrent identical child prompts are not correlated.
 - A genuine `postToolUseFailure` and `errorOccurred` payload were not induced
   during capture; error mapping retains conservative fallbacks.
-- Command hooks are synchronous. The plugin minimizes its hook set, but tool
-  event publication still adds process-launch latency.
+- Command hooks are synchronous, so tool event publication adds process-launch
+  latency.
 - Prompt-mode `sessionEnd:complete` leaves the card Ready for watchdog cleanup
   rather than risking premature removal during background work.
 - **Permission recovery is coarse.** Copilot exposes `permission_prompt` only
-  on the parent session and exposes no public permission-approved/completed
-  hook. The parent therefore remains Blocked until later parent activity or
-  the turn's final Ready claim clears it; child activity cannot clear that
-  parent locus. Hooking every `postToolUse` would only clear at tool
-  completion (a one-hour build would still remain Blocked for an hour),
-  while adding synchronous overhead to every tool. The design keeps the
-  accurate attention signal and accepts this stale-after-approval window,
-  rather than adding timers, reading the internal transcript, or disabling
-  permission attention entirely.
-
-## Verification status
-
-- Plugin/manifest/hook shape: covered by artifact tests.
-- Translator routing and failure posture: real Windows PowerShell process
-  against the compiled stub `atv`.
-- Correlation: covered for claim, activity routing, completion, UTF-8, raw
-  prompt non-persistence, ambiguity, and concurrent claim races.
-- Claude Code translator regression suite: run alongside the Copilot tests
-  because both integrations share the process harness.
-- **Real Copilot-to-taskbar dogfood: confirmed.** Two background subagents
-  produced a parent plus two child cards grouped under the exact shared icon;
-  each child showed its own `Running Start-Sleep...` and later `Reading ...`
-  activity; the first completion left the parent non-Ready while its sibling
-  remained active; both child cards retired independently; the parent then
-  reached Ready; `/exit` removed it; correlation state ended empty.
+  on the parent session, with no permission-approved/completion hook. The
+  parent remains Blocked until later parent activity or the turn's final
+  Ready claim clears it; child activity cannot clear that parent locus.
+  Hooking every `postToolUse` would only clear it at tool completion — a
+  one-hour build would still remain Blocked for an hour — while adding
+  synchronous overhead to every tool call.
