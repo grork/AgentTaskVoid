@@ -94,7 +94,7 @@ The main interactive session id was
 | `userPromptSubmitted` | **Fired** | Carries exact `prompt`. Also fires for Copilot's own `<system_notification>...</system_notification>` wake-up messages, so forwarding every payload as the user's goal would expose raw plumbing text. |
 | `preToolUse` | **Fired** | Fields: `toolName`, `toolArgs` (a JSON string). Fires inside subagents, but those calls use a child `sessionId` such as `call_...` and carry no parent id or agent name. |
 | `postToolUse` | **Fired** | Adds `toolResult { resultType, textResultForLlm }`. A PowerShell command exiting 7 still produced `resultType:"success"` because the shell tool itself completed and reported the child exit code in text. |
-| `postToolUseFailure` | **Did not fire (targeted)** | The intentional exit-7 script was not a host-tool failure. A genuine tool-host failure remains unobserved. |
+| `postToolUseFailure` | **Did not fire (targeted)** | The exit-7 script was not a host-tool failure. A genuine tool-host failure remains unobserved. |
 | `permissionRequest` | **Fired** | Fields: `toolName`, parsed `toolInput`, `permissionSuggestions`. It fired even under `--allow-all`/already-approved flows, so it does not mean a human is blocked. |
 | `notification` | **Fired** | Observed `permission_prompt`, `shell_completed`, and `agent_idle`. A real `ask_user` dialog emitted no `elicitation_dialog` notification. |
 | `agentStop` | **Fired** | Fires for both the main agent and subagents. Subagent instances used child `call_...` session ids and an empty `transcriptPath`; the main agent used the parent session id and real transcript path. The main agent can stop while background subagents are still active. |
@@ -116,7 +116,7 @@ The main interactive session id was
 3. **Resume identity is stable.** The resumed session retained
    `3bbb0815-bd30-435c-bb3f-dc077af65aae` and emitted
    `sessionStart.source:"resume"`. ERGO-25's idempotent upsert requirement is
-   empirically confirmed for Copilot.
+   confirmed for Copilot.
 4. **Blocked has two proven sources, neither of which is a blanket
    `permissionRequest`.**
    - A genuine permission UI is proven by
@@ -132,7 +132,7 @@ The main interactive session id was
    as `userPromptSubmitted.prompt` wrapped in `<system_notification>`. The
    translator must reject this wrapper before mapping a prompt to
    `working --goal -`. This independently reproduces the Claude Code
-   goal-pollution loose end (phase 19) on a second host.
+   goal-pollution loose end on a second host.
 6. **The lifecycle events alone are low-resolution, but the `task` tool exposes
    a richer correlation path.**
    - Parent `preToolUse:task`/`postToolUse:task` `toolArgs` contains the
@@ -150,9 +150,9 @@ The main interactive session id was
    active — the Copilot equivalent of the premature-`Stop` fan-out defect
    found on Claude Code. A translator that wants correct background fan-out
    needs its own tiny per-session correlation/count state, or it must
-   deliberately degrade by ignoring these completion signals and relying on
-   later cleanup. Interactive `sessionEnd.reason:"user_exit"` was a reliable
-   terminal signal.
+   degrade by ignoring these completion signals and relying on later cleanup.
+   Interactive `sessionEnd.reason:"user_exit"` was a reliable terminal
+   signal.
 8. **Interrupt has no distinguishing completion event.** The interrupted
    PowerShell beat produced `preToolUse` (plus its permission events), then no
    `postToolUse`, `postToolUseFailure`, `agentStop`, or `errorOccurred`; the next

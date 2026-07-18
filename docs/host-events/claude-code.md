@@ -62,7 +62,7 @@ Every row below is first derived from docs, then confirmed by the capture
 | `ElicitationResult` | Safe (lower confidence) | Same reasoning and same flag as `Elicitation`. | Async | Not exercised v1 |
 | `SessionEnd` | Safe | Purely observational (cleanup/logging only); no default action is suppressed by camping. Its synchronous posture below is an INFRA-27 teardown-race concern, not a safety concern — it is safe to camp either way. | **Sync** (`timeout: 10`) — see Observer posture | Supervised — clean-exit beat (`-p` is one-shot and never reaches a `SessionEnd`-bearing lifecycle; see `driver-scripted.ps1`'s header comment) |
 
-**Only `WorktreeCreate` is skipped.** Every other candidate event is safe to camp
+Only `WorktreeCreate` is skipped. Every other candidate event is safe to camp
 passively, so the conduit template (`tools/host-event-recorder/hosts/claude-code/settings.hooks.template.json`)
 registers all 29 safe rows and omits `WorktreeCreate` entirely.
 
@@ -136,7 +136,7 @@ Four captures, split by what each surface can reach:
   generation* → `/exit`.
 - **`cc-interactive-2` (supervised interactive, 9 records):** the interrupt beat
   redone to land *during a tool call* — `bash slow.sh` (a 25 s sleep) interrupted
-  mid-execution. (Its idle window was invalidated by the operator — the session
+  mid-execution. (The operator invalidated its idle window — the session
   sat open overnight — so only its interrupt datum is used.)
 - **`cc-interactive-3` (supervised interactive, 7 records):** a clean idle test —
   one prompt, turn completes, then a controlled idle wait (focused, then
@@ -148,7 +148,7 @@ Result ∈ **Fired** (observed) · **Did not fire** (a beat targeted it, absent)
 **Not exercised** (no beat reached its preconditions this capture). In the
 Session column, **"both"** = the two comprehensive captures (`cc-20260712-212159`
 scripted + `cc-interactive-1`); `cc-interactive-2`/`-3` were narrow single-purpose
-runs (interrupt-during-tool, clean idle) cited explicitly where they contribute.
+runs (interrupt-during-tool, clean idle) cited by name where they contribute.
 
 | Event | Result | Session(s) | Notes |
 |---|---|---|---|
@@ -157,12 +157,12 @@ runs (interrupt-during-tool, clean idle) cited explicitly where they contribute.
 | `UserPromptSubmit` | Fired | both | Carries `prompt`, `permission_mode`. |
 | `UserPromptExpansion` | Not exercised | — | No slash-command beat. |
 | `PreToolUse` | Fired | both | Carries `tool_name`/`tool_input`/`tool_use_id`; **`agent_id` present only when the tool call is subagent-scoped** (empty on main thread). A tool call **interrupted mid-execution** fires `PreToolUse` with **no matching `PostToolUse`/`PostToolUseFailure`** — it is orphaned (see finding 6). |
-| `PermissionRequest` | Fired | `cc-interactive-1` | Fired for both the main-thread `Bash` prompt (no `agent_id` key) and the subagent `Write` prompt (**`agent_id` + `agent_type` present**, matching the raising subagent). Carries `permission_suggestions`, `tool_input`, `permission_mode`. **This — not `Notification` — is the event that attributes a permission prompt to a specific subagent.** |
+| `PermissionRequest` | Fired | `cc-interactive-1` | Fired for both the main-thread `Bash` prompt (no `agent_id` key) and the subagent `Write` prompt (**`agent_id` + `agent_type` present**, matching the raising subagent). Carries `permission_suggestions`, `tool_input`, `permission_mode` (see finding 5). |
 | `PermissionDenied` | Not exercised | — | Requires `permission_mode:auto`. |
 | `PostToolUse` | Fired | both | Carries `tool_response`, `duration_ms`; `agent_id` when subagent-scoped. |
-| `PostToolUseFailure` | Fired | `cc-interactive-1` | Fires when a tool **fails on its own** — observed once, a subagent's auto-approved `git log` exiting 128 in the empty scratch repo. Carries `error`, `tool_name`, `agent_id`, `is_interrupt` (`false` here). It does **NOT** fire on a user interrupt: in `cc-interactive-2` a `bash slow.sh` call interrupted mid-run produced no `PostToolUseFailure` at all (finding 6), so `is_interrupt:true` was never observed. |
+| `PostToolUseFailure` | Fired | `cc-interactive-1` | Fires when a tool **fails on its own** — observed once, a subagent's auto-approved `git log` exiting 128 in the empty scratch repo. Carries `error`, `tool_name`, `agent_id`, `is_interrupt` (`false` here). It does **not** fire on a user interrupt: in `cc-interactive-2` a `bash slow.sh` call interrupted mid-run produced no `PostToolUseFailure` at all (finding 6), so `is_interrupt:true` was never observed. |
 | `PostToolBatch` | Fired | both | Fires after each resolved tool batch; carries `tool_calls`; `agent_id` when subagent-scoped. |
-| `Notification` | Fired | `cc-interactive-1`, `cc-interactive-3` | Two subtypes observed. `permission_prompt` (message `"Claude needs your permission"`, `cc-interactive-1`) — **carries NO `agent_id`**, even for a subagent-originated prompt (attribution is on `PermissionRequest` instead). `idle_prompt` (message `"Claude is waiting for your input"`, `cc-interactive-3`) — fired ~60 s after the turn completed (see item 3). Both are the two types the shipped Claude Code integration maps to `attention`. |
+| `Notification` | Fired | `cc-interactive-1`, `cc-interactive-3` | Two subtypes observed. `permission_prompt` (message `"Claude needs your permission"`, `cc-interactive-1`) — **carries no `agent_id`**, even for a subagent-originated prompt (attribution is on `PermissionRequest` instead). `idle_prompt` (message `"Claude is waiting for your input"`, `cc-interactive-3`) — fired ~60 s after the turn completed (see item 3). Both are the two types the shipped Claude Code integration maps to `attention`. |
 | `MessageDisplay` | Fired | both | Fires per streamed assistant message; carries `message_id`, `turn_id`, `delta`, `final`. Not targeted by a beat — fires incidentally every turn. |
 | `SubagentStart` | Fired | both | Carries `agent_id` + `agent_type` (`general-purpose`). One per spawned subagent; **`agent_id` distinct per parallel spawn** (see item 2). |
 | `SubagentStop` | Fired | both | `agent_id` matches its `SubagentStart`; adds `agent_transcript_path`, `last_assistant_message`. |
@@ -181,7 +181,7 @@ runs (interrupt-during-tool, clean idle) cited explicitly where they contribute.
 | `PostCompact` | Not exercised | — | Same. |
 | `Elicitation` | Not exercised | — | No MCP-elicitation beat — the "lower confidence" safe classification stays unconfirmed. |
 | `ElicitationResult` | Not exercised | — | Same. |
-| `SessionEnd` | **Fired** | both | **The sync-at-teardown proof.** Captured on BOTH exits — `reason:"other"` on the `-p` one-shot exit, `reason:"prompt_input_exit"` on the interactive `/exit`. Two corrections it forces below. |
+| `SessionEnd` | **Fired** | both | **The sync-at-teardown proof.** Captured on both exits — `reason:"other"` on the `-p` one-shot exit, `reason:"prompt_input_exit"` on the interactive `/exit`. Two corrections it forces below. |
 
 ### Key structural findings
 

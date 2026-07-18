@@ -28,14 +28,14 @@ first and update this file in the same commit.
 | Name | Kind | Value | Purpose |
 |---|---|---|---|
 | `HOSTREC_SESSION` | env var | -- | Capture session id. The driver mints one id per capture run and exports this so every hook-spawned recorder invocation inherits it. `--session <id>` (argv) overrides it. |
-| `HOSTREC_CAPTURE_DIR` | env var | -- | Capture directory. The driver always sets this explicitly, pointing at the gitignored `tools/host-event-recorder/captures/`. `--capture-dir <dir>` (argv) overrides it. |
+| `HOSTREC_CAPTURE_DIR` | env var | -- | Capture directory. The driver always sets this, pointing at the gitignored `tools/host-event-recorder/captures/`. `--capture-dir <dir>` (argv) overrides it. |
 | (fallback) | resolution basis | `AppContext.BaseDirectory` + `captures/` | Used only when neither the env var nor the argv flag supplies a capture directory. Exe-adjacent, never the process's current working directory — hooks spawn the recorder with an arbitrary cwd, so a cwd-relative default would drop raw payloads (prompts, paths, possibly secrets) into whatever un-gitignored directory a stray invocation runs in. |
 | `session-{sessionId}.jsonl` | filename format | -- | One JSONL file per capture session; the session id is embedded in the filename (sanitized for filesystem-invalid characters). |
 | `adhoc-{yyyy-MM-dd}` | session id fallback | -- | Used only when neither `--session` nor `HOSTREC_SESSION` is supplied (manual, non-driver invocations). Dated (UTC), not random, so repeated manual runs on the same day land deterministically in the same file. |
 
-Precedence, both path and session id: **explicit argv flag > explicit env
-var > fallback.** The driver always sets both env vars explicitly, so the
-fallbacks only engage for manual/ad-hoc invocations.
+Precedence, both path and session id: explicit argv flag > explicit env var >
+fallback. The driver always sets both env vars, so the fallbacks only engage
+for manual/ad-hoc invocations.
 
 ## Envelope
 
