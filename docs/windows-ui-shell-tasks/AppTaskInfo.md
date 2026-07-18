@@ -10,7 +10,7 @@ Tasks are **persisted** across app sessions and reboots — they remain visible 
 
 | Member | Signature | Description |
 |---|---|---|
-| `IsSupported()` | `static bool IsSupported()` | Whether app tasks are supported on this device. Call before any other API, and at startup alongside `FindAll()`. Can return `CLASS_E_CLASSNOTAVAILABLE` instead of `false` on some builds — see `CLAUDE.md` for the consuming code's handling of this. If it returns `false`, `FindAll()` returns an empty collection. |
+| `IsSupported()` | `static bool IsSupported()` | Whether app tasks are supported on this device. Call before any other API, and at startup alongside `FindAll()`. Can return `CLASS_E_CLASSNOTAVAILABLE` instead of `false` on some builds — see [CLAUDE.md](../../CLAUDE.md) for the consuming code's handling of this. If it returns `false`, `FindAll()` returns an empty collection. |
 | `FindAll()` | `static AppTaskInfo[] FindAll()` | All non-removed tasks created by this app, including ones the user has hidden from the taskbar. Empty array if unsupported. Call at startup to recover tasks that outlived a previous app session. |
 | `Create(title, subtitle, deepLink, iconUri, content)` | `static AppTaskInfo Create(string title, string subtitle, Uri deepLink, Uri iconUri, AppTaskContent content)` | Creates and persists a new task. `title` is required — throws if missing/empty. `subtitle` optional, `""` is fine. `deepLink`/`iconUri` must both be non-null `Uri`s (see [README local gotchas](README.md#local-gotchas) — the native side dereferences them unconditionally). `content` comes from one of the `AppTaskContent` factory methods. |
 

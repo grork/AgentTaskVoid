@@ -58,7 +58,7 @@ Never crashes, in any combination tested — degrades to an empty rounded-rectan
 | `Error` | blank |
 | `NeedsAttention` | invalid — `E_INVALIDARG` |
 
-Under `Completed`, adding **any** mutator (alone or combined) replaces the working render with the same blank placeholder — unlike `CreateTextSummaryResult`, the specific combination doesn't matter here, and none of them crash it.
+Under `Completed`, adding any mutator (alone or combined) replaces the working render with the same blank placeholder — unlike `CreateTextSummaryResult`, the specific combination doesn't matter here, and none of them crash it.
 
 Under `NeedsAttention`: `SetQuestion` alone renders blank plus a "Show details" button; all three mutators together renders blank with no "Show details" and no visible buttons — "Show details" looks like a fallback shown only when no explicit `AddButton` is set, consistent with `CreateSequenceOfSteps`/`CreatePreviewThumbnail` under `Completed`/`Error`.
 
