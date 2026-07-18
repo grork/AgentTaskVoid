@@ -39,7 +39,7 @@ Undocumented Shell behavior for this build — not a contract, and it may change
 - Tasks with a *different* `iconUri` get their own taskbar icon, even when the title is identical.
 - Title is purely a per-card display label; it never merges or splits icons.
 
-**Package identity is a separate, harder grouping boundary on top of the above.** Two different sparse-package identities never merge their tasks into one taskbar icon — confirmed even with byte-identical title and fully-resolved absolute icon path. Each identity has its own `tasks.json`.
+**Package identity is a separate, harder grouping boundary on top of the above.** Two different package identities never merge their tasks into one taskbar icon — confirmed even with byte-identical title and fully-resolved absolute icon path. Each identity has its own `tasks.json`.
 
 **Per-card rendering, in one taskbar icon's flyout:**
 - Each card shows the app icon, title, subtitle (bold), and a content row reflecting the `AppTaskContent` shape, with a state glyph: `Running` = purple spinner arc, `Paused` = gray pause bars, `Completed` = green checkmark, `Error` = red diamond with a white X, `NeedsAttention` = amber warning triangle. `Completed` and `Error` cards also get a "Show details" button; `Running`/`Paused`/`NeedsAttention` don't.
@@ -67,7 +67,7 @@ Independent of update order — e.g. a group with both `Completed` and `Paused` 
 
 ### Packaging requirement
 
-Requires a packaged app (this project uses a sparse package — see [CLAUDE.md](../../CLAUDE.md)) and a `com.microsoft.apptaskprovider` AppExtension in the manifest:
+Requires a packaged app (this project uses the full-package identity model — see [CLAUDE.md](../../CLAUDE.md)) and a `com.microsoft.apptaskprovider` AppExtension in the manifest:
 
 ```xml
 <uap3:Extension Category="windows.appExtension">
@@ -79,7 +79,7 @@ Requires a packaged app (this project uses a sparse package — see [CLAUDE.md](
 </uap3:Extension>
 ```
 
-Already present in `identity/AppxManifest.xml`.
+Already present in `src/Atv/Package/AppxManifest.template.xml`.
 
 ### URI formats accepted by icon/asset parameters
 
