@@ -1,6 +1,6 @@
 # AppTaskState × AppTaskContent compatibility
 
-Not documented by Microsoft. `AppTaskInfo.Update(state, content)` accepts far more `state`/`content` combinations than the Shell can actually render correctly — passing validation is not the same as rendering as intended.
+Not documented by Microsoft. `AppTaskInfo.Update(state, content)` accepts far more `state`/`content` combinations than the Shell can render correctly — passing validation is not the same as rendering as intended.
 
 ## Supported scenarios — use only these
 

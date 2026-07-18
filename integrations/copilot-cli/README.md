@@ -4,9 +4,13 @@ Wires GitHub Copilot CLI sessions to Agentaskvoid (`atv`) taskbar cards through
 a native Copilot plugin. The plugin targets only the host-agnostic v2 semantic
 API in `docs/integration-api.md`; no Copilot-specific logic lives in `atv.exe`.
 
-**Authored, captured, and live-dogfooded against:** GitHub Copilot CLI
-**1.0.71** on 2026-07-16. Raw-event findings are in
-`docs/host-events/copilot-cli.md`.
+## Compatibility
+
+Authored, captured, and live-dogfooded against GitHub Copilot CLI 1.0.71
+(2026-07-16). Raw-event findings are in `docs/host-events/copilot-cli.md` —
+see that file for the version and capture date each finding is confirmed
+against. If a newer host version behaves differently, re-run that capture
+to update the finding.
 
 ## Layout
 
@@ -21,16 +25,15 @@ integrations/copilot-cli/
 └── README.md
 ```
 
-## Try the local plugin
+## Install
 
-From any scratch repository:
+For development/dogfooding, load the working tree directly from any scratch
+repository (Copilot caches installed plugins, but `--plugin-dir` bypasses
+that cache):
 
 ```powershell
 copilot --plugin-dir D:\path\to\AppTaskInfoCli\integrations\copilot-cli\plugins\atv-integration
 ```
-
-Copilot caches installed plugins, but `--plugin-dir` loads the working tree
-directly and is therefore the preferred development/dogfood path.
 
 For a normal install from this repository:
 
@@ -61,14 +64,14 @@ before any card can render.
 | Child `agentStop` | `agent-stopped <parent> --agent <task-name>`, then `ready <parent>` |
 | Sync `postToolUse:task` | idempotent lifecycle-completion fallback |
 | Background `notification:agent_idle`/`agent_completed` | `agent-stopped`, then `ready` |
-| `notification:permission_prompt` | `blocked`; bare `permissionRequest` is deliberately not hooked because it fires on auto-approved paths too |
+| `notification:permission_prompt` | `blocked`; bare `permissionRequest` is not hooked because it fires on auto-approved paths too |
 | `notification:shell_completed` | `activity --kind shell` |
 | Main `agentStop` | `ready`; the engine refuses it while registered child loci remain |
 | `preCompact` | `activity --kind compacting` |
 | Non-recoverable `errorOccurred` | `broken` with the nearest closed reason token |
 | `sessionEnd:user_exit|abort` | `session-ended --reason finished` |
 | `sessionEnd:error|timeout` | `session-ended --reason error` |
-| `sessionEnd:complete` | `ready`, not removal: prompt mode can emit an early `complete` while background agents are still running |
+| `sessionEnd:complete` | `ready`, not removal — prompt mode can emit an early `complete` while background agents are still running |
 
 Only `postToolUse` for `ask_user|task` is registered. Ordinary tool activity is
 published from `preToolUse` alone, avoiding duplicate step entries and one
@@ -104,11 +107,11 @@ correlation-state.json
 translator.log
 ```
 
-This is ephemeral integration state, not Agentaskvoid product state. Every
-failure is fail-open: if storage is unavailable, the prompt is missing, or
-multiple identical pending prompts make the match ambiguous, Copilot continues
-normally and the integration degrades to parent/task lifecycle reporting. It
-never guesses.
+This state is private to the plugin — atv's own product state (sidecar,
+config) is untouched by it. Every failure is fail-open: if storage is
+unavailable, the prompt is missing, or multiple identical pending prompts
+make the match ambiguous, Copilot continues normally and the integration
+degrades to parent/task lifecycle reporting rather than guessing.
 
 ## Failure and security posture
 
@@ -137,16 +140,16 @@ hook process crashes or exits nonzero.
   event publication still adds process-launch latency.
 - Prompt-mode `sessionEnd:complete` leaves the card Ready for watchdog cleanup
   rather than risking premature removal during background work.
-- **Permission recovery is intentionally coarse.** Copilot exposes
-  `permission_prompt` only on the parent session and exposes no public
-  permission-approved/completed hook. The parent therefore remains Blocked
-  until later parent activity or the turn's final Ready claim clears it; child
-  activity cannot clear that parent locus. Hooking every `postToolUse` would
-  only clear at tool completion (a one-hour build would still remain Blocked
-  for an hour), while adding synchronous overhead to every tool. Operator
-  decision 2026-07-16: retain the accurate attention signal and accept this
-  stale-after-approval window rather than use timers, internal transcripts, or
-  disable permission attention entirely.
+- **Permission recovery is coarse.** Copilot exposes `permission_prompt` only
+  on the parent session and exposes no public permission-approved/completed
+  hook. The parent therefore remains Blocked until later parent activity or
+  the turn's final Ready claim clears it; child activity cannot clear that
+  parent locus. Hooking every `postToolUse` would only clear at tool
+  completion (a one-hour build would still remain Blocked for an hour),
+  while adding synchronous overhead to every tool. The design keeps the
+  accurate attention signal and accepts this stale-after-approval window,
+  rather than adding timers, reading the internal transcript, or disabling
+  permission attention entirely.
 
 ## Verification status
 

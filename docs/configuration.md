@@ -7,23 +7,21 @@
 --flag  >  environment variable  >  config file  >  built-in default
 ```
 
-A value that fails to parse at one layer is treated as *absent* at that
-layer — the next lower layer is tried, never a hard failure (one bad setting
-never poisons the rest of the file, or the run). `--verbose` surfaces any
-such fallback as a warning; the tool never crashes on a malformed config.
+A value that fails to parse at one layer is treated as absent there, and the
+next lower layer is tried — one bad setting doesn't poison the rest of the
+file, or the run. `--verbose` surfaces any such fallback as a warning.
 
 ## Config file location and format (ERGO-26)
 
 - **Location:** package app-data
   (`ApplicationData.Current.LocalFolder`) — `atv-config.json` next to the
   sidecar index, recycle bin, icon cache, and log file. The path is
-  non-obvious by design (it's per-package-identity, so dev/test/release each
-  get their own, isolated file with zero manual pinning) — run `atv doctor`
-  to print the exact resolved path (`config file: ...`) rather than guessing
-  it.
+  non-obvious: it's per-package-identity, so dev/test/release each get their
+  own isolated file with zero manual pinning — run `atv doctor` to print the
+  exact resolved path (`config file: ...`) rather than guessing it.
 - **Format:** flat JSON, string keys to string values (no nested objects).
-  Every tunable below uses its **bare key name** (e.g. `"watchdog-mode"`,
-  not `"WatchdogMode"`) as the JSON property name:
+  Every tunable below uses its bare key name (e.g. `"watchdog-mode"`) as the
+  JSON property name:
 
   ```json
   {
@@ -37,9 +35,9 @@ such fallback as a warning; the tool never crashes on a malformed config.
   `ATV_IDLE_COMPLETED`). A rebrand (`src/Atv/Branding.cs`) changes the prefix
   automatically — never hardcode `ATV_` yourself in a script that's meant to
   survive a rebrand; call `atv doctor` or read this doc fresh instead.
-- The config file is **optional** — it vanishes cleanly on uninstall
-  (package app-data is removed with the package), and a missing file is
-  normal, not a warning.
+- The config file is optional — it vanishes cleanly on uninstall (package
+  app-data is removed with the package), and a missing file is expected
+  behavior.
 
 ## Every tunable
 
@@ -63,48 +61,42 @@ such fallback as a warning; the tool never crashes on a malformed config.
 | `run-step-max-length` | `ATV_RUN_STEP_MAX_LENGTH` | integer (chars) | `200` | Max length of one step line `run` streams before truncation with an ellipsis. |
 | `run-keepalive-interval` | `ATV_RUN_KEEPALIVE_INTERVAL` | TimeSpan | `00:05:00` (5m) | How often `run` touches the sidecar's `lastUpdate` for an otherwise-silent child, so the watchdog never reaps a quiet-but-alive wrapped process. |
 
-There is deliberately **no per-task override** for idle/linger (e.g. no
-`--idle`/`--linger` flag) — ERGO-27 dropped it (a per-task value has nowhere
-cheap to persist for a cold/unwatched task). Idle periods are always
-env/config, applying identity-wide.
+There is no per-task override for idle/linger (no `--idle`/`--linger` flag)
+— ERGO-27: a per-task value has nowhere cheap to persist for a cold/unwatched
+task. Idle periods are always env/config, applying identity-wide.
 
 ## Per-host recurring defaults (ERGO-17)
 
-The phase-13 v1 artifact passed its own recurring identity values (icon
-token, title text) directly as `--flag`s baked into the hook config. The
-phase-18 v2 Claude Code plugin (`integrations/claude-code/`) deliberately
-does **not**: `translate.ps1` never passes `--subtitle`/`--icon`/`--icon-file`
-at all, so those stay unset (`$null`) on every call — which is exactly what
-lets the `--flag > env > repo file > user config file > built-in default`
-precedence chain below actually reach the repo layer. Since a caller-supplied
-flag always wins over `.atv.json`'s `title-template`/`subtitle`/`icon`
-(`ApplyRepoDefaults` in `src/Atv/Semantics/SemanticEngine.cs`), a translator
-that hard-coded identity flags on every call would permanently block repo
-branding for that field — this is the same "with zero hook edits at all"
-property phase 17 was built for.
+`translate.ps1` (`integrations/claude-code/`) never passes
+`--subtitle`/`--icon`/`--icon-file` — those stay unset (`$null`) on every
+call, which is what lets the `--flag > env > repo file > user config file >
+built-in default` precedence chain below reach the repo layer. A
+caller-supplied flag always wins over `.atv.json`'s
+`title-template`/`subtitle`/`icon` (`ApplyRepoDefaults` in
+`src/Atv/Semantics/SemanticEngine.cs`), so a translator that hard-coded
+identity flags on every call would block repo branding for that field.
 
-`--title` is the one exception (ERGO-33, phase 19): `translate.ps1` forwards
-Claude Code's own `session_title` as `--title`, but only on `UserPromptSubmit`
-(the card-creating event) and only when the user explicitly named the
-session — absent otherwise. This is a conditional, user-intent-gated value,
-not a hard-coded constant, so it does not block repo branding: a session the
-user never named still falls through to `.atv.json`'s `title-template`, then
-the user config, then the built-in default below.
+`--title` is the one exception (ERGO-33): `translate.ps1` forwards Claude
+Code's own `session_title` as `--title`, but only on `UserPromptSubmit` (the
+card-creating event) and only when the user explicitly named the session —
+absent otherwise. This is a conditional, user-intent-gated value: a session
+the user never named still falls through to `.atv.json`'s `title-template`,
+then the user config, then the built-in default below.
 
-This config file remains for *your own* machine-wide overrides (idle
-periods, watchdog mode); per-host presentation choices, where a host
-integration chooses to set any, live in the integration artifact itself,
-editable by copying and adjusting that artifact's hook commands — or, since
-phase 17, per-**repo** via `.atv.json` below, with zero hook edits at all.
+This config file remains for your own machine-wide overrides (idle periods,
+watchdog mode); per-host presentation choices, where a host integration
+chooses to set any, live in the integration artifact itself, editable by
+copying and adjusting that artifact's hook commands — or per-repo via
+`.atv.json` below, with zero hook edits.
 
-## Repo-scoped presentation defaults: `.atv.json` (ERGO-30, phase 17)
+## Repo-scoped presentation defaults: `.atv.json` (ERGO-30)
 
 A repo can brand its own cards — title, subtitle, icon, whether its sessions
-visually glom together — without touching the shared hook config, by dropping
-a `.atv.json` file at (or above) the directory a translator anchors on. This
-is a **separate, narrower** layer than `atv-config.json` above: it only
-carries **presentation**, never operational knobs, and it slots into the
-precedence chain BETWEEN env and the user config file:
+visually glom together — without touching the shared hook config, by
+dropping a `.atv.json` file at (or above) the directory a translator anchors
+on. This is a separate, narrower layer than `atv-config.json` above: it only
+carries presentation, never operational knobs, and it sits in the precedence
+chain between env and the user config file:
 
 ```
 --flag  >  environment variable  >  repo file (.atv.json)  >  user config file (atv-config.json)  >  built-in default
@@ -112,26 +104,26 @@ precedence chain BETWEEN env and the user config file:
 
 ### Discovery and the `--cwd` anchor
 
-`atv` walks **up** from an anchor directory looking for `.atv.json`; the
-**nearest** one wins (an ancestor's is never consulted once a closer one is
-found — monorepo-friendly: each package can have its own). The walk **stops**
-at the first `.git` boundary (that directory is still checked, inclusive) or
-at the filesystem root, whichever comes first.
+`atv` walks up from an anchor directory looking for `.atv.json`; the nearest
+one wins (an ancestor's is never consulted once a closer one is found —
+monorepo-friendly: each package can have its own). The walk stops at the
+first `.git` boundary (that directory is still checked, inclusive) or at the
+filesystem root, whichever comes first.
 
-The anchor is **`--cwd <path>`** — a global option accepted anywhere on the
+The anchor is `--cwd <path>` — a global option accepted anywhere on the
 command line, forwarded by a host integration (e.g. Claude Code's
-`--cwd ${CLAUDE_PROJECT_DIR}`, phase 18) so a hook spawned from an arbitrary
-directory still resolves the right repo. `atv` never reads a host environment
-variable itself for this — it only ever sees `--cwd`. Direct human use with
-no `--cwd` falls back to the process's own working directory (reliable: a
-human runs `atv` while standing in the repo). Where a host provides no usable
-anchor, repo config simply doesn't engage — never a mis-anchor.
+`--cwd ${CLAUDE_PROJECT_DIR}`) so a hook spawned from an arbitrary directory
+still resolves the right repo. `atv` never reads a host environment variable
+itself for this — it only ever sees `--cwd`. Direct human use with no
+`--cwd` falls back to the process's own working directory (reliable: a
+human runs `atv` while standing in the repo). Where a host provides no
+usable anchor, repo config doesn't engage — it never resolves against the
+wrong directory.
 
-Discovery (and everything it feeds) runs **only when a card is genuinely
-created** — the first semantic-verb call against a handle with no live card.
-**Never** on an update to an already-live card: editing `.atv.json` mid-session
-changes nothing about that session's card; the *next new* card picks up the
-edit.
+Discovery runs only when a card is created — the first semantic-verb call
+against a handle with no live card, never on an update to an already-live
+card. Editing `.atv.json` mid-session changes nothing about that session's
+card; the next new card picks up the edit.
 
 ### The allowlist (the entire trust mechanism)
 
@@ -140,32 +132,32 @@ edit.
 
 | Key | Mirrors | What it does |
 |---|---|---|
-| `title-template` | (no direct flag — see below) | A title, evaluated **only** when the caller supplied no explicit `--title`. `{repo}` (the discovered repo directory's name) and `{branch}` (read cheaply off `.git/HEAD`, never shelling out to `git`) expand inside it; a token with no resolvable value is **dropped** (replaced with an empty string), never left as a literal `{branch}` in a real title. A caller's own `--title` always wins verbatim and is never templated. |
+| `title-template` | (no direct flag — see below) | A title, evaluated only when the caller supplied no explicit `--title`. `{repo}` (the discovered repo directory's name) and `{branch}` (read cheaply off `.git/HEAD`, never shelling out to `git`) expand inside it; a token with no resolvable value is dropped (replaced with an empty string). A caller's own `--title` always wins verbatim and is never templated. |
 | `subtitle` | `--subtitle` | Subtitle text, when the caller supplied no explicit `--subtitle`. |
 | `icon` | `--icon` | An icon token (curated Segoe name / single-character emoji / raw path), when the caller supplied neither `--icon` nor `--icon-file`. |
 | `icon-file` | `--icon-file` | A bring-your-own-image path, same precedence as `icon` above; if a single source (env/repo-file/user-file) somehow sets both, `icon-file` wins. |
-| `group` | (no flag) | ERGO-14's glomming intent: a truthy value (`"true"`, case-insensitive) makes every card created while this repo's `.git` root is the discovered repo root **share one exact icon URI** — real taskbar glomming (ERGO-13 physics: grouping is keyed on the literal icon URI string). A different repo's cards always stay visually separate. If no `.git` boundary is found, grouping degrades gracefully (an ordinary per-handle icon, logged) rather than failing the create. |
+| `group` | (no flag) | ERGO-14's glomming intent: a truthy value (`"true"`, case-insensitive) makes every card created while this repo's `.git` root is the discovered repo root share one exact icon URI — real taskbar glomming (ERGO-13: cards group by icon URI). A different repo's cards always stay visually separate. If no `.git` boundary is found, grouping degrades gracefully (an ordinary per-handle icon, logged) rather than failing the create. |
 
-**Nothing else is repo-settable.** `deep-link` is explicitly excluded (a
-*launch action* — a checked-out repo, possibly attacker-controlled, must
-never decide what your card opens) and so is every operational knob from the
-table above (idle periods, watchdog interval, log rotation — user/machine
-only). A disallowed key present in a `.atv.json` is **ignored and durably
-logged** (never silently dropped) — `atv doctor`/the failure log will show
-it. Identity stays global (ERGO-16): `.atv.json` changes presentation, never
-the shared task namespace — `list`/`clear` are unaffected.
+**Nothing else is repo-settable.** `deep-link` is excluded (a launch action —
+a checked-out repo, possibly attacker-controlled, must never decide what your
+card opens) and so is every operational knob from the table above (idle
+periods, watchdog interval, log rotation — user/machine only). A disallowed
+key present in a `.atv.json` is ignored and logged to the durable failure
+log — `atv doctor`/the log will show it. Identity stays global (ERGO-16):
+`.atv.json` changes presentation, never the shared task namespace —
+`list`/`clear` are unaffected.
 
 A malformed or oversized (>64 KiB) `.atv.json` is ignored, logged, and never
 blocks a create (`atv` exits 0 unless `--strict`) — same non-disruptive
 posture as every other failure path in this tool.
 
-### The built-in default: never a blank title (ERGO-33, phase 19)
+### The built-in default: never a blank title (ERGO-33)
 
-`title-template`/`subtitle` above are the **repo** layer of the chain; when
+`title-template`/`subtitle` above are the repo layer of the chain; when
 every layer — `--flag`, env, `.atv.json`, and the user config file — is
 absent (or a layer's own template expands to empty, e.g. `{repo}` with no
-discovered `.git` root), the engine's own **built-in default** is the
-terminus. Title is never left blank:
+discovered `.git` root), the engine's own built-in default is the terminus.
+Title is never left blank:
 
 | Anchor (`--cwd`/process cwd) | `.git` root | Built-in default title |
 |---|---|---|
@@ -178,16 +170,13 @@ folder name in parentheses when the anchor sits below the discovered `.git`
 root — suppressed when the two names coincide (never `AppTaskInfoCli
 (AppTaskInfoCli)`). An anchor with no last path segment (a bare drive root,
 `C:\`) floors out at the brand name (`Agentaskvoid`) instead. The built-in
-default **subtitle** is the resolved git branch when a `.git` root is found,
+default subtitle is the resolved git branch when a `.git` root is found,
 empty otherwise — subtitle has no never-blank guarantee (an anchor with no
-repo legitimately has no branch to show).
+repo has no branch to show).
 
-A host integration can feed the chain's `--flag` layer itself with the
-host's own session name: see `integrations/claude-code/README.md` for how
-the Claude Code plugin forwards `session_title` as `--title`, conditional on
-the user having explicitly named the session (never a hard-coded constant,
-which would permanently block repo branding — only a genuinely user-supplied
-value is forwarded).
+`integrations/claude-code/README.md` covers how the Claude Code plugin feeds
+the chain's `--flag` layer with the host's own session name, conditional on
+the user having explicitly named the session.
 
 ### Example
 
@@ -215,7 +204,7 @@ is a one-look diagnosis.
 ## Diagnosing configuration problems
 
 `atv doctor [--verbose]` prints the resolved `config file:`, `app-data
-folder:`, `sidecar dir:`, and `log file:` paths for the *current* identity
+folder:`, `sidecar dir:`, and `log file:` paths for the current identity
 (dev build vs. release vs. test worktree each resolve to a different path —
 see the `(dev)`/`(test)` marker on `doctor`'s identity line). If a config
 value silently didn't apply, check the durable failure log at the printed

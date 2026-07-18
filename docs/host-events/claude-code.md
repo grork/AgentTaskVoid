@@ -1,19 +1,18 @@
 # Claude Code host events
 
-Part B of phase-14 (`plan/phase-14-host-event-recorder.md`) — the Claude Code leg
-that proves the recorder core (INFRA-30). Conventions, pinned plumbing names, and
-the per-host artifact pattern are in `docs/host-events/README.md`; this file is
-the Claude-Code-specific matrix and findings the pattern produces.
+The Claude Code leg of the host-event recorder pattern (INFRA-30). Conventions,
+pinned plumbing names, and the per-host artifact pattern are in
+`docs/host-events/README.md`; this file is the Claude-Code-specific matrix
+and findings the pattern produces.
 
 Conduit template, stage step, driver harness, and cue script live at
 `tools/host-event-recorder/hosts/claude-code/`.
 
 ## Safe/skip matrix (INFRA-26)
 
-**Derived from the Claude Code hooks reference** (fetched 2026-07-12,
-<https://code.claude.com/docs/en/hooks> — 30 hook events, corroborating LIFE-24's
-2026-07-11 grounding note of "~30 events now vs the 9 in LIFE-12"), **before any
-capture runs**. One classification axis: does camping this event (a passive
+Derived from the Claude Code hooks reference (fetched 2026-07-12,
+<https://code.claude.com/docs/en/hooks> — 30 hook events) before any
+capture runs. One classification axis: does camping this event (a passive
 recorder that logs stdin verbatim and exits 0, emitting no decision output)
 suppress or replace a default host action?
 
@@ -27,8 +26,8 @@ suppress or replace a default host action?
   hook-absent fallback). Camping without doing that work breaks the host action
   it fires for. Per INFRA-26, camp-with-care collapses into skip for v1.
 
-Every row below is **first derived from docs**, to be **confirmed by the capture**
-(see Findings, pending the operator's supervised run).
+Every row below is first derived from docs, then confirmed by the capture
+(see Findings).
 
 | Event | Class | Reason (the one axis) | Posture | Driver coverage (v1) |
 |---|---|---|---|---|
@@ -39,7 +38,7 @@ Every row below is **first derived from docs**, to be **confirmed by the capture
 | `PreToolUse` | Safe | Decision-capable (`permissionDecision` allow/deny/ask/defer, `updatedInput`); declining (no `hookSpecificOutput`) is the INFRA-26 decision text's own worked example — the default permission flow proceeds untouched. | Async | Scripted — tool calls (+ subagent-internal, `agent_id`) |
 | `PermissionRequest` | Safe | Decision-capable (`decision.behavior` allow/deny) fired when the permission dialog would appear; declining leaves the normal dialog/flow in place. | Async | Supervised — real permission prompt beat (+ added subagent-permission beat) |
 | `PermissionDenied` | Safe | Only a `retry:true` signal after an **auto-mode** classifier denial; declining leaves the denial standing. | Async | Not exercised v1 — requires `permission_mode:auto`, outside corpus |
-| `PostToolUse` | Safe | Decision-capable (`decision:"block"`, `updatedToolOutput`) per the *current* docs fetch; declining leaves the tool's real output unmodified. **Flag:** this conflicts with `integrations/claude-code/README.md`'s phase-13 note that `PostToolUse` "cannot block; already ran" — worth re-confirming which is current during the capture (see Findings). | Async | Scripted — tool calls |
+| `PostToolUse` | Safe | Decision-capable (`decision:"block"`, `updatedToolOutput`) per the current docs fetch; declining leaves the tool's real output unmodified. **Flag:** this conflicts with `integrations/claude-code/README.md`'s earlier note that `PostToolUse` "cannot block; already ran" — unresolved which is current, worth re-confirming on the next capture. | Async | Scripted — tool calls |
 | `PostToolUseFailure` | Safe | Decision-capable (`decision:"block"`); declining leaves the failure surfaced normally. | Async | Incidental only — fires only if a scripted tool call happens to fail |
 | `PostToolBatch` | Safe | Decision-capable (`decision:"block"` after a parallel-tool-call batch resolves); declining lets the loop continue normally. | Async | Incidental — only if the scripted prompt causes genuinely parallel (non-subagent) tool calls in one turn |
 | `Notification` | Safe | Purely observational per the docs ("no blocking"); the textbook safe case. | Async | Scripted (incidental) + Supervised — `permission_prompt` (real + subagent-originated beats), `idle_prompt` (idle-wait beat) |
@@ -48,20 +47,20 @@ Every row below is **first derived from docs**, to be **confirmed by the capture
 | `SubagentStop` | Safe | Decision-capable (`decision:"block"` keeps the subagent going); declining lets it stop normally — same "declining to decide" case as `Stop`. | Async | Scripted — fan-out beat |
 | `TaskCreated` | Safe | Decision-capable (block/rollback task creation); declining lets creation proceed. | Async | Not exercised v1 — no task-tool beat in corpus |
 | `TaskCompleted` | Safe | Decision-capable (block marking complete); declining lets completion proceed. | Async | Not exercised v1 |
-| `Stop` | Safe | Decision-capable (`decision:"block"` keeps the turn going); declining ends the turn normally — the shipped phase-13 integration already relies on exactly this. | Async | Scripted — end of the driven turn |
+| `Stop` | Safe | Decision-capable (`decision:"block"` keeps the turn going); declining ends the turn normally — the shipped Claude Code integration already relies on exactly this. | Async | Scripted — end of the driven turn |
 | `StopFailure` | Safe | Explicitly "output and exit code ignored" per the docs — cannot influence host behavior even in principle. | Async | Not exercised v1 — requires an API error, not induced |
 | `TeammateIdle` | Safe | Decision-capable (exit 2 / `continue:false` prevents idle); declining lets the teammate idle normally. | Async | Not exercised v1 — agent-team feature, outside corpus |
 | `InstructionsLoaded` | Safe | Purely observational (exit code ignored). | Async | Incidental — only if the scratch project has a `CLAUDE.md`/`.claude/rules/*.md` to load |
 | `ConfigChange` | Safe | Decision-capable (block, except `policy_settings`); declining lets the config change apply. | Async | Not exercised v1 — no config-edit beat |
 | `CwdChanged` | Safe | Purely observational. | Async | Not exercised v1 — no `cd` beat |
 | `FileChanged` | Safe | Purely observational, async by the docs' own description. | Async | Not exercised v1 — needs an explicit literal-filename matcher and a matching file edit, neither in the corpus |
-| `WorktreeCreate` | **Skip (v1)** | **The replacement class.** Docs: "Replaces default git behavior… any non-zero exit code causes creation to fail… missing path or hook failure fails creation." A passive logger that never prints a path *breaks* worktree creation outright — camping here without doing the real work is exactly what INFRA-26 rules out. | N/A — not camped | N/A — never driven |
+| `WorktreeCreate` | **Skip (v1)** | **The replacement class.** Docs: "Replaces default git behavior… any non-zero exit code causes creation to fail… missing path or hook failure fails creation." A passive logger that never prints a path breaks worktree creation outright — camping here without doing the real work is exactly what INFRA-26 rules out. | N/A — not camped | N/A — never driven |
 | `WorktreeRemove` | Safe | Observational; docs say failures are "logged in debug mode only" (not fatal) — unlike its `Create` counterpart, there is no hook-must-supply-the-work contract here. | Async | Not exercised v1 — no `--worktree` beat |
 | `PreCompact` | Safe | Decision-capable (block compaction); declining lets compaction proceed. | Async | Not exercised v1 — no `/compact` beat |
 | `PostCompact` | Safe | Purely observational. | Async | Not exercised v1 |
-| `Elicitation` | Safe (lower confidence) | Decision-capable (`action` accept/decline/cancel) for an MCP elicitation dialog. Docs don't state an explicit no-hook-absent-fallback contract the way `WorktreeCreate` does, so this is classified by the general "declining leaves the dialog to the normal flow" pattern rather than an explicit docs statement — **flagged for extra scrutiny if it ever fires during a capture.** | Async | Not exercised v1 — no MCP-elicitation beat |
+| `Elicitation` | Safe (lower confidence) | Decision-capable (`action` accept/decline/cancel) for an MCP elicitation dialog. Docs don't state an explicit no-hook-absent-fallback contract the way `WorktreeCreate` does, so this is classified by the general "declining leaves the dialog to the normal flow" pattern rather than an explicit docs statement — flagged for extra scrutiny if it ever fires during a capture. | Async | Not exercised v1 — no MCP-elicitation beat |
 | `ElicitationResult` | Safe (lower confidence) | Same reasoning and same flag as `Elicitation`. | Async | Not exercised v1 |
-| `SessionEnd` | Safe | Purely observational (cleanup/logging only); no default action is suppressed by camping. Its **synchronous** posture below is an INFRA-27 teardown-race concern, not a safety concern — it is safe to camp either way. | **Sync** (`timeout: 10`) — see Observer posture | Supervised — clean-exit beat (`-p` is one-shot and never reaches a `SessionEnd`-bearing lifecycle; see `driver-scripted.ps1`'s header comment) |
+| `SessionEnd` | Safe | Purely observational (cleanup/logging only); no default action is suppressed by camping. Its synchronous posture below is an INFRA-27 teardown-race concern, not a safety concern — it is safe to camp either way. | **Sync** (`timeout: 10`) — see Observer posture | Supervised — clean-exit beat (`-p` is one-shot and never reaches a `SessionEnd`-bearing lifecycle; see `driver-scripted.ps1`'s header comment) |
 
 **Only `WorktreeCreate` is skipped.** Every other candidate event is safe to camp
 passively, so the conduit template (`tools/host-event-recorder/hosts/claude-code/settings.hooks.template.json`)
@@ -79,10 +78,9 @@ capture runs are supervised, so no heavier process applies.
   hooks reference: "exec form runs when `args` is present… Claude Code
   resolves `command`… and spawns it directly with `args` as the argument
   vector. There is no shell." `shell` is meaningless here (docs: "Ignored when
-  `args` is set") and is omitted. This is the byte-faithful option the plan
-  called for — no PowerShell text pipeline sits between the host's stdin bytes
-  and the recorder, which is the entire reason the recorder is compiled C# and
-  not another one-liner.
+  `args` is set") and is omitted. No PowerShell text pipeline sits between
+  the host's stdin bytes and the recorder, which is why the recorder is
+  compiled C# rather than another one-liner.
 - **Absolute-path `command`, not a PATH-resolved name.** The docs' summary
   phrase ("resolves `command` as an executable on PATH") describes the general
   case; the docs' own schema example substitutes a path placeholder
@@ -91,53 +89,40 @@ capture runs are supervised, so no heavier process applies.
   PATH-searched name. Standard exec conventions (Windows `CreateProcess`,
   Node's `child_process.spawn` without `shell:true`) treat a
   separator-containing command string as a path and skip PATH search
-  entirely. **Flagged for a first-capture sanity check anyway**: if the very
-  first staged capture comes back empty, check this assumption first.
-- **A real double-escaping bug was caught and fixed here** (2026-07-12,
-  mechanical validation): the stage step's placeholder substitution first
-  used `-replace '\\', '\\\\'` to JSON-escape the exe's Windows path, which is
-  wrong — .NET's `-replace` replacement string has no backslash-escaping
-  semantics of its own (only `$`-group references are special), so a
-  4-backslash replacement literal inserted 4 raw backslashes per matched
-  single backslash instead of 2, double-escaping the path. `Test-Path` on the
-  resulting (wrong) parsed string still returned `True` (Windows tolerates
-  doubled internal separators), so this silently produced a *working but
-  incorrect* path — worth remembering for any future host leg's stage script
-  that does the same kind of path-into-JSON-string substitution. Fixed to
-  `-replace '\\', '\\'` (pattern and literal replacement are both the same
-  2-backslash string) and re-verified byte-for-byte against the real exe path.
+  entirely. Worth a first-capture sanity check on a new host leg regardless:
+  if the very first staged capture comes back empty, check this assumption
+  first.
+- **Gotcha: PowerShell's `-replace` does not backslash-escape its replacement
+  string** — only `$`-group references are special there. A stage script
+  that JSON-escapes a Windows path via `-replace '\\', '\\\\'` (intending
+  1 backslash → 2) actually emits 4 raw backslashes per matched backslash,
+  double-escaping the path. `Test-Path` on the resulting string still
+  returns `True` (Windows tolerates doubled separators), so the bug produces
+  a working-but-wrong path silently. The correct form is `-replace '\\',
+  '\\'` (both sides are the same 2-backslash string) — relevant to any
+  future host leg's stage script doing the same path-into-JSON substitution.
 
 ## Observer posture (INFRA-27)
 
-Async everywhere (spawn cost ~0 added to the host's event loop) **except
-`SessionEnd`**, which is synchronous under `timeout: 10` — the shipped
-phase-13 precedent (`integrations/claude-code/README.md`, "Why `SessionEnd` is
-synchronous"): an async teardown hook loses the process-exit race and the
-cleanup/log line never lands. Because `WorktreeCreate` (the only event where the
-recorder would need to do real work) is skipped, the teardown race is the only
-reason any event blocks.
-
-## Staleness check (phase 18, 2026-07-14)
-
-Phase 18's AC3 gate: the installed Claude Code on the build machine at the
-time was **2.1.209** (`claude --version`), against this document's **2.1.207**
-stamp below — a two-point-release gap. Per the phase's own instructions, an
-unattended executor does not attempt a live re-capture on a version mismatch
-(that requires a supervised interactive session); this is flagged for the
-orchestrator to weigh before the live dogfood (AC5/AC6) runs, per INFRA-29's
-organic-recapture posture. No re-capture ran; the findings below are
-unchanged from the original 2.1.207 capture.
+Async everywhere (spawn cost ~0 added to the host's event loop) except
+`SessionEnd`, which is synchronous under `timeout: 10` — the same posture
+the shipped Claude Code plugin uses for its own `SessionEnd` hook
+(`integrations/claude-code/README.md`): an async teardown hook loses the
+process-exit race and the cleanup/log line never lands. Because
+`WorktreeCreate` (the only event where the recorder would need to do real
+work) is skipped, the teardown race is the only reason any event blocks.
 
 ## Findings
 
 **Verified against:** Claude Code `2.1.207` (installed on the capture machine,
 `claude --version`) — captured `2026-07-12`/`2026-07-13`, sessions
 `cc-20260712-212159` (scripted, `-p`), `cc-interactive-1`, `cc-interactive-2`,
-`cc-interactive-3` (supervised interactive). These are the recorder
-*capture-file* ids (`HOSTREC_SESSION`); each maps to one Claude-Code host
-`session_id` inside the payloads (e.g. `cc-20260712-212159` →
-`1d17eebc-3060-4494-8238-a22f4ac7bacb`, `cc-interactive-1` →
-`4b8f7eec-9c33-4929-bdd3-1df2b2ec17d0`).
+`cc-interactive-3` (supervised interactive). A materially newer installed
+version is a signal to re-run this capture, not to trust this file over the
+live host. These are the recorder *capture-file* ids (`HOSTREC_SESSION`);
+each maps to one Claude-Code host `session_id` inside the payloads (e.g.
+`cc-20260712-212159` → `1d17eebc-3060-4494-8238-a22f4ac7bacb`,
+`cc-interactive-1` → `4b8f7eec-9c33-4929-bdd3-1df2b2ec17d0`).
 
 Four captures, split by what each surface can reach:
 
@@ -177,7 +162,7 @@ runs (interrupt-during-tool, clean idle) cited explicitly where they contribute.
 | `PostToolUse` | Fired | both | Carries `tool_response`, `duration_ms`; `agent_id` when subagent-scoped. |
 | `PostToolUseFailure` | Fired | `cc-interactive-1` | Fires when a tool **fails on its own** — observed once, a subagent's auto-approved `git log` exiting 128 in the empty scratch repo. Carries `error`, `tool_name`, `agent_id`, `is_interrupt` (`false` here). It does **NOT** fire on a user interrupt: in `cc-interactive-2` a `bash slow.sh` call interrupted mid-run produced no `PostToolUseFailure` at all (finding 6), so `is_interrupt:true` was never observed. |
 | `PostToolBatch` | Fired | both | Fires after each resolved tool batch; carries `tool_calls`; `agent_id` when subagent-scoped. |
-| `Notification` | Fired | `cc-interactive-1`, `cc-interactive-3` | Two subtypes observed. `permission_prompt` (message `"Claude needs your permission"`, `cc-interactive-1`) — **carries NO `agent_id`**, even for a subagent-originated prompt (attribution is on `PermissionRequest` instead). `idle_prompt` (message `"Claude is waiting for your input"`, `cc-interactive-3`) — fired ~60 s after the turn completed (see item 3). Both are the two types the shipped phase-13 integration maps to `attention`. |
+| `Notification` | Fired | `cc-interactive-1`, `cc-interactive-3` | Two subtypes observed. `permission_prompt` (message `"Claude needs your permission"`, `cc-interactive-1`) — **carries NO `agent_id`**, even for a subagent-originated prompt (attribution is on `PermissionRequest` instead). `idle_prompt` (message `"Claude is waiting for your input"`, `cc-interactive-3`) — fired ~60 s after the turn completed (see item 3). Both are the two types the shipped Claude Code integration maps to `attention`. |
 | `MessageDisplay` | Fired | both | Fires per streamed assistant message; carries `message_id`, `turn_id`, `delta`, `final`. Not targeted by a beat — fires incidentally every turn. |
 | `SubagentStart` | Fired | both | Carries `agent_id` + `agent_type` (`general-purpose`). One per spawned subagent; **`agent_id` distinct per parallel spawn** (see item 2). |
 | `SubagentStop` | Fired | both | `agent_id` matches its `SubagentStart`; adds `agent_transcript_path`, `last_assistant_message`. |
@@ -200,47 +185,45 @@ runs (interrupt-during-tool, clean idle) cited explicitly where they contribute.
 
 ### Key structural findings
 
-1. **`SessionEnd` is captured — the synchronous posture works.** It landed as the
-   final record of **every** captured session (all four). The phase-13 async-loss
-   bug (an async teardown hook killed before it completes) does not recur with
-   `async:false` + `timeout:10`. This is the single most important row: the
-   recorder exists partly to catch this regressing again.
-2. **`SessionEnd`'s field is `reason`, not `exit_reason`.** This contradicts the
-   phase-13 executor note recorded in `integrations/claude-code/README.md`
-   ("SessionEnd carries `exit_reason` not `reason`"). Live payloads on 2.1.207 use
-   **`reason`** (values seen: `other`, `prompt_input_exit`). *(Not editing the
-   shipped phase-13 doc from this phase — the atv hook reads only `session_id`, so
-   its behavior is unaffected; flagged here for whoever revises that doc.)*
-3. **`-p` DOES fire `SessionEnd`.** `driver-scripted.ps1`'s header assumed the
-   one-shot `-p` lifecycle "never reaches a `SessionEnd`" — the scripted capture
-   disproves it (`reason:"other"`). Harmless (the scripted run got a bonus
-   teardown proof); the header comment overstates the limitation.
+1. **`SessionEnd` is captured — the synchronous posture works.** It landed as
+   the final record of every captured session (all four). With `async:false`
+   + `timeout:10`, the earlier async-teardown loss (an async hook killed
+   before it completes) does not recur. This is the regression the recorder
+   exists partly to guard against.
+2. **`SessionEnd`'s field is `reason`, not `exit_reason`** (values seen:
+   `other`, `prompt_input_exit`). The shipped Claude Code plugin already
+   reads `reason`, matching this.
+3. **`-p` fires `SessionEnd` too.** `driver-scripted.ps1`'s header comment
+   assumed the one-shot `-p` lifecycle never reaches a `SessionEnd`-bearing
+   teardown — the scripted capture disproves it (`reason:"other"`);
+   harmless (a bonus teardown proof), but the header comment overstates the
+   limitation.
 4. **`agent_id` is the subagent tag across a subagent's whole tool lifecycle.**
    The events that carry a non-empty `agent_id` when subagent-scoped:
    `SubagentStart`, `SubagentStop`, `PreToolUse`, `PostToolUse`, `PostToolBatch`,
-   `PostToolUseFailure`, **and `PermissionRequest`**. Main-thread instances of the
+   `PostToolUseFailure`, and `PermissionRequest`. Main-thread instances of the
    same events carry an empty/absent `agent_id`. So "is this event from a subagent,
    and which one?" is answerable on all of them.
 5. **A permission prompt's subagent origin is on `PermissionRequest`, not
    `Notification`.** `Notification:"permission_prompt"` never carries `agent_id`;
    the paired `PermissionRequest` does. Any future atv work that wants to attribute
    a permission prompt to a specific subagent card (the LIFE-24 "subagents → own
-   cards" idea) must read `PermissionRequest`, not the `Notification` the shipped
-   phase-13 integration currently maps.
+   cards" idea) must read `PermissionRequest`, not `Notification`.
 6. **A user interrupt fires no distinguishing hook event — tested both ways.**
    (a) Interrupting *during text generation* (`cc-interactive-1`, no tool in
    flight) produced no `PostToolUseFailure`, no `StopFailure`, and no
    interrupt/cancel flag on any `Stop` — indistinguishable from an ordinary turn
    end. (b) Interrupting *during a tool call* (`cc-interactive-2`, `bash slow.sh`
-   mid-sleep) fired the `PreToolUse` but then **nothing** — no `PostToolUse` and,
-   crucially, **no `PostToolUseFailure`**. The tool call is simply *orphaned* at
-   the hook layer (a `PreToolUse` with no completion event of any kind). So the
-   `is_interrupt` field on `PostToolUseFailure` belongs to tools that fail on their
-   own, **not** to user interrupts — an interrupt raises no event a hook can key
-   off. (Implication for atv: a `run`-style wrapper cannot detect a user interrupt
-   of a tool via hooks; only the missing `PostToolUse` — an absence — signals it.)
+   mid-sleep) fired the `PreToolUse` but then nothing — no `PostToolUse` and no
+   `PostToolUseFailure`. The tool call is simply orphaned at the hook layer
+   (a `PreToolUse` with no completion event of any kind). So the
+   `is_interrupt` field on `PostToolUseFailure` belongs to tools that fail on
+   their own, not to user interrupts — an interrupt raises no event a hook
+   can key off. (Implication for atv: a `run`-style wrapper cannot detect a
+   user interrupt of a tool via hooks; only the missing `PostToolUse` — an
+   absence — signals it.)
 
-### LIFE-24 empirical item 2 — ANSWERED
+### LIFE-24 empirical item 2 — answered
 
 *Which event types fire inside subagents; `agent_id` uniqueness across parallel
 spawns; whether a subagent-triggered `Notification:permission_prompt` carries the
@@ -249,8 +232,8 @@ spawns; whether a subagent-triggered `Notification:permission_prompt` carries th
 - **Events fired for/inside subagents:** `SubagentStart`, `SubagentStop`, and the
   subagent's own `PreToolUse`/`PostToolUse`/`PostToolBatch`/`PostToolUseFailure`/
   `PermissionRequest` — all carrying that subagent's `agent_id` + `agent_type`
-  (finding 4). `TaskCreated`/`TaskCompleted` do **not** fire for subagents.
-- **`agent_id` uniqueness across PARALLEL spawns: yes.** Scripted fan-out →
+  (finding 4). `TaskCreated`/`TaskCompleted` do not fire for subagents.
+- **`agent_id` uniqueness across parallel spawns: yes.** Scripted fan-out →
   `a98cf7c791c5ca991` + `abec8786ede5ae2dc`; interactive → `a72aee33467652aa4` +
   `a7f043e61ee0d6fa0`. All four distinct; each threads consistently from its
   `SubagentStart` through its tool calls to its `SubagentStop`, and the
@@ -259,27 +242,26 @@ spawns; whether a subagent-triggered `Notification:permission_prompt` carries th
 - **Does `Notification:permission_prompt` carry `agent_id`? No** (finding 5). The
   attribution lives on `PermissionRequest` instead.
 
-### LIFE-24 empirical item 3 — ANSWERED
+### LIFE-24 empirical item 3 — answered
 
 *Does `idle_prompt` fire after a user interrupt, and on what timing/repetition?*
 
 - **`idle_prompt` fires ~60 s after a turn completes, once.** In the clean idle
   test (`cc-interactive-3`): `Stop` at `07:53:00` → `Notification`
   `notification_type:"idle_prompt"` (message `"Claude is waiting for your input"`)
-  at `07:54:00`, i.e. **exactly 60 s** after the turn ended. It fired **once** and
-  did **not** repeat across the ~39 minutes the session then sat idle before
+  at `07:54:00`, i.e. exactly 60 s after the turn ended. It fired once and
+  did not repeat across the ~39 minutes the session then sat idle before
   `/exit`.
-- **It is NOT focus-gated.** The `idle_prompt` fired while the terminal was still
-  **focused** (the operator's focused-then-unfocused window straddled the 60 s
-  mark and the notification landed in the focused portion). This **corrects** the
-  earlier inference from the phase-13 dogfood that idle depended on
-  unfocusing/backgrounding — that was coincidental timing, not a causal gate.
+- **It is not focus-gated.** The `idle_prompt` fired while the terminal was still
+  focused (the operator's focused-then-unfocused window straddled the 60 s
+  mark and the notification landed in the focused portion). This corrects an
+  earlier inference that idle depended on unfocusing/backgrounding — that was
+  coincidental timing, not a causal gate.
 - **The "after an interrupt" sub-question stays only weakly answered.** In
   `cc-interactive-1` (interrupt then idle) no `idle_prompt` fired — but that
-  session's longest post-`Stop` idle window was **47.6 s** (under the ~60 s
+  session's longest post-`Stop` idle window was 47.6 s (under the ~60 s
   threshold), and its one longer (~151 s) window was immediately pre-`/exit`. So
   the absence there is consistent with "never idle long enough after a clean
   turn", not proven interrupt-suppression. A clean interrupt-then-wait-past-60 s
-  test was not isolated; recorded as attempted, per INFRA-29's organic-recapture
-  posture. The firm result is the baseline: **~60 s after a normal turn end, once,
-  focus-independent.**
+  test was not isolated. The firm result is the baseline: ~60 s after a normal
+  turn end, once, focus-independent.

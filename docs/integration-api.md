@@ -13,7 +13,7 @@ bottom once, then use it as reference. The per-host translator artifacts
 names — only what `atv` itself accepts and guarantees. For a worked example
 of a translator built against this exact contract, see the first-party
 Claude Code plugin: [`integrations/claude-code/`](../integrations/claude-code/)
-(phase 18, DIST-11/LIFE-25) — its `translate.ps1` and
+(DIST-11/LIFE-25) — its `translate.ps1` and
 `integrations/claude-code/README.md`'s event-mapping table show every
 mechanism this document describes (the `-` stdin convention, `--cwd`
 forwarding, the closed kind/reason vocabularies, fan-out) applied to one
@@ -22,13 +22,10 @@ real host. The GitHub Copilot CLI plugin under
 worked example; it additionally demonstrates a plugin-local correlation
 bridge for a host whose child hook events omit their parent/task identity.
 
-**Status note (2026-07-13):** this document describes the ERGO-31/LIFE-24
-v2 semantic engine as built in plan phase 15 (split into 15A and 15B for the
-build itself — that split is not part of the contract). The full verb
+This is the current, stable contract (ERGO-31/LIFE-24): the full verb
 surface, the five-state model, claim semantics, projection legality, the
 stdin/normalizer contract, the Ready→Idle presence-gated decay clock (§6),
-and multi-card fan-out addressing (§5) are ALL load-bearing and stable as of
-this build.
+and multi-card fan-out addressing (§5) are all load-bearing.
 
 ---
 
@@ -42,7 +39,7 @@ States model the user's decision, not the host's internal event machine.
 |---|---|---|---|
 | **Blocked** | Mid-work, stalled on your decision (permission / question / form) | Never | `NeedsAttention` + a question |
 | **Broken** | Turn/session died without delivering (API error, fatal failure) | Never | `Error` |
-| **Ready** | Turn finished; fresh output awaits your review | Presence-time → Idle (15B) | `Completed` |
+| **Ready** | Turn finished; fresh output awaits your review | Presence-time → Idle (§6) | `Completed` |
 | **Working** | Progressing; needs nothing from you | — | `Running` + a step line |
 | **Idle** | Open; nothing owed either way | — | `Paused` |
 
@@ -52,7 +49,7 @@ the observed taskbar group-badge priority (Error > NeedsAttention > Completed
 card sharing its icon group.
 
 **Idle has no verb.** It is reachable only via the engine's own decay clock
-(15B) — no host event claims it directly. If you find yourself wanting to
+(§6) — no host event claims it directly. If you find yourself wanting to
 call something "idle," you almost certainly want `ready` instead (the turn
 finished; let the engine decide when it has gone stale).
 
@@ -79,7 +76,7 @@ call is a usage error (see "Icons" below).
 | `broken <h>` | `--detail -` | `--reason <token>` (required) | **Broken** | Always renders as a final summary of the reason word (+ optional detail). Clears every pending Blocked locus (turn-end). |
 | `agent-started <h>` | — | `--agent <id>`, `--name <n>` | *(no transition)* | Registers a child locus; mints a real child card at the 2nd concurrent registration (§5). |
 | `agent-stopped <h>` | — | `--agent <id>` | *(no transition, unless it clears a pending block)* | Retires a child locus (fan-in). If that locus was blocking, the card re-projects (§5.1). |
-| `session-ended <h>` | — | `--reason <token>` (required) | `finished` → card removed · `error` → **Broken** | The one verb with **no** identity flags and **no** upsert — it only acts on an already-live handle. |
+| `session-ended <h>` | — | `--reason <token>` (required) | `finished` → card removed · `error` → **Broken** | The one verb with no identity flags and no upsert — it only acts on an already-live handle. |
 
 ### Idempotency
 
@@ -87,7 +84,7 @@ call is a usage error (see "Icons" below).
   still lands the card in Working (clearing a pending block, if any) but
   leaves the current step content exactly as it was.
 - **Re-asserting an already-held state restarts nothing.** Calling `ready`
-  twice in a row is a harmless no-op re-apply, not a reset.
+  twice in a row harmlessly re-applies the same state.
 - Duplicate "done" signals from a host (e.g. both an explicit stop event and
   a separate idle-notification event) are expected and harmless — map both
   to `ready`.
@@ -100,33 +97,31 @@ call is a usage error (see "Icons" below).
 character is treated as a path). Absent `--icon`, the default is the Robot
 glyph.
 
-**Theme-neutral tile (ERGO-28, phase 16):** every monochrome Segoe glyph —
-including the default Robot — renders as a **white glyph on a fixed
-accent-color rounded-rect tile** (`#0078D4`), not a bare glyph. This fixes
-solid-black-on-a-dark-taskbar invisibility without ever inspecting the
-system theme: one static asset, no runtime re-render (icon immutability,
-ERGO-25, and the URI grouping key, ERGO-13, both rule that out). Color emoji
-render **bare** (already full-color, theme-safe art) — they are never
-composited onto the tile.
+**Theme-neutral tile (ERGO-28):** every monochrome Segoe glyph — including
+the default Robot — renders as a white glyph on a fixed accent-color
+rounded-rect tile (`#0078D4`). This fixes solid-black-on-a-dark-taskbar
+invisibility without inspecting the system theme: one static asset, no
+runtime re-render (icon immutability, ERGO-25, and the URI grouping key,
+ERGO-13, both rule that out). Color emoji render bare — full-color,
+theme-safe art that's never composited onto the tile.
 
-**`--icon-file <path>` (ERGO-29, phase 16):** bring your own image — PNG,
-JPG, or ICO. `atv` reads the file, validates it (byte-size cap, a
-magic-number format allowlist — not the file extension — and WIC decode),
-and normalizes it to the pipeline's 64px PNG: downscaled if oversized,
-aspect-ratio-preserving **transparent** letterbox padding if non-square (the
-supplied mark is never placed on the accent tile — it stays bare/full-bleed,
-since a caller's own logo can't be recolored for guaranteed contrast). A
-rejected file (too large, wrong format, corrupt data) falls back down the
-same chain as an unavailable `--icon` token (default glyph → drawn shape),
-logged, never a hard failure. **`--icon` and `--icon-file` are mutually
-exclusive** — supplying both is a usage error.
+**`--icon-file <path>` (ERGO-29):** bring your own image — PNG, JPG, or ICO.
+`atv` reads the file, validates it (byte-size cap, a magic-number format
+allowlist — not the file extension — and WIC decode), and normalizes it to
+the pipeline's 64px PNG: downscaled if oversized, aspect-ratio-preserving
+transparent letterbox padding if non-square (the supplied mark is never
+placed on the accent tile — it stays bare/full-bleed, since a caller's own
+logo can't be recolored for guaranteed contrast). A rejected file (too
+large, wrong format, corrupt data) falls back down the same chain as an
+unavailable `--icon` token (default glyph → drawn shape), logged, never a
+hard failure.
 
 The resulting per-handle icon file is cached and moved through
 remove/expire/resurrect/purge exactly like a rendered glyph (ERGO-23) — same
 lifecycle, regardless of source. Icons are immutable per card (set once, at
-first upsert) either way (ERGO-25); grouping is keyed on the exact icon URI
-string (ERGO-13), so two callers supplying the "same" logo via different
-paths do not glom into one taskbar group.
+first upsert) either way (ERGO-25); cards group by icon URI (ERGO-13), so
+two callers supplying the "same" logo via different paths do not glom into
+one taskbar group.
 
 **Known v1 caveat:** the fixed accent tile is not verified against Windows
 high-contrast themes — it targets ordinary light/dark taskbar theming only.
@@ -192,84 +187,78 @@ no free-text detail:
 - `error` → the card surfaces as Broken (a fixed phrase; the host's own
   watchdog/reap process is expected to eventually clean it up).
 
-Both vocabularies are closed by design. Map your host's own richer error
-taxonomy onto the nearest of these five/two tokens in your translator.
+Both vocabularies are closed. Map your host's own richer error taxonomy
+onto the nearest of these five/two tokens in your translator.
 
 ## 5. Fan-out addressing
 
 `agent-started <h> --agent <id> [--name <n>]` registers a child locus.
-Registering alone does nothing visible — the engine mints a REAL child card
-only at the **2nd concurrent** `agent-started` for a session (retroactively
-carding the 1st worker too, in the SAME call that crosses the threshold —
-fan-out is only recognizable once a second worker appears, so there is
-nothing to card before then). A 3rd, 4th, … concurrent worker each mint their
-own card the moment they register, once fan-out is already established for
-that session.
+Registering alone does nothing visible — the engine mints a child card only
+at the 2nd concurrent `agent-started` for a session, retroactively carding
+the 1st worker too in the same call that crosses the threshold (fan-out is
+only recognizable once a second worker appears, so there is nothing to card
+before then). A 3rd, 4th, … concurrent worker mints its own card the moment
+it registers, once fan-out is already established for that session.
 
-The child handle is exactly `<session-handle>#<agent_id>` — deterministic, so
-a translator (or a human) can always compute it without asking `atv`
-anything, and it is addressable by `list`/`remove` and every other semantic
-verb like any other handle.
+The child handle is exactly `<session-handle>#<agent_id>` — deterministic,
+so a translator (or a human) can compute it without asking `atv` anything,
+and it is addressable by `list`/`remove` and every other semantic verb like
+any other handle.
 
-**But a translator should keep addressing the PARENT, with `--agent`, even
-after the child is minted.** Card *existence* is not deterministic — minting
-happens engine-side, at the 2nd concurrent `agent-started` — so a stateless
-translator has no reliable way to know whether a given `agent_id` is carded
-yet at the moment it emits an `activity` call. `atv` resolves this itself:
-`activity <session> --kind <k> --label <l> --agent <id>` checks, under its
-own write lock, whether `<id>` is already a carded child of `<session>`. If
-so, the CONTENT lands on the child card — exactly as if you had addressed
-`<session>#<id>` directly — while the parent card's own step content is left
-untouched (only its same-locus block-clearing, §5.1, still runs on the
-parent). If `<id>` is not carded (a lone worker that hasn't crossed the
-2nd-concurrent threshold yet, or an agent that has already `agent-stopped`),
-the call lands on the addressed parent handle instead — a late activity from
-a retired agent never resurrects its child card. Addressing the child handle
-directly also works (e.g. `atv activity <session>#<agent_id> --kind read
---label file.ts`, useful for manual/scripted use once you already know the
-id is carded) and produces an identical result — the redirect above is what
-makes the PARENT-addressed form just as correct for a translator that can't
-know that in advance.
+A translator should keep addressing the parent, with `--agent`, even after
+the child is minted: card existence isn't deterministic from the
+translator's side (minting happens engine-side, at the 2nd concurrent
+`agent-started`), so a stateless translator has no reliable way to know
+whether a given `agent_id` is carded yet when it emits an `activity` call.
+`atv` resolves this itself — `activity <session> --kind <k> --label <l>
+--agent <id>` checks, under its own write lock, whether `<id>` is already a
+carded child of `<session>`. If so, the content lands on the child card,
+exactly as if you had addressed `<session>#<id>` directly, while the
+parent card's own step content is left untouched (only its same-locus
+block-clearing, §5.1, still runs on the parent). If `<id>` is not carded —
+a lone worker that hasn't crossed the 2nd-concurrent threshold yet, or an
+agent that has already `agent-stopped` — the call lands on the addressed
+parent handle instead, so a late activity from a retired agent never
+resurrects its child card. Addressing the child handle directly also works
+(e.g. `atv activity <session>#<agent_id> --kind read --label file.ts`,
+useful once you already know the id is carded) and produces an identical
+result; the redirect above is what makes the parent-addressed form just as
+correct when a translator can't know that in advance.
 
-A child card is scaffolding: it starts Working (a bare step baseline) and can
-reach Ready via its own `ready` call — and that is the ENTIRE reachable
-range. "Working/Completed only" is exhaustive, not merely "never Blocked":
-**`blocked`, `broken`, and `session-ended --reason error` are all refused
-against a child handle**, because each would land the child in a third state
+A child card is scaffolding: it starts Working (a bare step baseline) and
+can reach Ready via its own `ready` call — that's the entire reachable
+range. `blocked`, `broken`, and `session-ended --reason error` are all
+refused against a child handle, because each would land it in a third state
 (NeedsAttention, Error) beyond the two sanctioned ones (`--strict`'s
-`InvalidArguments` code, non-strict just a logged no-op, always a true
-no-op — the child's card is left exactly as it was). Route a subagent's own
-permission/question prompt, failure, or session-error to the PARENT handle
-instead — e.g. `blocked <session> --agent <id> --question -`, which uses the
-same-locus attribution machinery in §5.1 rather than the child handle at all;
-`broken <session> --reason ...` for a subagent-caused failure; `session-ended
-<session> --reason error` to end the whole session (which itself cascades to
-every live child, below). `session-ended <child> --reason finished` (i.e.
-plain removal) is UNAFFECTED by this refusal — removing a child outright
-never leaves it in a new state, so it behaves exactly like `remove
-<child-handle>`.
+`InvalidArguments` code; non-strict is a logged no-op — the child's card is
+left exactly as it was). Route a subagent's own permission/question prompt,
+failure, or session-error to the parent handle instead: `blocked <session>
+--agent <id> --question -` (using the same-locus attribution machinery in
+§5.1, not the child handle), `broken <session> --reason ...` for a
+subagent-caused failure, or `session-ended <session> --reason error` to end
+the whole session (cascading to every live child, below). `session-ended
+<child> --reason finished` — plain removal — is unaffected by this refusal:
+removing a child outright never leaves it in a new state, so it behaves
+exactly like `remove <child-handle>`.
 
-**Retirement:** a child retires (its card is removed) at its OWN
-`agent-stopped <h> --agent <id>` — never merely because concurrency later
-drops back below 2. **Cascade:** `remove <parent-handle>` and
-`session-ended <parent-handle>` (either `--reason`) both remove every
-still-live child along with the parent — a session that's over takes its
-fanned-out workers with it. `remove <child-handle>` targets exactly that one
-child; it does not affect the parent or any sibling.
+**Retirement:** a child retires (its card is removed) at its own
+`agent-stopped <h> --agent <id>` call, not because concurrency later drops
+back below 2. **Cascade:** `remove <parent-handle>` and `session-ended
+<parent-handle>` (either `--reason`) both remove every still-live child
+along with the parent — a session that's over takes its fanned-out workers
+with it. `remove <child-handle>` targets exactly that one child; it does
+not affect the parent or any sibling.
 
-A **name-only** host (an `agent-started` that carries `--name` but no
-`--agent` — i.e. the host can't tell concurrent same-name workers apart)
-mints no child card at all, ever: there is no locus id to address a card by,
-so the subagent instead surfaces as a line on the parent card's own activity
-stream (a separate `activity <session> --kind tool --name <n> --label ...`
-call is the translator's job — `agent-started` alone never renders anything).
+A name-only host (an `agent-started` that carries `--name` but no `--agent`
+— i.e. the host can't tell concurrent same-name workers apart) mints no
+child card: there is no locus id to address a card by, so the subagent
+instead surfaces as a line on the parent card's own activity stream (a
+separate `activity <session> --kind tool --name <n> --label ...` call is
+the translator's job — `agent-started` alone never renders anything).
 
-**The child's icon is the parent's own resolved `--icon` value for that same
-call, reused byte-for-byte** — never re-rendered or re-placed on a per-child
-path. This is deliberate: Agentaskvoid's taskbar grouping is keyed on the
-exact icon URI string (empirically verified, ERGO-13), so every card sharing
-one icon URI groups into one taskbar cluster. A child minted with its own,
-different icon path would silently secede from the parent's group.
+The child reuses the parent's resolved `--icon` value as-is (never a new
+per-child path) — cards group by icon URI (ERGO-13), so a different path
+would silently secede from the parent's group.
 
 ### 5.1 Blocked and same-locus clearing
 
@@ -288,31 +277,30 @@ main-thread prompt is not dismissed by unrelated subagent chatter.
 
 **Concurrent blocks**: if two loci are blocked at once, the card displays
 the most recently raised question. When that locus's block clears, the
-OTHER pending locus's question is surfaced instead (the card stays Blocked);
+other pending locus's question is surfaced instead (the card stays Blocked);
 only once every locus has cleared does the card return to Working.
 
 **Degraded fallback**: a host that cannot resolve fan-out attribution at all
-simply never sends `--agent` on either `blocked` or `activity` — both then
-land on the same parent locus by construction, so "any activity clears the
-block" falls out of the same-locus rule automatically. No special case is
-needed on the host side.
+never sends `--agent` on either `blocked` or `activity` — both then land on
+the same parent locus by construction, so "any activity clears the block"
+falls out of the same-locus rule automatically. No special case is needed on
+the host side.
 
 ## 6. Clocks
 
-- **Only Ready decays**, and only while the user *had a chance* to act —
-  device unlocked AND recent input, sampled by `atv`'s own background
+- **Only Ready decays**, and only while the user had a chance to act —
+  device unlocked and recent input, sampled by `atv`'s own background
   watchdog process, never something a translator measures or reports itself.
   A card that decays lands in Idle (`Paused`) — a courtesy demotion to
-  reduce visual noise, never an inbox-zero deletion; the card is still there,
-  still addressable, still `list`-able.
+  reduce visual noise, never an inbox-zero deletion; the card is still
+  there, addressable, and list-able.
 - Blocked and Broken never decay — surviving the user's absence is their
   whole purpose.
-- A transition **INTO** Ready starts the clock fresh; re-asserting Ready
-  while already Ready (e.g. a duplicate `ready` call) never restarts it —
-  the same idempotency rule §2 already describes, extended to the clock.
+- A transition into Ready starts the clock fresh; re-asserting Ready while
+  already Ready (e.g. a duplicate `ready` call) never restarts it — the
+  same idempotency rule §2 already describes, extended to the clock.
   Leaving Ready for any other state (another `working`/`activity`/`blocked`/
-  `broken` claim) clears the clock; a later return to Ready starts a brand
-  new one.
+  `broken` claim) clears the clock; a later return to Ready starts a new one.
 - The exact decay threshold and "recent input" window are `atv`-internal
   tuning, not part of this contract — a translator never configures, queries,
   or needs to reason about either.
@@ -321,21 +309,21 @@ needed on the host side.
   event, cleaned up on wall-clock staleness by the watchdog) — the two run
   as independent passes and are never conflated. In practice the hygiene
   reap is the more aggressive of the two for a truly abandoned card (no
-  further writes of ANY kind, ever), while the decay clock is the one that
-  fires for a card the user is actively near but simply hasn't looked at —
-  a translator does not need to know the hygiene reap exists at all, or
-  reason about which of the two will act first on any given card.
+  further writes of any kind), while the decay clock is the one that fires
+  for a card the user is actively near but hasn't looked at — a translator
+  doesn't need to know the hygiene reap exists, or reason about which of the
+  two acts first on a given card.
 
 ## 7. Free text: the `-` stdin convention
 
-At most **one** free-text value travels per call, through a flag whose
-value is exactly the single character `-`:
+At most one free-text value travels per call, through a flag whose value is
+exactly the single character `-`:
 
 ```
 echo "Fix the login bug across all pages" | atv working my-handle --goal -
 ```
 
-- Read **UTF-8**, to **EOF**, with **trailing whitespace trimmed**.
+- Read UTF-8, to EOF, with trailing whitespace trimmed.
 - Short, host-constrained tokens (handles, kind/reason tokens, agent ids,
   `--title`/`--subtitle`/`--icon` identity values) ride ordinary argv —
   they are translator-chosen constants, never arbitrary text, so there is no
@@ -347,10 +335,9 @@ echo "Fix the login bug across all pages" | atv working my-handle --goal -
   newlines, or non-ASCII text — argv quoting under some Windows shells is
   unreliable for exactly that content).
 - Never re-serialize a payload fragment as JSON to pass it through — read
-  the raw text, hand it to `-`, done.
+  the raw text and pass it via `-`.
 
-The free-text-eligible flags are: `working --goal`, `activity --label`,
-`blocked --question`, `ready --summary`, `broken --detail`.
+See §2's verb table for which flag on each verb is stdin-eligible.
 
 ## 8. The shared normalizer
 
@@ -374,12 +361,12 @@ the rest.
 The engine guarantees, structurally, that it never emits a (state, content)
 pair the Shell can't safely render — the empirically-verified safe
 combination matrix is internal (`SafeCombinationMatrix.cs`) and a translator
-does not need to know its cells. Concretely this means: you can call
-`activity` directly against a card that is currently Blocked, with no
-intermediate "clear the state first" call — the engine drops the question
-and re-enters Working (or, if another locus is still blocked, re-projects
-Blocked with that locus's question) as part of `activity`'s own claim. There
-is no v1-era "state running before every step" chain to reproduce.
+does not need to know its cells. Concretely: you can call `activity`
+directly against a card that is currently Blocked, with no intermediate
+"clear the state first" call — the engine drops the question and re-enters
+Working (or, if another locus is still blocked, re-projects Blocked with
+that locus's question) as part of `activity`'s own claim. There is no
+v1-era "state running before every step" chain to reproduce.
 
 ## 10. Failure posture
 
@@ -407,14 +394,14 @@ are untouched by this document — see `atv --help` and `docs/configuration.md`.
 against a parent handle (cascading to every live child, §5) or a child
 handle (targeting exactly that one card).
 
-## 12. `--cwd`: the repo-scoped-defaults anchor (ERGO-30, phase 17)
+## 12. `--cwd`: the repo-scoped-defaults anchor (ERGO-30)
 
 Every verb above accepts the global option `--cwd <path>`. A well-behaved
-translator forwards the host's own project-root concept here on **every
-call** (e.g. Claude Code: `--cwd ${CLAUDE_PROJECT_DIR}`) — it costs nothing
-when the target repo has no `.atv.json`, and it is what lets that repo brand
-its own cards (title, subtitle, icon, glomming) with zero edits to the shared
-hook config. Never substitute a host-provided *file/tool* cwd for this (that
+translator forwards the host's own project-root concept here on every call
+(e.g. Claude Code: `--cwd ${CLAUDE_PROJECT_DIR}`) — it costs nothing when
+the target repo has no `.atv.json`, and it is what lets that repo brand its
+own cards (title, subtitle, icon, glomming) with zero edits to the shared
+hook config. Never substitute a host-provided file/tool cwd for this (that
 can drift mid-session, e.g. as a tool executes in a different directory) —
 the project root is the only anchor value worth forwarding. Absent `--cwd`,
 `atv` falls back to its own process working directory (correct for direct
