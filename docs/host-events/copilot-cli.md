@@ -200,7 +200,7 @@ routing, the real taskbar, and real cleanup — not just the stub-`atv` harness.
 
 One live limitation remains: a child-raised permission notification carries
 only the parent session id, and Copilot publishes no permission-completed
-hook. The plugin therefore blocks the parent locus; approving the prompt does
+hook. The plugin therefore blocks the parent session; approving the prompt does
 not clear it until later parent activity or final Ready. Claude's better
 child attribution still only clears at `PostToolUse` (tool completion), so
 widening Copilot's synchronous post-tool hooks would not solve a

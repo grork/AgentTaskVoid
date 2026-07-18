@@ -29,7 +29,7 @@ A card exists to answer two questions at a glance: **"what happens if I
 don't switch back?"** (alerting) and **"what is happening?"** (observability).
 States model the user's decision, not the host's internal event machine.
 
-| State | Claim it makes | Decays? | AppTaskInfo projection |
+| State | Claim it makes | Decays? | Shown as (`AppTaskState`) |
 |---|---|---|---|
 | **Blocked** | Mid-work, stalled on your decision (permission / question / form) | Never | `NeedsAttention` + a question |
 | **Broken** | Turn/session died without delivering (API error, fatal failure) | Never | `Error` |
@@ -63,13 +63,13 @@ call is a usage error (see "Icons" below).
 
 | Verb | Free-text flag (`-` stdin eligible) | Other flags | Lands in | Notes |
 |---|---|---|---|---|
-| `working <h>` | `--goal -` | — | **Working** | Sets the turn's goal (altitude 2). Absent `--goal` makes no content claim. |
-| `activity <h>` | `--label -` | `--kind <k>` (required), `--agent <id>`, `--name <n>` | **Working** | The current activity line (altitude 3). Against a Blocked card: drops the question and re-enters Working, unless another locus is still pending (§5.1). |
+| `working <h>` | `--goal -` | — | **Working** | Sets the turn's goal line. Absent `--goal` makes no content claim. |
+| `activity <h>` | `--label -` | `--kind <k>` (required), `--agent <id>`, `--name <n>` | **Working** | The current activity line. Against a Blocked card: drops the question and re-enters Working, unless another question is still pending (§5.1). |
 | `blocked <h>` | `--question -` (required) | `--agent <id>` | **Blocked** | Platform-enforced: `NeedsAttention` requires a question. |
-| `ready <h>` | `--summary -` | — | **Ready** | Bare preserves the current step content; `--summary` swaps to a final summary. Clears every pending Blocked locus (turn-end). |
-| `broken <h>` | `--detail -` | `--reason <token>` (required) | **Broken** | Always renders as a final summary of the reason word (+ optional detail). Clears every pending Blocked locus (turn-end). |
-| `agent-started <h>` | — | `--agent <id>`, `--name <n>` | *(no transition)* | Registers a child locus; mints a real child card at the 2nd concurrent registration (§5). |
-| `agent-stopped <h>` | — | `--agent <id>` | *(no transition, unless it clears a pending block)* | Retires a child locus (fan-in). If that locus was blocking, the card re-projects (§5.1). |
+| `ready <h>` | `--summary -` | — | **Ready** | Bare preserves the current step content; `--summary` swaps to a final summary. Clears every pending question (turn-end). |
+| `broken <h>` | `--detail -` | `--reason <token>` (required) | **Broken** | Always renders as a final summary of the reason word (+ optional detail). Clears every pending question (turn-end). |
+| `agent-started <h>` | — | `--agent <id>`, `--name <n>` | *(no transition)* | Registers a child agent; mints a real child card at the 2nd concurrent registration (§5). |
+| `agent-stopped <h>` | — | `--agent <id>` | *(no transition, unless it clears a pending block)* | Retires a child agent (fan-in). If that agent had a question pending, the card updates (§5.1). |
 | `session-ended <h>` | — | `--reason <token>` (required) | `finished` → card removed · `error` → **Broken** | The one verb with no identity flags and no upsert — it only acts on an already-live handle. |
 
 ### Idempotency
@@ -184,7 +184,7 @@ onto the nearest of these five/two tokens in your translator.
 
 ## 5. Fan-out addressing
 
-`agent-started <h> --agent <id> [--name <n>]` registers a child locus.
+`agent-started <h> --agent <id> [--name <n>]` registers a child agent.
 Registering alone does nothing visible — the engine mints a child card only
 at the 2nd concurrent `agent-started` for a session, retroactively carding
 the 1st worker too in the same call that crosses the threshold. A 3rd, 4th,
@@ -205,8 +205,8 @@ whether a given `agent_id` is carded yet when it emits an `activity` call.
 --agent <id>` checks, under its own write lock, whether `<id>` is already a
 carded child of `<session>`. If so, the content lands on the child card,
 exactly as if you had addressed `<session>#<id>` directly, while the
-parent card's own step content is left untouched (only its same-locus
-block-clearing, §5.1, still runs on the parent). If `<id>` is not carded —
+parent card's own step content is left untouched (only the
+question-clearing in §5.1 still runs on the parent). If `<id>` is not carded —
 a lone worker that hasn't crossed the 2nd-concurrent threshold yet, or an
 agent that has already `agent-stopped` — the call lands on the addressed
 parent handle instead, so a late activity from a retired agent never
@@ -219,12 +219,11 @@ A child card is scaffolding: it starts Working (a bare step baseline) and
 can reach Ready via its own `ready` call — that's the entire reachable
 range. `blocked`, `broken`, and `session-ended --reason error` are all
 refused against a child handle, because each would land it in a third state
-(NeedsAttention, Error) beyond the two sanctioned ones (`--strict`'s
+(NeedsAttention, Error) beyond the two allowed ones (`--strict`'s
 `InvalidArguments` code; non-strict is a logged no-op — the child's card is
 left exactly as it was). Route a subagent's own permission/question prompt,
 failure, or session-error to the parent handle instead: `blocked <session>
---agent <id> --question -` (using the same-locus attribution machinery in
-§5.1, not the child handle), `broken <session> --reason ...` for a
+--agent <id> --question -` (attributed per §5.1, not the child handle), `broken <session> --reason ...` for a
 subagent-caused failure, or `session-ended <session> --reason error` to end
 the whole session (cascading to every live child, below). `session-ended
 <child> --reason finished` — plain removal — is unaffected by this refusal:
@@ -241,40 +240,39 @@ not affect the parent or any sibling.
 
 A name-only host (an `agent-started` that carries `--name` but no `--agent`
 — i.e. the host can't tell concurrent same-name workers apart) mints no
-child card: there is no locus id to address a card by, so the subagent
+child card: there is no agent id to address a card by, so the subagent
 instead surfaces as a line on the parent card's own activity stream (a
 separate `activity <session> --kind tool --name <n> --label ...` call is
 the translator's job — `agent-started` alone never renders anything).
 
 The child reuses the parent's resolved `--icon` value as-is (never a new
 per-child path) — cards group by icon URI (ERGO-13), so a different path
-would silently secede from the parent's group.
+silently drops the child out of the parent's group.
 
-### 5.1 Blocked and same-locus clearing
+### 5.1 Blocked, and what clears it
 
-`blocked --agent <id>` records which **locus** raised the question: a
-specific agent id, or the parent/main-thread locus if `--agent` is absent.
-The block clears on the next event **attributed to that same locus**:
+`blocked --agent <id>` records who raised the question: a specific agent,
+or the main session if `--agent` is absent. The block clears on the next
+event from that same source:
 
-- that locus's own next `activity` call,
-- that locus's own `agent-stopped`, or
+- its own next `activity` call,
+- its own `agent-stopped`, or
 - any turn-end event (`ready`/`broken` — these are never `--agent`-scoped,
-  so they always clear every pending locus at once).
+  so they clear every pending question at once).
 
 This means a subagent's own permission prompt does not get silently
 dismissed by unrelated main-thread activity, and — the flip side — a
 main-thread prompt is not dismissed by unrelated subagent chatter.
 
-**Concurrent blocks**: if two loci are blocked at once, the card displays
-the most recently raised question. When that locus's block clears, the
-other pending locus's question is surfaced instead (the card stays Blocked);
-only once every locus has cleared does the card return to Working.
+**Concurrent blocks**: if two questions are pending at once, the card
+displays the most recently raised one. When that one clears, the other
+pending question surfaces instead (the card stays Blocked); only once every
+question has cleared does the card return to Working.
 
-**Degraded fallback**: a host that cannot resolve fan-out attribution at all
-never sends `--agent` on either `blocked` or `activity` — both then land on
-the same parent locus by construction, so "any activity clears the block"
-falls out of the same-locus rule automatically. No special case is needed on
-the host side.
+**Degraded fallback**: a host that cannot tell which agent raised what
+never sends `--agent` on either `blocked` or `activity` — everything then
+counts as the main session, so "any activity clears the block" falls out of
+the same rule automatically. No special case is needed on the host side.
 
 ## 6. Clocks
 
@@ -338,17 +336,16 @@ A translator never needs to do any of this itself — hand over the raw text
 verbatim (after only the stdin-vs-argv choice in §7) and let the engine do
 the rest.
 
-## 9. Projection legality
+## 9. Call verbs in any order
 
-The engine guarantees, structurally, that it never emits a (state, content)
-pair the Shell can't safely render — the verified safe combination matrix
-is internal (`SafeCombinationMatrix.cs`) and a translator does not need to
-know its cells. Concretely: you can call `activity`
-directly against a card that is currently Blocked, with no intermediate
-"clear the state first" call — the engine drops the question and re-enters
-Working (or, if another locus is still blocked, re-projects Blocked with
-that locus's question) as part of `activity`'s own claim. There is no
-v1-era "state running before every step" chain to reproduce.
+The engine never sends the Shell a (state, content) pair it can't safely
+render; the safe-combination table is internal (`SafeCombinationMatrix.cs`)
+and you don't need to know it. Concretely: you can call `activity` directly
+against a card that is currently Blocked, with no intermediate "clear the
+state first" call — the engine drops the question and re-enters Working
+(or, if another question is still pending, stays Blocked showing that one)
+as part of `activity`'s own claim. There is no v1-era "state running before
+every step" chain to reproduce.
 
 ## 10. Failure posture
 

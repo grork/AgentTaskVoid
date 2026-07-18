@@ -59,7 +59,7 @@ before any card can render.
 | `userPromptSubmitted` | `working <session> --goal -`; Copilot-internal `<system_notification>` prompts are discarded |
 | `preToolUse` ordinary tool | `activity <session> --kind ... --label -` |
 | `preToolUse:ask_user` | `blocked <session> --question -` |
-| `postToolUse:ask_user` | same-locus `activity` to clear Blocked after the answer |
+| `postToolUse:ask_user` | a matching `activity` that clears Blocked after the answer |
 | `preToolUse:task` | `agent-started <parent> --agent <task-name> --name <agent-type>` plus a pending correlation record |
 | Child `userPromptSubmitted` | atomically claims the matching pending prompt hash into `call_* -> parent/task` |
 | Child `preToolUse` | `activity <parent> --agent <task-name> ...`, which the engine redirects to the child card |
@@ -68,7 +68,7 @@ before any card can render.
 | Background `notification:agent_idle`/`agent_completed` | `agent-stopped`, then `ready` |
 | `notification:permission_prompt` | `blocked`; bare `permissionRequest` is not hooked because it fires on auto-approved paths too |
 | `notification:shell_completed` | `activity --kind shell` |
-| Main `agentStop` | `ready`; the engine refuses it while registered child loci remain |
+| Main `agentStop` | `ready`; the engine refuses it while child agents are still registered |
 | `preCompact` | `activity --kind compacting` |
 | Non-recoverable `errorOccurred` | `broken` with the nearest closed reason token |
 | `sessionEnd:user_exit|abort` | `session-ended --reason finished` |
@@ -146,7 +146,7 @@ when everything inside it has failed.
 - **Permission recovery is coarse.** Copilot exposes `permission_prompt` only
   on the parent session, with no permission-approved/completion hook. The
   parent remains Blocked until later parent activity or the turn's final
-  Ready claim clears it; child activity cannot clear that parent locus.
+  Ready claim clears it; child activity cannot clear the parent's question.
   Hooking every `postToolUse` would only clear it at tool completion — a
   one-hour build would still remain Blocked for an hour — while adding
   synchronous overhead to every tool call.
