@@ -1,4 +1,4 @@
-# New-build checklist (INFRA-13's manual re-verification "dark matter")
+# New-build checklist (INFRA-13)
 
 `Windows.UI.Shell.Tasks.AppTaskInfo` is `[Experimental]` — undocumented Shell
 rendering behavior, no compatibility guarantee across Windows builds. This
@@ -9,9 +9,9 @@ the default test run — it's "dark matter": low-probability of changing,
 expensive to re-verify by hand, and safe to defer until there's a concrete
 reason to suspect drift (a new Windows 11 build/Insider ring landing on a
 dev or dogfood machine, a bug report that smells like a rendering
-regression, or a scheduled periodic check if one is ever set up). Low
-priority: this doc exists so that when someone does the check, they know
-exactly what to run and where the result has to be updated.
+regression, or a scheduled periodic check if one is ever set up). This doc
+exists so that when someone does the check, they know exactly what to run
+and where the result has to be updated.
 
 ## The rule
 
