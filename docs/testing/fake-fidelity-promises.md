@@ -25,8 +25,8 @@ writers clobber each other's writes (last-writer-wins on the *whole file*, not
 just the touched task). Empirically (Windows 11 26100, 2026-07-02): 4 processes
 × 100 creates each kept only 37/400 unlocked; the same test kept 400/400 once
 every write went through a system-wide named mutex. See
-`docs/windows-ui-shell-tasks/README.md`, "Concurrency: writes are not
-serialized across processes."
+[docs/windows-ui-shell-tasks/README.md](../windows-ui-shell-tasks/README.md#concurrency-writes-are-not-serialized-across-processes),
+"Concurrency: writes are not serialized across processes."
 
 **Why a logic test needs it:** it's the only thing that can prove the INFRA-6
 mutex mitigation (`WriteGate`) does something — without a fake that can lose
@@ -51,7 +51,7 @@ single thread, deterministically, with no real concurrency needed.
   (out of scope here — see `plan/phase-04-persistence.md` acceptance
   criterion 1).
 - Real platform still clobbers as modeled: manual, periodic, not a gate —
-  the demoted 4×100 multi-process run,
+  the 4×100 multi-process run,
   `tests/Atv.AdapterTests/PeriodicClobberTests.cs`, excluded from default
   runs, tied to the INFRA-13 new-build checklist.
 
@@ -61,7 +61,8 @@ single thread, deterministically, with no real concurrency needed.
 dismiss button that sets `AppTaskInfo.HiddenByUser = true`. This does not
 remove the task from `FindAll()`/`tasks.json` — the app is expected to notice
 (e.g. on the next `FindAll()`) and call `Remove()` itself, or the hidden entry
-lingers forever. See `docs/windows-ui-shell-tasks/AppTaskInfo.md`.
+lingers forever. See
+[docs/windows-ui-shell-tasks/AppTaskInfo.md](../windows-ui-shell-tasks/AppTaskInfo.md).
 
 **Why a logic test needs it:** it's what drives the ERGO-2 orphan sweep and the
 ERGO-21 sidecar reconciliation's "hidden → `Remove()` + drop entry" rule — both
@@ -135,15 +136,13 @@ just "non-empty, distinct, opaque") would visibly break.
 **Confirming check:**
 - Fake mechanism: `FakeAppTaskStoreTests.Create_MintsNonEmptyDistinctIds`.
 - Real platform: implicitly confirmed by every create round-trip test in the
-  adapter suite (no dedicated check needed — using the platform normally
-  already proves this; there's nothing else to verify beyond "don't assume a
-  format").
+  adapter suite — there's nothing to verify beyond "don't assume a format".
 
 ## Must not mimic (anti-overshoot guardrails)
 
 - The state × content crash matrix — invisible in `tasks.json`, Shell-render-only
   (INFRA-10 already decided the fake must not model this; see
-  `docs/windows-ui-shell-tasks/state-content-compatibility.md`).
+  [docs/windows-ui-shell-tasks/state-content-compatibility.md](../windows-ui-shell-tasks/state-content-compatibility.md)).
 - Shell rendering / grouping-by-`IconUri` (ERGO-13).
 - `explorer.exe` file-watcher coalescing / live re-render behavior (INFRA-7).
 - Latency, timing, or exact `COMException` codes (INFRA-12 measures latency
