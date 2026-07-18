@@ -33,7 +33,7 @@ integrations/claude-code/
 
 Targets Claude Code's plugin/hooks API as documented at
 `code.claude.com/docs/en/{plugins-reference,discover-plugins,plugin-marketplaces,hooks,settings}`.
-`docs/host-events/claude-code.md` cross-checks every payload field this
+[`docs/host-events/claude-code.md`](../../docs/host-events/claude-code.md) cross-checks every payload field this
 translator reads against real captures — see that file for the Claude Code
 version and capture date behind each finding. If a newer host version
 behaves differently, re-run that capture to update the finding.
@@ -130,7 +130,7 @@ passes no identity flags at all.
 A repo with no `.atv.json` and no user-named session still gets a
 non-blank title: `SemanticEngine.ApplyRepoDefaults` terminates the chain in
 a built-in default derived from the `--cwd`/repo anchor. See
-`docs/configuration.md`'s defaults table for the full chain and examples.
+[`docs/configuration.md`](../../docs/configuration.md)'s defaults table for the full chain and examples.
 
 ## Not yet observed live
 
@@ -142,18 +142,18 @@ capture if the behavior looks wrong:
 - **`StopFailure`** — requires an induced API error. `translate.ps1` reads a
   `reason` field (falling back to `error_type`) and maps it through
   `map.json`'s `brokenReason` table onto the ERGO-31 reason vocabulary
-  (`docs/integration-api.md` §4), defaulting to `fatal` for anything
+  ([`docs/integration-api.md`](../../docs/integration-api.md) §4), defaulting to `fatal` for anything
   unmapped; `--detail` comes from an `error` or `message` field if present.
 - **`SessionStart` with `source:"compact"`** — `translate.ps1` implements
-  this per `docs/integration-api.md`'s documented optional row.
+  this per [`docs/integration-api.md`](../../docs/integration-api.md)'s documented optional row.
 - **`TodoWrite`** (via `PreToolUse`/`PostToolUse`) — `translate.ps1` composes
   `(n/m) <item>` from the tool's `todos` array (picking the first
   `in_progress` item, or a position derived from how many are already
   `completed` if none is in progress), per ERGO-31 §3's composition guidance.
 
 Also not yet verified in a live session: a real Claude Code session driving
-the card through every state (`docs/integration-api.md` §1), including
+the card through every state ([`docs/integration-api.md`](../../docs/integration-api.md) §1), including
 fan-out and removal on `/exit`, and a repo's `.atv.json` branding a card
-through the real conduit. `tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs`
+through the real conduit. [`tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs`](../../tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs)
 covers `translate.ps1`'s routing logic against real captured payloads, but
 that test runs against a stub `atv`, not a live session.

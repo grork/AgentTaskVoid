@@ -15,7 +15,7 @@ dotnet build src\Atv\Atv.csproj -t:AtvRelease
 Run from the repo root. Publishes NativeAOT `atv.exe` for both `win-x64` and
 `win-arm64`, packages each against its stamped `obj\` manifest
 (`build/Atv.Package.targets`, explicit `--manifest`, never auto-detected — see
-`build/Atv.Release.targets`), and signs both with a throwaway self-signed dev
+[`build/Atv.Release.targets`](../build/Atv.Release.targets)), and signs both with a throwaway self-signed dev
 certificate. Re-running with nothing changed is a no-op (MSBuild's Inputs/Outputs
 skip-detection on the two per-arch targets).
 
@@ -98,7 +98,7 @@ deterministic hash of the manifest's declared `Identity/@Publisher` string,
 independent of which certificate signs the package. Dev-interactive, release,
 and `-reltest` each stamp a distinct `Identity/@Name`
 (`build/Atv.Package.targets`' `AtvStampAppxManifest` is build-kind-aware —
-see `CLAUDE.md`'s "Package identity" section and DIST-3), so all three
+see [`CLAUDE.md`](../CLAUDE.md)'s "Package identity" section and DIST-3), so all three
 produce structurally different PFNs and can coexist on one machine.
 
 Dev-interactive and the real release build do declare the same
