@@ -4,7 +4,8 @@ Built 2026-07-07 from `brief.md`, `requirements.md`, and every DECIDED question 
 `questions/` (per `process.md`, discovery and answering are complete); extended
 2026-07-12 with phase 14 (INFRA-23's expansion, INFRA-24..29); extended 2026-07-13
 with phases 15–18 (the v2 semantic line — LIFE-24/ERGO-31/LIFE-25/DIST-11 — plus the
-icon and repo-config work, ERGO-28/29/30). DEFERRED questions are OUT of this build's
+icon and repo-config work, ERGO-28/29/30); extended 2026-07-18 with phase 20 (DIST-12's
+daily-driver retail identity + plugin command override). DEFERRED questions are OUT of this build's
 scope: the whole interaction round-trip (INTER-1..4), DIST-2 (signing-cert
 acquisition), DIST-10 (engine adoption vehicle, gated on DIST-2), INFRA-12 (latency
 budget), INFRA-22 (GUI-subsystem exe / AttachConsole), INFRA-31/INFRA-32 (recorder
@@ -72,6 +73,7 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 17 | [Repo-scoped presentation defaults + `--cwd` anchor](phase-17-repo-scoped-defaults.md) | 06, 10, 15, 16 |
 | 18 | [Claude Code v2 integration: translator + plugin](phase-18-claude-code-v2-plugin.md) | 15, 17 (16 soft), 14's captures |
 | 19 | [Card fidelity: subagent activity routing + the never-blank title chain](phase-19-card-fidelity.md) | 15, 17, 18 |
+| 20 | [Daily-driver retail identity + plugin command override](phase-20-daily-driver-identity-and-plugin-override.md) | 12, 18 |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run
@@ -102,3 +104,15 @@ implements ERGO-31 §5's already-decided fan-out addressing rule (a carded subag
 ship — the fan-out suite tested child-card lifecycle exhaustively but never child-card
 *content*. Part B consumes ERGO-33, terminating ERGO-26's precedence chain in a never-blank
 built-in default. Everything is automated except one final live dogfood.
+
+Phase 20 (added 2026-07-18) implements DIST-12, which amends DIST-3: the operator's daily
+card use moves onto the installed retail identity (Name = brand, alias `atv`), and the
+working copy stamps alias `atv-dev` so rebuild/reap can no longer touch the install backing
+real sessions. It edits the build-kind-aware alias stamp (`build/Atv.Package.targets`,
+phase 12), adds a hand-written `atv-command.txt` command-override tier to both host
+translators (the Claude Code plugin, phase 18, and the in-tree Copilot plugin), and rewrites
+the identity docs. Automated except the alias-binding, retail-install, and override-smoke
+steps, which are live-only (identity attaches only through packaged activation via the alias
+shim, so an alias claim is proven by a real registration + a `doctor` read-back, not a build
+log). Depends on 12 (the release-identity target + alias stamp) and 18 (the translator + its
+stub harness the precedence tests extend).
