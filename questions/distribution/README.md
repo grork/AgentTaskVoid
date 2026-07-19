@@ -25,3 +25,4 @@ now.
 - [`DIST-9`: Uninstall behavior with live tasks and a running watchdog](./DIST-9-uninstall-behavior-with-live-tasks-and-a-running-watchdog.md) -- DECIDED
 - [`DIST-10`: Getting `atv` onto the machine alongside the host plugin/integration](./DIST-10-getting-atv-onto-the-machine-alongside-the-host-plugin.md) -- DEFERRED
 - [`DIST-11`: How the per-host integration artifact is delivered, placed on disk, and wired into the host's config](./DIST-11-integration-artifact-delivery-placement-and-host-config-wiring.md) -- DECIDED
+- [`DIST-12`: Daily driver on the retail identity; dev vacates `atv`; plugin command override](./DIST-12-daily-driver-retail-identity-and-plugin-command-override.md) -- DECIDED
