@@ -50,9 +50,26 @@ The stamping target is `build/Atv.Package.targets` (`AtvStampAppxManifest`), whi
 
 To pass CLI args through the redirect you need a double `--`: `dotnet run --project src/Atv -- -- <verb> [args]` (the first `--` ends `dotnet run`'s args, the second tells `winapp run` where the app's args begin). A single `--` makes `winapp` reject the verb with "Unrecognized argument". The packaged app's stdout pipes back to the console, so `list --json`/`doctor` output is visible. Verified in a live taskbar dogfood, 2026-07-10.
 
+Validate a change by running it through `dotnet run`, not a bare alias. Each `dotnet run` re-registers the build output (above), so you launch the build you just made. A bare alias (`atv`, or a worktree's own alias) launches whatever was last registered — a plain `dotnet build` does not re-register — so an alias can run a stale build, and on a machine with live dev cards it drives the real taskbar. `atv doctor` reports the registered build's version and `atv --version` the compiled one; they diverge when the registration is stale.
+
+For a behavior check that does not need the taskbar, run `tests/Atv.LogicTests` (the fake-backed suite — no identity, no registration).
+
 One quirk: `winapp`'s own dev-run gate is evaluated at MSBuild *file-evaluation* time (before any target, including our stamping target, has run this invocation), and it requires the stamped manifest to already exist on disk. So the very first `dotnet run` in a totally fresh clone (no prior `obj/`) builds fine but launches as a plain unpackaged process (no identity) — the *next* `dotnet run` picks up the manifest that the first build's `Build` target just stamped and gets identity from then on. In practice this never matters: `dotnet build` (or any prior build) before you first `dotnet run` is normal, not a bespoke step. Full explanation in the comments on `WinAppManifestPath` in `src/Atv/Atv.csproj`.
 
 `src/Atv/Properties/launchSettings.json` sets `ATV_WATCHDOG_MODE=off` (the brand-derived env var, resolved via `SettingsLoader.CurrentEnvVarName` — not a bare `WATCHDOG_MODE`) for the default profile, so F5 / Ctrl+F5 / `dotnet run` never spawn a detached watchdog. Two other profiles exist for watchdog work: "watchdog (foreground)" runs `atv watchdog` directly for breakpoints, and "app + spawn" sets `ATV_WATCHDOG_MODE=spawn` to exercise the real detached path.
+
+### What the common commands change on the machine
+
+| Command | Effect |
+|---|---|
+| `dotnet build` | Nothing installed — compiles, restamps the `obj/` manifest. |
+| `dotnet test` on `tests/Atv.LogicTests` | Nothing installed — fake-backed, no identity. |
+| `dotnet test` on `tests/Atv.AdapterTests` | Registers a per-worktree test package (its own Name and alias). |
+| `dotnet run` / `winapp run` | Registers (installs) the working copy and puts its alias on PATH. |
+| A registered alias + a state-changing verb (`working`, `activity`, `start`, …) | Writes app-data (sidecar, `tasks.json`), renders taskbar cards, may spawn the watchdog. |
+| A registered alias + `doctor` / `list` / `--version` | Reads only. |
+
+`Remove-AppxPackage` on a registered package removes it and drops its taskbar cards and app-data (DIST-9).
 
 ### NativeAOT release build
 
