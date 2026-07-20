@@ -1,6 +1,6 @@
 # INFRA-33: Safe, known-state dev/agent runs — validate through `dotnet run`, tear down explicitly
 **Status:** DECIDED (2026-07-19)
-**Plan:** unplanned
+**Plan:** phase-21
 **Decision (one line):** Validate against the real app through `dotnet run` (it re-registers your
 current build, so no version skew), never through a bare alias; use the fake-backed logic suite
 when you don't need the taskbar; a real-taskbar test uses a throwaway identity you register and

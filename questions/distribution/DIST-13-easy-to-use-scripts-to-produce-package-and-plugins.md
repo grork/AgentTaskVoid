@@ -1,6 +1,7 @@
 # DIST-13: Easy-to-use scripts that produce package and plugins for sharing & dogfooding
 **Status:** DECIDED (2026-07-19)
-**Plan:** unplanned
+**Plan:** phase-23 (the Copilot auto-wiring leg of the installer completes in phase-24 —
+split 2026-07-19, operator direction, gated on Copilot access)
 **Decision:** Build a one-command **dogfood distribution kit** — the pre-publication hand-off
 path. It is the interim sibling to DIST-10 ("Getting `atv` onto the machine…") and DIST-11 ("How
 the per-host integration artifact is delivered…"), whose published channels (winget, host

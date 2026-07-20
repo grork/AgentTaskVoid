@@ -5,7 +5,10 @@ Built 2026-07-07 from `brief.md`, `requirements.md`, and every DECIDED question 
 2026-07-12 with phase 14 (INFRA-23's expansion, INFRA-24..29); extended 2026-07-13
 with phases 15–18 (the v2 semantic line — LIFE-24/ERGO-31/LIFE-25/DIST-11 — plus the
 icon and repo-config work, ERGO-28/29/30); extended 2026-07-18 with phase 20 (DIST-12's
-daily-driver retail identity + plugin command override). DEFERRED questions are OUT of this build's
+daily-driver retail identity + plugin command override); extended 2026-07-19 with phases
+21–24 (the dogfood-feedback line — INFRA-33's dev-run rules, ERGO-34/35's create-anchored
+card defaults, DIST-13's dogfood distribution kit + its access-gated Copilot leg).
+DEFERRED questions are OUT of this build's
 scope: the whole interaction round-trip (INTER-1..4), DIST-2 (signing-cert
 acquisition), DIST-10 (engine adoption vehicle, gated on DIST-2), INFRA-12 (latency
 budget), INFRA-22 (GUI-subsystem exe / AttachConsole), INFRA-31/INFRA-32 (recorder
@@ -75,6 +78,10 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 18 | [Claude Code v2 integration: translator + plugin](phase-18-claude-code-v2-plugin.md) | 15, 17 (16 soft), 14's captures |
 | 19 | [Card fidelity: subagent activity routing + the never-blank title chain](phase-19-card-fidelity.md) | 15, 17, 18 |
 | 20 | [Daily-driver retail identity + plugin command override](phase-20-daily-driver-identity-and-plugin-override.md) | 12, 18 |
+| 21 | [Dev-run safety rules in the docs](phase-21-dev-run-safety-rules.md) | — (doc-only; sequenced after 20) |
+| 22 | [Create-anchored card defaults: per-repo icon + anchor deep-link](phase-22-create-anchored-card-defaults.md) | 15, 16, 17, 19 |
+| 23 | [Dogfood distribution kit](phase-23-dogfood-distribution-kit.md) | 12, 18, 20 (22 soft) |
+| 24 | [Dogfood kit: Copilot CLI auto-wiring leg](phase-24-dogfood-kit-copilot-leg.md) | 23; **gated on Copilot access** |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run
@@ -117,3 +124,22 @@ steps, which are live-only (identity attaches only through packaged activation v
 shim, so an alias claim is proven by a real registration + a `doctor` read-back, not a build
 log). Depends on 12 (the release-identity target + alias stamp) and 18 (the translator + its
 stub harness the precedence tests extend).
+
+Phases 21–23 (added 2026-07-19) are the dogfood-feedback line, run in that order after
+phase 20. Phase 21 is doc-only: it encodes INFRA-33's dev-run safety rules (validate
+through `dotnet run`, throwaway-identity live tests with explicit exact-Name teardown,
+`--unregister-on-exit`'s narrow role) into `CLAUDE.md`; it runs first so phases 22–23's
+live steps — and any later phase's — inherit the rules, and phase 20's own live checklist
+was amended at planning time with INFRA-33's registered-vs-compiled version assertion.
+Phase 22 consumes ERGO-34/35: both card defaults (icon, deep-link) move to the engine's
+create branch keyed off the ERGO-30 anchor, and the shared structural fix — explicit-flag
+gating so plain updates stop rewriting the icon file and deep-link — lands with them.
+Phase 23 consumes DIST-13: the one-command dogfood kit (dual-arch dev-signed
+`.msixbundle`, public cert, per-integration plugin zips, install/uninstall scripts) — the
+pre-publication hand-off path that precedes DIST-10/11's real channels; it hard-follows
+20 (override tier + leak-proof zips) and soft-follows 22 so dogfooders receive the fixes
+they are evaluating. Its installer auto-wires **Claude Code only**; the Copilot
+auto-wiring leg is phase 24, split out 2026-07-19 (operator direction) because the
+operator has no Copilot access to verify the wiring commands with — phase 24 carries an
+explicit external gate (Copilot access) so 23's completion stays legible and the pending
+work is one visible row, not nuance inside a "done" phase.

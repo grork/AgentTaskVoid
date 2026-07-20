@@ -1,6 +1,6 @@
 # ERGO-34: Icons should be randomly picked when they are not explicitily supplied.
 **Status:** DECIDED (2026-07-19)
-**Plan:** unplanned
+**Plan:** phase-22
 **Decision:** When no icon is supplied anywhere in the precedence chain, the built-in default
 is no longer the fixed `Robot` glyph but a **deterministic-per-repo pick** from a **combined
 pool of the curated Segoe glyphs + a curated emoji set** — so a wall of cards reads as a spread

@@ -2,6 +2,8 @@
 
 **Status:** DECIDED (2026-07-18 — records the decision made in the Copilot
 integration build, previously written down only as README prose)
+**Plan:** phase-13 (stamped 2026-07-19 — the decision was already consumed by the
+shipped phase-13 Copilot plugin + its docs; no work remains to plan)
 **Decision:** Accept the stale-after-approval window. The parent card stays
 Blocked after a permission prompt until later parent activity or the turn's
 final Ready, because Copilot exposes `permission_prompt` only on the parent

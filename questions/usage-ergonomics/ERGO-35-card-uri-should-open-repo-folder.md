@@ -1,6 +1,6 @@
 # ERGO-35: Card URI opening the ATV folder is confusing to the user; it should open to the repo root
 **Status:** DECIDED (2026-07-19)
-**Plan:** unplanned
+**Plan:** phase-22
 **Amends:** ERGO-24 ("The default deepLink URI value") — its default value (a `file:` URI to the
 tool's app-data `LocalState`) is superseded by the anchor-derived value below. ERGO-24's phase-08
 stamp stays; this is a new decision on the same surface, not a re-opening.

@@ -326,7 +326,10 @@ sequence the operator runs once, supervised. It is an acceptance criterion, not 
 4. **Verify from both aliases, fresh shells** (DIST-12 §3 — a real shim invocation, read the
    `doctor` identity line, not a build log): `atv doctor` reports the **Release** identity
    (Name = brand, unmarked — no `(dev)`); `atv-dev doctor` reports the dev-interactive
-   identity (`<brand>-<pathhash>`, `(dev)`). Each resolves its own state tree.
+   identity (`<brand>-<pathhash>`, `(dev)`). Each resolves its own state tree. Also confirm
+   no version skew (INFRA-33, "Safe, known-state dev/agent runs"): for each alias, the
+   registered version `doctor` reports matches the compiled `--version` of the build just
+   made — a build-without-re-register leaves an alias on a stale build.
 5. **Install the daily plugins clean, then drop override files only where wanted.**
    - **Install the daily plugin from a source that excludes untracked files** — the git repo
      (marketplace/path install off a clean checkout), never a raw copy of the local plugin
@@ -390,8 +393,10 @@ Automated (offline) unless marked **LIVE**.
    the alias rename touched no classifier input.
 7. **LIVE — dev alias binding.** After a real rebuild + re-register of the working copy,
    `atv-dev doctor` (fresh shell) reports the dev-interactive identity (`<brand>-<pathhash>`,
-   `(dev)` marker), and `atv` no longer resolves to the working copy. Verified by reading the
-   `doctor` identity line off a shim invocation (DIST-12 §3), never a build log.
+   `(dev)` marker) **and a registered version matching the just-built `--version`**
+   (INFRA-33's no-version-skew check), and `atv` no longer resolves to the working copy.
+   Verified by reading the `doctor` identity line off a shim invocation (DIST-12 §3), never
+   a build log.
 8. **LIVE — retail daily driver.** The plain `-t:AtvRelease` release msix installs on the dev
    box and `atv doctor` (fresh shell) reports the Release identity (Name = brand, unmarked),
    coexisting with the `atv-dev` dev package — no alias contention, distinct state trees.

@@ -31,3 +31,4 @@ is not guaranteed to shut down cleanly.
 - [`LIFE-23`: Entryless-orphan reaping and the mass-deletion guard](./LIFE-23-entryless-orphan-reaping-and-the-mass-deletion-guard.md) -- DECIDED
 - [`LIFE-24`: The host-event -> task-state integration semantics (the mapping layer)](./LIFE-24-host-event-to-task-state-integration-semantics.md) -- DECIDED
 - [`LIFE-25`: Should host hooks invoke the `atv` exe directly instead of via a shell?](./LIFE-25-hooks-invoking-the-exe-directly-vs-via-a-shell.md) -- DECIDED
+- [`LIFE-26`: Copilot CLI permission recovery — what clears a Blocked card after approval?](./LIFE-26-copilot-permission-recovery-coarseness.md) -- DECIDED
