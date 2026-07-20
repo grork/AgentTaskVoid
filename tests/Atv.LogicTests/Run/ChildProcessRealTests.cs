@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using Codevoid.AgentTaskVoid.Cli.Verbs;
 using Codevoid.AgentTaskVoid.Config;
@@ -18,7 +19,7 @@ namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 /// <c>Atv.AdapterTests</c>.
 /// </summary>
 [TestClass]
-public sealed class ChildProcessRealTests
+public sealed partial class ChildProcessRealTests
 {
     // ---- AC3: transparency with a REAL child -------------------------------
 
@@ -107,10 +108,28 @@ public sealed class ChildProcessRealTests
     /// terminating the test run (console-attached host). The "never orphan"
     /// guarantee this proves does not depend on whether the soft forward was
     /// actually delivered -- see <see cref="ChildProcess"/>'s own remarks.
+    ///
+    /// On a console-ATTACHED host this test FAILS FAST with run-it-elsewhere
+    /// instructions instead of raising the signal at all: the group-wide
+    /// Ctrl+C cancels the `dotnet test` driver and kills unrelated processes
+    /// sharing the console -- including the terminal or agent session that
+    /// launched the run (observed live, 2026-07-19). The
+    /// <c>CancelKeyPress</c> absorption below shields only THIS process.
     /// </summary>
     [TestMethod]
     public void RunOrchestrator_CtrlCDuringLongRunningRealChild_ChildExits_CardMarkedFail_NoOrphan()
     {
+        if (GetConsoleWindow() != 0)
+        {
+            Assert.Fail(
+                "A console is attached to this test host, and this test is about to fire a REAL " +
+                "Ctrl+C at the ENTIRE console process group (GenerateConsoleCtrlEvent, group 0) -- " +
+                "that would cancel the test session and can take down everything else sharing the " +
+                "console: your terminal, or the agent session that launched this run. Run the suite " +
+                "from a console-less host (IDE test explorer), or exclude this test: " +
+                "dotnet test tests/Atv.LogicTests -- --filter \"FullyQualifiedName!~CtrlCDuringLongRunningRealChild\"");
+        }
+
         using var h = new RunTestHarness();
         using var child = ChildProcess.Start(["cmd.exe", "/c", "ping -n 30 127.0.0.1 >nul"]);
         int childId = child.Id;
@@ -156,6 +175,10 @@ public sealed class ChildProcessRealTests
         Assert.Throws<ArgumentException>(() => Process.GetProcessById(childId),
             "no orphan: the child's OS process id (and, via entireProcessTree kill, ping.exe underneath cmd.exe) must no longer exist.");
     }
+
+    /// <summary>Nonzero when this process has an attached console -- the AC4 test's fail-fast gate above.</summary>
+    [LibraryImport("kernel32.dll")]
+    private static partial nint GetConsoleWindow();
 
     private static void SpinWaitUntil(Func<bool> condition, TimeSpan timeout)
     {

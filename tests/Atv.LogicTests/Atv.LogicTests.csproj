@@ -22,6 +22,11 @@
     -->
     <OutputType>Exe</OutputType>
     <EnableMSTestRunner>true</EnableMSTestRunner>
+
+    <!-- ChildProcessRealTests' GetConsoleWindow [LibraryImport] (the AC4
+         console-attached fail-fast gate): the interop source generator emits
+         unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
