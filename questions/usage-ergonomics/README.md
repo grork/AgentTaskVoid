@@ -38,3 +38,5 @@ identifying and updating tasks, cleanup, input modeling, grouping, and wrapping.
 - [`ERGO-31`: The v2 semantic verb contract (the engine's public integration API)](./ERGO-31-v2-semantic-verb-contract.md) -- DECIDED
 - [`ERGO-32`: A low-level / raw card-control API](./ERGO-32-low-level-raw-card-control-api.md) -- DEFERRED
 - [`ERGO-33`: The card title/subtitle chain, ending in a never-blank default](./ERGO-33-card-title-subtitle-chain-never-blank-default.md) -- DECIDED
+- [`ERGO-34`: Icons should be randomly picked when they are not explicitily supplied](./ERGO-34-icons-should-be-random-when-not-supplied.md) -- DECIDED
+- [`ERGO-35`: Card URI opening the ATV folder is confusing to the user; it should open to the repo root](./ERGO-35-card-uri-should-open-repo-folder.md) -- DECIDED
