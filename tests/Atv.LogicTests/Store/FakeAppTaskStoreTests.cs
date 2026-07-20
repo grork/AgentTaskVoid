@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Store;
+namespace Codevoid.AgentTaskVoid.LogicTests.Store;
 
 /// <summary>
 /// Covers phase-02 acceptance criterion 2: CRUD round-trip through the fake;

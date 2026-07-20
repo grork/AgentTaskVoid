@@ -1,19 +1,19 @@
-using Atv;
-using Atv.Cli;
-using Atv.Config;
-using Atv.Diagnostics;
-using Atv.Icons;
-using Atv.LogicTests.Persistence;
-using Atv.LogicTests.Run;
-using Atv.LogicTests.Store;
-using Atv.LogicTests.Watchdog;
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Run;
-using Atv.Semantics;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid;
+using Codevoid.AgentTaskVoid.Cli;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.LogicTests.Run;
+using Codevoid.AgentTaskVoid.LogicTests.Store;
+using Codevoid.AgentTaskVoid.LogicTests.Watchdog;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Run;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// Shared fake-backed rig for the phase-08 verb-level suite (AC1-3): a
@@ -66,7 +66,7 @@ internal sealed class DispatcherHarness : IDisposable
     public FakeWatchdogHost InProcHost { get; } = new();
 
     /// <summary>Backing field for <c>doctor</c>'s identity probe -- independent of <see cref="HasIdentity"/> (which gates lifecycle verbs/list/clear via <see cref="Diagnostics.Capability"/>) so doctor tests can flip identity presence without touching the rest of the pipeline.</summary>
-    public string? DoctorPackageFullName { get; set; } = "Agentaskvoid-test_1.0.0.0_neutral";
+    public string? DoctorPackageFullName { get; set; } = "Codevoid.AgentTaskVoid-test_1.0.0.0_neutral";
 
     /// <summary>
     /// Backing field for <c>doctor</c>'s DIST-3 build-kind probe
@@ -75,10 +75,10 @@ internal sealed class DispatcherHarness : IDisposable
     /// PFN). Defaults to a dev-shaped name (<c>"&lt;brand&gt;-testhash"</c>,
     /// resolving to <see cref="Diagnostics.BuildKind.Dev"/>) so the default
     /// harness exercises the <c>(dev)</c> marker path unless a test
-    /// overrides it to a clean <see cref="Branding.Name"/> (Release, no
+    /// overrides it to a clean <see cref="Branding.IdentityName"/> (Release, no
     /// marker) or a <c>&lt;brand&gt;.Test.*</c> name (Test).
     /// </summary>
-    public string? DoctorPackageName { get; set; } = $"{Branding.Name}-testhash";
+    public string? DoctorPackageName { get; set; } = $"{Branding.IdentityName}-testhash";
 
     /// <summary>Backing field for <c>doctor</c>'s dev-facing Developer Mode probe.</summary>
     public bool DoctorDeveloperModeEnabled { get; set; } = true;

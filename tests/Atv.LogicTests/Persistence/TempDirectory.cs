@@ -1,4 +1,4 @@
-namespace Atv.LogicTests.Persistence;
+namespace Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
 /// <summary>
 /// A unique-per-instance temp directory, deleted on <see cref="Dispose"/>.

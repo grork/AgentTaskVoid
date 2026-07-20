@@ -1,7 +1,7 @@
-using Atv.Operations;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Operations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Operations;
 
 /// <summary>Covers the non-store half of phase-05 acceptance criterion 1: <see cref="Validator"/>'s Safe/Refused/UnsafeBypassed classification and its <see cref="ValidationResult.Allowed"/> projection.</summary>
 [TestClass]

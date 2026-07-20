@@ -1,7 +1,7 @@
-using Atv.Diagnostics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC2 at the full CLI-dispatch level: <c>CommandLine.Parse</c> -&gt;

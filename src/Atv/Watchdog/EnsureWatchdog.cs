@@ -1,10 +1,10 @@
-using Atv.Config;
+using Codevoid.AgentTaskVoid.Config;
 
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// LIFE-17/INFRA-19's decide-to-run logic, replacing phase 08's inert
-/// <c>Atv.Cli.WatchdogGate</c> stub: resolve <see cref="WatchdogMode"/>, then
+/// <c>Codevoid.AgentTaskVoid.Cli.WatchdogGate</c> stub: resolve <see cref="WatchdogMode"/>, then
 /// a cheap <see cref="Mutex.OpenExisting(string)"/> liveness check IN THE
 /// INVOKER (so a busy session's `step` stream never spawns doomed processes),
 /// then hand off to the mode-selected <see cref="IWatchdogHost"/>. The

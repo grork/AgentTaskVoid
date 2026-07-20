@@ -8,7 +8,7 @@ namespace HostEventRecorder;
 ///
 /// Standing invariant #2 (brand parameterization) deliberately INVERTS for
 /// this tool (INFRA-24, phase-14's "Invariant note"): the recorder consumes
-/// no brand constant, no <c>Atv.*</c> reference, no <c>$(AtvBrandName)</c>,
+/// no brand constant, no <c>Codevoid.AgentTaskVoid.*</c> reference, no <c>$(AtvBrandName)</c>,
 /// no package identity. Every name below is recorder-derived
 /// (<c>HOSTREC_</c>), never <c>ATV_*</c> -- the absence of any Atv-prefixed
 /// name here is itself part of the separation this class exists to pin.

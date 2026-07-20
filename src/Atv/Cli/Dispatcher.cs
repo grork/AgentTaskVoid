@@ -1,13 +1,13 @@
-using Atv.Cli.Verbs;
-using Atv.Config;
-using Atv.Diagnostics;
-using Atv.Icons;
-using Atv.Operations;
-using Atv.Run;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Cli.Verbs;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Run;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Cli;
+namespace Codevoid.AgentTaskVoid.Cli;
 
 /// <summary>
 /// Dispatches one already-parsed <see cref="ParseResult"/> to the matching
@@ -19,7 +19,7 @@ namespace Atv.Cli;
 /// half of the CLI (everything real-only lives in
 /// <see cref="CompositionRoot"/>). The three phase-10 utility verbs
 /// (`list`/`clear`/`doctor`) are dedicated static classes in
-/// <see cref="Atv.Cli.Verbs"/> that each own their own <see cref="Posture"/>
+/// <see cref="Codevoid.AgentTaskVoid.Cli.Verbs"/> that each own their own <see cref="Posture"/>
 /// call instead -- `list`/`doctor` need <see cref="Posture.RunQuery"/>
 /// (their own `--json` shape, ERGO-27 C5), not the generic mutating-verb
 /// wrapper every lifecycle verb (and `clear`) uses.
@@ -30,7 +30,7 @@ namespace Atv.Cli;
 /// vocabularies) -- runs first and unconditionally, independent of platform
 /// state; (2) <see cref="Capability.Check"/> (identity, then API support --
 /// skipped entirely by `doctor`, whose whole job is diagnosing exactly that);
-/// (3) the LIFE-17/INFRA-19 <see cref="Atv.Watchdog.EnsureWatchdog.Run"/>
+/// (3) the LIFE-17/INFRA-19 <see cref="Codevoid.AgentTaskVoid.Watchdog.EnsureWatchdog.Run"/>
 /// liveness gate on every WRITE-path verb (semantic verbs + `remove` +
 /// `clear`, never `list`/`doctor`); (4) the actual operation. Every failure
 /// mode -- bad args, platform down, ERGO-10 validator refusal, unknown

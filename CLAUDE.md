@@ -12,7 +12,7 @@ Solution: `AppTaskInfoCli.slnx` -> `src/Atv/Atv.csproj`, plus `tests/Atv.LogicTe
 
 ## What this project is
 
-A minimal C# CLI tool, brand "Agentaskvoid", binary `atv`, that wraps the experimental `Windows.UI.Shell.Tasks.AppTaskInfo` WinRT API, which drives persistent task entries shown as their own separate icons on the Windows 11 taskbar — grouped independently of, and not requiring, any running app window.
+A minimal C# CLI tool, brand "Agent Task Void", binary `atv`, that wraps the experimental `Windows.UI.Shell.Tasks.AppTaskInfo` WinRT API, which drives persistent task entries shown as their own separate icons on the Windows 11 taskbar — grouped independently of, and not requiring, any running app window.
 
 **This is not jump lists.** Jump lists are per-app right-click menus on a pinned icon; app tasks are distinct taskbar icons in their own group, created via a completely different API. If you catch yourself reasoning about this feature in terms of jump lists, stop — the mental model is wrong.
 
@@ -20,7 +20,7 @@ The current command surface is documented in [`README.md`](README.md)'s Manual u
 
 ## Brand parameterization
 
-`src/Atv/Branding.cs` is the single source of truth for the brand (`Agentaskvoid`) and command name (`atv`). Every identity, command-name, env/config, mutex, and path string in the codebase must derive from these two constants — never re-literal them. `Directory.Build.props` extracts the same two values into MSBuild properties (`$(AtvBrandName)` / `$(AtvCommandName)`) by regexing `Branding.cs` at build time, so a rebrand is a one-file edit that also flows into `AssemblyName` and the AppxManifest identity stamp. See [`plan/README.md`](plan/README.md)'s standing invariant #2 and ERGO-18.
+`src/Atv/Branding.cs` is the single source of truth for the package identity name (`Codevoid.AgentTaskVoid`), the display name (`Agent Task Void`), and the command name (`atv`). Every identity, command-name, env/config, mutex, path, and display string in the codebase must derive from these three constants — never re-literal them. `Directory.Build.props` extracts `IdentityName` and `Command` into MSBuild properties (`$(AtvBrandName)` / `$(AtvCommandName)`) by regexing `Branding.cs` at build time, so a rebrand is a one-file edit that also flows into `AssemblyName` and the AppxManifest identity stamp; the manifest templates' display fields are hand-authored to match `DisplayName` (DIST-7). See [`plan/README.md`](plan/README.md)'s standing invariant #2 and ERGO-18.
 
 ## API reference
 
@@ -34,15 +34,15 @@ Before calling the `microsoft-learn` MCP tools for `Windows.UI.Shell.Tasks` type
 
 The manifest is `src/Atv/Package/AppxManifest.template.xml`. `Identity/@Version` (Nerdbank.GitVersioning's 4-part `$(BuildVersion)`) is always stamped the same way; every other field is static, hand-authored to match the brand — except `Identity/@Name` and the `AppExecutionAlias`'s `Alias`, which are build-kind-aware (DIST-3):
 
-- **Dev (default — `dotnet build`/`dotnet run`/F5/`winapp run`, no special properties set):** Name = brand + a stable hash of the project directory (e.g. `Agentaskvoid-bbbb1168` in the primary worktree), alias `atv`. This is the identity driving real dogfood use, so the hash computation must keep resolving to the same Name.
-- **Release** (`-p:AtvReleaseIdentity=true`; `-t:AtvRelease` sets this automatically): a clean, pathhash-free Name = brand exactly (e.g. `Agentaskvoid`), alias `atv`. A shipped identity must not encode the developer's build-directory path.
-- **The `-reltest` throwaway smoke variant** (`-p:AtvVerifyIdentity=true`, via `-t:AtvRelease -p:AtvVerifyIdentity=true`): a distinct Name = brand + `-reltest` (e.g. `Agentaskvoid-reltest`), alias `atv-reltest`. Exists so a release-on-dev-box smoke install can coexist with the dev-interactive pool above without clobbering its `atv` alias or sharing its PFN.
+- **Dev (default — `dotnet build`/`dotnet run`/F5/`winapp run`, no special properties set):** Name = the identity name + a stable hash of the project directory (e.g. `Codevoid.AgentTaskVoid-bbbb1168` in the primary worktree), alias `atv`. This is the identity driving real dogfood use, so the hash computation must keep resolving to the same Name.
+- **Release** (`-p:AtvReleaseIdentity=true`; `-t:AtvRelease` sets this automatically): a clean, pathhash-free Name = the identity name exactly (e.g. `Codevoid.AgentTaskVoid`), alias `atv`. A shipped identity must not encode the developer's build-directory path.
+- **The `-reltest` throwaway smoke variant** (`-p:AtvVerifyIdentity=true`, via `-t:AtvRelease -p:AtvVerifyIdentity=true`): a distinct Name = the identity name + `-reltest` (e.g. `Codevoid.AgentTaskVoid-reltest`), alias `atv-reltest`. Exists so a release-on-dev-box smoke install can coexist with the dev-interactive pool above without clobbering its `atv` alias or sharing its PFN.
 
-Different Names produce different PFNs, which makes DIST-3's three-pool isolation (release / dev-interactive / per-worktree test) structural, independent of the still-static Publisher (`CN=AppTaskInfoCli`, pending DIST-2's real cert). The per-worktree TEST pool (`build/Atv.TestIdentity.targets`, a separate sibling template) stamps its own `<brand>.Test.<hash>` Name and per-worktree alias.
+Different Names produce different PFNs, which makes DIST-3's three-pool isolation (release / dev-interactive / per-worktree test) structural, independent of the still-static Publisher (`CN=AppTaskInfoCli`, pending DIST-2's real cert). The per-worktree TEST pool (`build/Atv.TestIdentity.targets`, a separate sibling template) stamps its own `<identity-name>.Test.<hash>` Name and per-worktree alias.
 
 The stamping target is `build/Atv.Package.targets` (`AtvStampAppxManifest`), which writes the resolved manifest to `$(IntermediateOutputPath)AppxManifest.xml` (i.e. under `obj/`, RID-qualified for a RID-specific build/publish) — never checked into source. See DIST-7 and DIST-3 for the full implementation rules, including why the version/path computation must happen in the target's execution-time `PropertyGroup`, not the file body.
 
-**The `(dev)`/`(test)` console/log marker:** `Atv.Diagnostics.BuildKindResolver` (`src/Atv/Diagnostics/BuildKind.cs`) classifies the current process's build kind from `Package.Current.Id.Name` (Release when it equals the brand exactly, Test when it starts with `<brand>.Test.`, Dev otherwise — including the `-reltest` variant) and renders a `(dev)`/`(test)` marker (`null` for Release/no-identity — release output stays unmarked). Surfaced in `doctor`'s identity line, `--version`'s output, and every durable failure-log entry (a trailing `buildKind` field on `LogEntry` that the composition root stamps once per process), so traces are self-identifying.
+**The `(dev)`/`(test)` console/log marker:** `Codevoid.AgentTaskVoid.Diagnostics.BuildKindResolver` (`src/Atv/Diagnostics/BuildKind.cs`) classifies the current process's build kind from `Package.Current.Id.Name` (Release when it equals the identity name exactly, Test when it starts with `<identity-name>.Test.`, Dev otherwise — including the `-reltest` variant) and renders a `(dev)`/`(test)` marker (`null` for Release/no-identity — release output stays unmarked). Surfaced in `doctor`'s identity line, `--version`'s output, and every durable failure-log entry (a trailing `buildKind` field on `LogEntry` that the composition root stamps once per process), so traces are self-identifying.
 
 ### Dev loop: `dotnet run` / F5, no manual pre-steps
 
@@ -95,7 +95,7 @@ For the throwaway smoke variant that coexists with the dev-interactive pool (Nam
 dotnet build src\Atv\Atv.csproj -t:AtvRelease -p:AtvVerifyIdentity=true
 ```
 
-Artifacts land under distinct filenames (`artifacts\release\msix\Agentaskvoid_<ver>_{x64,arm64}_reltest.msix`), so they never collide with, or up-to-date-skip against, the real release msix — see [`docs/release.md`](docs/release.md) §3 for the supervised install steps this variant is for.
+Artifacts land under distinct filenames (`artifacts\release\msix\Codevoid.AgentTaskVoid_<ver>_{x64,arm64}_reltest.msix`), so they never collide with, or up-to-date-skip against, the real release msix — see [`docs/release.md`](docs/release.md) §3 for the supervised install steps this variant is for.
 
 Full runbook, the dev-cert-vs-real-cert distinction, and the supervised install/upgrade/uninstall verification steps: [`docs/release.md`](docs/release.md).
 

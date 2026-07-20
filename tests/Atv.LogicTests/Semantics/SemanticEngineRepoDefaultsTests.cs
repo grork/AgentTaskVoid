@@ -1,13 +1,13 @@
-using Atv.Config;
-using Atv.IconRendering;
-using Atv.Icons;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.IconRendering;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
-/// ERGO-30 (phase 17) AC3/AC4/AC5/AC6 at the <see cref="Atv.Semantics.SemanticEngine"/>
+/// ERGO-30 (phase 17) AC3/AC4/AC5/AC6 at the <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/>
 /// level: repo-scoped presentation defaults apply ONLY on the upsert CREATE
 /// branch (proven via a counting spy, not just "it looked right"), the
 /// five-key allowlist actually applies (title-template, subtitle, icon,
@@ -254,8 +254,8 @@ public sealed class SemanticEngineRepoDefaultsTests
         // cross-repo separation independent of any single harness's plumbing.
         using var hA = new SemanticEngineHarness(withIcons: false, discoverRepo: () => discoveryA);
         using var hB = new SemanticEngineHarness(withIcons: false, discoverRepo: () => discoveryB);
-        var engineA = new Atv.Semantics.SemanticEngine(hA.Store, hA.Sidecar, hA.RecycleBin, hA.Gate, SemanticEngineHarness.Ttl, hA.Ops, icons, hA.Logs.Add, discoverRepo: () => discoveryA, groupRegistry: groupRegistry);
-        var engineB = new Atv.Semantics.SemanticEngine(hB.Store, hB.Sidecar, hB.RecycleBin, hB.Gate, SemanticEngineHarness.Ttl, hB.Ops, icons, hB.Logs.Add, discoverRepo: () => discoveryB, groupRegistry: groupRegistry);
+        var engineA = new Codevoid.AgentTaskVoid.Semantics.SemanticEngine(hA.Store, hA.Sidecar, hA.RecycleBin, hA.Gate, SemanticEngineHarness.Ttl, hA.Ops, icons, hA.Logs.Add, discoverRepo: () => discoveryA, groupRegistry: groupRegistry);
+        var engineB = new Codevoid.AgentTaskVoid.Semantics.SemanticEngine(hB.Store, hB.Sidecar, hB.RecycleBin, hB.Gate, SemanticEngineHarness.Ttl, hB.Ops, icons, hB.Logs.Add, discoverRepo: () => discoveryB, groupRegistry: groupRegistry);
 
         engineA.Working("session-a", "TA", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
         engineB.Working("session-b", "TB", "S", DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
@@ -455,7 +455,7 @@ public sealed class SemanticEngineRepoDefaultsTests
         h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
 
         var view = h.Store.FindAll().Single();
-        Assert.AreEqual(Atv.Branding.Name, view.Title, "never re-literal the brand -- derived from Branding.Name.");
+        Assert.AreEqual(Codevoid.AgentTaskVoid.Branding.DisplayName, view.Title, "never re-literal the brand -- derived from Branding.DisplayName.");
         Assert.AreEqual("", view.Subtitle);
     }
 

@@ -1,7 +1,7 @@
-using Atv.Diagnostics;
-using Atv.Operations;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Operations;
 
-namespace Atv.Cli.Verbs;
+namespace Codevoid.AgentTaskVoid.Cli.Verbs;
 
 /// <summary>
 /// `clear [--include-recycle-bin]` (ERGO-16 amended by ERGO-27 C4): purges

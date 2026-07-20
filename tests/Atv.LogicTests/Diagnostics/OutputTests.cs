@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Diagnostics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
 /// <summary>FAIL-2's stdout/stderr discipline: stdout = data, stderr = diagnostics, and the `--json` mutating-verb shape.</summary>
 [TestClass]

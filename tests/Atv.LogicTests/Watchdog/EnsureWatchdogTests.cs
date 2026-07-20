@@ -1,7 +1,7 @@
-using Atv.Config;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Watchdog;
+namespace Codevoid.AgentTaskVoid.LogicTests.Watchdog;
 
 /// <summary>AC2: <see cref="EnsureWatchdog.Run"/>'s decide-to-spawn matrix -- mode x mutex-liveness -> spawn / inproc / nothing; spawn failure logs and continues.</summary>
 [TestClass]

@@ -1,9 +1,9 @@
-using Atv.Icons;
-using Atv.Persistence;
-using Atv.Store;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Watchdog;
+namespace Codevoid.AgentTaskVoid.LogicTests.Watchdog;
 
 /// <summary>
 /// AC1's per-tick behavior coverage: per-state expiry at exactly the

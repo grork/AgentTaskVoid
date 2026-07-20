@@ -1,8 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
-using Atv.IconRendering;
+using Codevoid.AgentTaskVoid.IconRendering;
 
-namespace Atv.IconRendering.Tests;
+namespace Codevoid.AgentTaskVoid.IconRendering.Tests;
 
 /// <summary>
 /// Phase-16 acceptance criteria 2-3: PNG/JPG/ICO -&gt; 64px PNG normalization

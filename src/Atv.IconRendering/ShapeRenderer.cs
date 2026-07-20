@@ -1,12 +1,12 @@
 using Windows.Win32.Graphics.Direct2D;
 using Windows.Win32.Graphics.Direct2D.Common;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// ERGO-22's last-resort fallback: a primitive drawn shape that never depends
 /// on a font being present, for when even the default glyph
-/// (<c>Atv.Icons.IconTokens.Default</c>) can't be rendered. A filled circle,
+/// (<c>Codevoid.AgentTaskVoid.Icons.IconTokens.Default</c>) can't be rendered. A filled circle,
 /// solid black on transparent -- same <see cref="SoftwareCanvas"/> pipeline
 /// as <see cref="GlyphRenderer"/>, just <c>FillEllipse</c> instead of
 /// <c>DrawText</c>, so it shares the zero-GPU/deterministic guarantee and can

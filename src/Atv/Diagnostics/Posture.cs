@@ -1,4 +1,4 @@
-namespace Atv.Diagnostics;
+namespace Codevoid.AgentTaskVoid.Diagnostics;
 
 /// <summary>FAIL-2's stable exit vocabulary -- meaningful only under `--strict` (default mode always exits 0, FAIL-1). Numeric values ARE the process exit codes.</summary>
 public enum FailureKind
@@ -112,7 +112,7 @@ public sealed class Posture
 /// INFRA-13's outcome mapping: classifies why the platform isn't usable
 /// right now onto the FAIL-2 exit vocabulary. Two independent runtime checks
 /// -- package identity presence and API presence
-/// (<see cref="Atv.Store.IAppTaskStore.IsSupported"/>, already wrapped for
+/// (<see cref="Codevoid.AgentTaskVoid.Store.IAppTaskStore.IsSupported"/>, already wrapped for
 /// CLASS_E_CLASSNOTAVAILABLE by the adapter) -- checked identity-first, since
 /// asking "is the API supported" is only meaningful once the process has
 /// identity at all. Delegate-injected (INFRA-8-style seam) so callers/tests

@@ -1,8 +1,8 @@
-using Atv.Operations;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// AC6's fan-out addressing coverage (ERGO-31 §5): the 2nd-concurrent

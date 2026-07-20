@@ -1,8 +1,8 @@
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// LIFE-24 §6's presence-gated Ready-&gt;Idle UX decay clock -- a DELIBERATELY
@@ -88,7 +88,7 @@ internal static class ReadyDecay
     /// fix (2026-07-15 live dogfood): if the card most recently held a <c>ready
     /// --summary</c> TEXT result, its exact text has NO platform readback at
     /// all (<c>AppTaskInfo</c> exposes no getter for it -- an asymmetry
-    /// documented on <see cref="Atv.Store.AppTaskView"/>), so
+    /// documented on <see cref="Codevoid.AgentTaskVoid.Store.AppTaskView"/>), so
     /// <see cref="EngineMemory.LastSummary"/> -- the engine's OWN remembered
     /// copy of that text -- is used instead of the platform's (empty)
     /// step-readback fields, and the demoted card's step now shows the actual

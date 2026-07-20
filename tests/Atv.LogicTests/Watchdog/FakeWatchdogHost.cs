@@ -1,6 +1,6 @@
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Watchdog;
+namespace Codevoid.AgentTaskVoid.LogicTests.Watchdog;
 
 /// <summary>
 /// INFRA-21's test host: records that <see cref="Start"/> was called without

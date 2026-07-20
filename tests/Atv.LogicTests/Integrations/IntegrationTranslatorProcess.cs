@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 internal static class IntegrationTranslatorProcess
 {

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Translates one GitHub Copilot CLI hook payload into Agentaskvoid's v2
+    Translates one GitHub Copilot CLI hook payload into Agent Task Void's v2
     semantic verb surface.
 
 .DESCRIPTION

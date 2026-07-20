@@ -1,4 +1,4 @@
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>
 /// ERGO-31 §2's closed kind vocabulary: names the MECHANISM (never the

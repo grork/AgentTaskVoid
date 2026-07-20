@@ -1,15 +1,15 @@
-namespace Atv.Icons;
+namespace Codevoid.AgentTaskVoid.Icons;
 
 /// <summary>
 /// How an <see cref="IconToken"/> was specified. <see cref="Emoji"/> and
-/// <see cref="SegoeGlyph"/> both render via <c>Atv.IconRendering.GlyphRenderer</c>
+/// <see cref="SegoeGlyph"/> both render via <c>Codevoid.AgentTaskVoid.IconRendering.GlyphRenderer</c>
 /// (bypassed entirely for <see cref="RawPath"/>, which points at an existing
 /// image file). Phase 16 (ERGO-29): <see cref="RawPath"/> is a supported,
 /// validated, NORMALIZED input -- both <c>--icon-file &lt;path&gt;</c>
 /// (explicit) and <c>--icon &lt;anything that isn't a curated name or a
 /// single character&gt;</c> (this type's third parse tier, unchanged) produce
-/// it, and <c>Atv.Icons.IconService</c> reads/validates/normalizes the target
-/// file via <c>Atv.IconRendering.RasterNormalizer</c> before caching it --
+/// it, and <c>Codevoid.AgentTaskVoid.Icons.IconService</c> reads/validates/normalizes the target
+/// file via <c>Codevoid.AgentTaskVoid.IconRendering.RasterNormalizer</c> before caching it --
 /// no longer a raw, unvalidated byte-copy.
 /// </summary>
 public enum IconTokenKind
@@ -25,8 +25,8 @@ public enum IconTokenKind
 /// string) for <see cref="IconTokenKind.Emoji"/>/<see cref="IconTokenKind.SegoeGlyph"/>,
 /// or the raw file path for <see cref="IconTokenKind.RawPath"/>.
 /// <see cref="Codepoint"/> is meaningful only for <see cref="IconTokenKind.SegoeGlyph"/>
-/// (the value <c>Atv.IconRendering.GlyphRenderer.RenderSegoeGlyph</c> and
-/// <c>Atv.IconRendering.GlyphProbe</c> key off).
+/// (the value <c>Codevoid.AgentTaskVoid.IconRendering.GlyphRenderer.RenderSegoeGlyph</c> and
+/// <c>Codevoid.AgentTaskVoid.IconRendering.GlyphProbe</c> key off).
 /// </summary>
 public readonly record struct IconToken(IconTokenKind Kind, string Value, int Codepoint = 0)
 {
@@ -55,7 +55,7 @@ public readonly record struct IconToken(IconTokenKind Kind, string Value, int Co
 /// input that is neither a curated name nor a single literal character is
 /// just carried through as a path). Phase 16 (ERGO-29) promoted this from an
 /// undocumented hatch to a supported input -- the path is validated and
-/// normalized by <c>Atv.Icons.IconService</c> before use, same as the
+/// normalized by <c>Codevoid.AgentTaskVoid.Icons.IconService</c> before use, same as the
 /// dedicated <c>--icon-file</c> flag.
 /// </summary>
 public static class IconTokens
@@ -122,7 +122,7 @@ public static class IconTokens
     /// segmentation, at odds with this project's
     /// <c>InvariantGlobalization</c> AOT setting; "a literal character" in
     /// ERGO-20's own wording already scopes v1 to single characters. Never
-    /// validated against <see cref="Atv.IconRendering.GlyphProbe"/> here --
+    /// validated against <see cref="Codevoid.AgentTaskVoid.IconRendering.GlyphProbe"/> here --
     /// an emoji the font doesn't have is a clean, non-throwing parse success
     /// that the caller's fallback chain (<c>IconService</c>) resolves at
     /// render time;</item>

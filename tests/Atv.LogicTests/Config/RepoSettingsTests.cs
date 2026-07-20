@@ -1,7 +1,7 @@
-using Atv.Config;
-using Atv.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
-namespace Atv.LogicTests.Config;
+namespace Codevoid.AgentTaskVoid.LogicTests.Config;
 
 /// <summary>
 /// ERGO-30 (phase 17) AC1/AC2/AC6: the <c>.atv.json</c> discovery walk
@@ -186,7 +186,7 @@ public sealed class RepoSettingsTests
     /// <summary>
     /// AC2's STRUCTURAL proof (not merely behavioral): greps this project's
     /// actual checked-in source file for <c>GetEnvironmentVariable</c> --
-    /// mirrors <c>Atv.LogicTests.Architecture.SeamPurityTests</c>'s own
+    /// mirrors <c>Codevoid.AgentTaskVoid.LogicTests.Architecture.SeamPurityTests</c>'s own
     /// grep-the-real-file pattern. Passing behaviorally (no env var happens to
     /// be read in the test's own environment) would never catch a REGRESSION
     /// that adds an env-var read to the anchor path; this catches it even if
@@ -195,7 +195,7 @@ public sealed class RepoSettingsTests
     [TestMethod]
     public void TheAnchorResolution_IsGrepProvenFreeOfEnvironmentVariableReads()
     {
-        // Mirrors Atv.LogicTests.Architecture.SeamPurityTests' own "grep the
+        // Mirrors Codevoid.AgentTaskVoid.LogicTests.Architecture.SeamPurityTests' own "grep the
         // real checked-in file, skip comment lines" pattern -- this is about
         // actual CODE never calling the env-var API, not about whether a doc
         // comment is permitted to name it in prose (this very test's own

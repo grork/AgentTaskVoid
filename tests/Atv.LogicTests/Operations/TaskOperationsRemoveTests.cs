@@ -1,6 +1,6 @@
-using Atv.Operations;
+using Codevoid.AgentTaskVoid.Operations;
 
-namespace Atv.LogicTests.Operations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Operations;
 
 /// <summary>Covers `remove` (files-affected list: one of the seven verb cores): live-handle removal, clean no-op on an unknown handle, and the full-pass reconcile scoping it shares with `start`.</summary>
 [TestClass]
@@ -39,7 +39,7 @@ public sealed class TaskOperationsRemoveTests
         // sensible to "resurrect and then remove", so an absent handle is always a
         // plain no-op even if a tombstone happens to exist for it.
         using var h = new OperationsHarness();
-        h.RecycleBin.Tombstone(new Atv.Persistence.RecycleRecord("h1", "T", "S", null, OperationsHarness.DeepLink, OperationsHarness.Now));
+        h.RecycleBin.Tombstone(new Codevoid.AgentTaskVoid.Persistence.RecycleRecord("h1", "T", "S", null, OperationsHarness.DeepLink, OperationsHarness.Now));
 
         var outcome = h.Ops.Remove("h1", OperationsHarness.Now);
 

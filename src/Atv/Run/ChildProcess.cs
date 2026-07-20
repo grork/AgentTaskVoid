@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Atv.Run;
+namespace Codevoid.AgentTaskVoid.Run;
 
 /// <summary>
 /// The `run` wrapper's testing seam over a spawned child (INFRA-8-style):

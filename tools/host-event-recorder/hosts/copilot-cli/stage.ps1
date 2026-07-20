@@ -88,7 +88,7 @@ Set-Content -LiteralPath (Join-Path $hooksDir "hooks.json") -Value $hooksText -N
 $sandboxReadme = Join-Path $ScratchDir "README.md"
 if (-not (Test-Path -LiteralPath $sandboxReadme)) {
     @"
-# Agentaskvoid Copilot CLI capture sandbox
+# Agent Task Void Copilot CLI capture sandbox
 
 Disposable git repository used to exercise GitHub Copilot CLI hooks without
 touching the AppTaskInfoCli working tree or personal Copilot configuration.

@@ -6,7 +6,7 @@
       see CLAUDE.md). Not an AOT target: this is a dev-time test exe.
     -->
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <RootNamespace>Atv.LogicTests</RootNamespace>
+    <RootNamespace>Codevoid.AgentTaskVoid.LogicTests</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>

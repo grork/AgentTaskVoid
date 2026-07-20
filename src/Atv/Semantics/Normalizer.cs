@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>
 /// LIFE-24 S2-walk's "one shared engine normalizer" -- the single pipeline
@@ -14,7 +14,7 @@ namespace Atv.Semantics;
 /// </summary>
 public static partial class Normalizer
 {
-    /// <summary>The single ellipsis character used to mark a truncated line (matches <c>Atv.Run.LineHygiene.Ellipsis</c>'s own convention).</summary>
+    /// <summary>The single ellipsis character used to mark a truncated line (matches <c>Codevoid.AgentTaskVoid.Run.LineHygiene.Ellipsis</c>'s own convention).</summary>
     public const string Ellipsis = "…";
 
     public static string Normalize(string? raw, int maxLength)
@@ -36,7 +36,7 @@ public static partial class Normalizer
         return s;
     }
 
-    /// <summary>Truncates to <paramref name="maxLength"/> INCLUDING the ellipsis -- same algorithm/contract as <c>Atv.Run.LineHygiene.Truncate</c>. A non-positive <paramref name="maxLength"/> is treated as "unbounded" (defensive, never a throw -- FAIL-1).</summary>
+    /// <summary>Truncates to <paramref name="maxLength"/> INCLUDING the ellipsis -- same algorithm/contract as <c>Codevoid.AgentTaskVoid.Run.LineHygiene.Truncate</c>. A non-positive <paramref name="maxLength"/> is treated as "unbounded" (defensive, never a throw -- FAIL-1).</summary>
     private static string Truncate(string s, int maxLength)
     {
         if (maxLength <= 0 || s.Length <= maxLength) return s;
@@ -76,7 +76,7 @@ public static partial class Normalizer
 /// (not a config tunable -- no acceptance criterion calls for one): sane
 /// starting values sized to each field's altitude (a question/summary earns
 /// more room than a terse per-tool activity label), matching the precedent
-/// set by <c>Atv.Config.Settings.Default</c>'s own "sane build-phase
+/// set by <c>Codevoid.AgentTaskVoid.Config.Settings.Default</c>'s own "sane build-phase
 /// defaults" doc comment.
 /// </summary>
 public static class FieldBudgets

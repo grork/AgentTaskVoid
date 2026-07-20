@@ -1,10 +1,10 @@
-using Atv.Config;
-using Atv.Icons;
-using Atv.Persistence;
-using Atv.Presence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Presence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// Everything one <see cref="WatchdogLoop"/> tick needs, gathered in one

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>
 /// LIFE-24's extraction/rendering split, the rendering half: host-independent

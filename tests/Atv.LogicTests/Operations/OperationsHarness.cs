@@ -1,10 +1,10 @@
-using Atv.LogicTests.Persistence;
-using Atv.LogicTests.Store;
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Semantics;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.LogicTests.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Semantics;
 
-namespace Atv.LogicTests.Operations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Operations;
 
 /// <summary>
 /// Shared fake-backed test rig for the phase-05 operations suite: a temp-dir

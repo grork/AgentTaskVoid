@@ -1,10 +1,10 @@
 using System.Runtime.CompilerServices;
-using Atv.Config;
-using Atv.Persistence;
-using Atv.Store;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.AdapterTests;
+namespace Codevoid.AgentTaskVoid.AdapterTests;
 
 /// <summary>
 /// INFRA-21's REQUIRED integration test: "a real detached process spawns,
@@ -17,7 +17,7 @@ namespace Atv.AdapterTests;
 /// <c>ATV_WATCHDOG_MODE=off</c> and never spawns anything for real.
 ///
 /// Spawns a REAL COPY of THIS test exe (<see cref="Environment.ProcessPath"/>,
-/// exactly as production <see cref="Atv.Cli.CompositionRoot"/> does for the
+/// exactly as production <see cref="Codevoid.AgentTaskVoid.Cli.CompositionRoot"/> does for the
 /// real <c>atv.exe</c>) -- which, per <c>build/Atv.TestIdentity.targets</c>,
 /// carries the IDENTICAL per-worktree test package identity as this process,
 /// so the spawned child observes the exact same <c>tasks.json</c> through the
@@ -155,7 +155,7 @@ public sealed class WatchdogProcessHostTests
 /// pattern as <see cref="PeriodicWorkerEntryPoint"/> (phase 03). Checked once
 /// per process start via env vars <see cref="ProcessHost"/> threads through
 /// (rather than CLI args, which the real <c>atv watchdog</c> verb uses --
-/// this test exe's <c>Main</c> belongs to MTP, not <c>Atv.Cli</c>, so argv
+/// this test exe's <c>Main</c> belongs to MTP, not <c>Codevoid.AgentTaskVoid.Cli</c>, so argv
 /// isn't a usable channel here).
 /// </summary>
 internal static class WatchdogWorkerEntryPoint

@@ -1,6 +1,6 @@
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.Config;
+namespace Codevoid.AgentTaskVoid.Config;
 
 /// <summary>
 /// INFRA-19's watchdog hosting mode. The CODE default is ALWAYS

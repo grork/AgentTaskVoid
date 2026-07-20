@@ -59,7 +59,7 @@
 
         - $(AtvReleaseIdentity)=true - set by build/Atv.Release.targets for the
           packaged build (`dotnet build ... -t:AtvRelease`). Stamps a CLEAN,
-          pathhash-free Name = $(AtvBrandName) (e.g. "Agentaskvoid") owning the bare
+          pathhash-free Name = $(AtvBrandName) (e.g. "Codevoid.AgentTaskVoid") owning the bare
           "atv" alias. A shipped identity must never encode the developer's build
           directory path.
         - $(AtvVerifyIdentity)=true - set alongside AtvReleaseIdentity (see
@@ -80,7 +80,7 @@
           - UNCHANGED from the original mechanism: Name = brand + a stable hash of
           the project directory, alias "atv". This is deliberate and load-bearing:
           the dev-interactive package this hash produces
-          (`Agentaskvoid-bbbb1168` in the primary worktree) is the identity that has
+          (`Codevoid.AgentTaskVoid-bbbb1168` in the primary worktree) is the identity that has
           already been driving real dogfooding (Checkpoint C1's taskbar render); it
           must keep resolving to the exact same Name after this change.
 

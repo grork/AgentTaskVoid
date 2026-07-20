@@ -1,6 +1,6 @@
-using Atv.Operations;
+using Codevoid.AgentTaskVoid.Operations;
 
-namespace Atv.Run;
+namespace Codevoid.AgentTaskVoid.Run;
 
 /// <summary>
 /// ERGO-5's "decoupled updater" half: owns a 10-line in-memory rolling
@@ -15,7 +15,7 @@ namespace Atv.Run;
 /// <c>lastUpdate</c> with NO content write via
 /// <see cref="TaskOperations.TouchKeepAlive"/> (the LIFE-22 silent-child
 /// keepalive). <see cref="Tick"/> is pure w.r.t. its own state (mirrors
-/// <see cref="Atv.Watchdog.WatchdogLoop.RunTick"/>'s split from its own
+/// <see cref="Codevoid.AgentTaskVoid.Watchdog.WatchdogLoop.RunTick"/>'s split from its own
 /// <c>Run</c> loop) -- directly unit-testable with a caller-driven clock, no
 /// thread/timer required.
 /// </summary>
@@ -94,7 +94,7 @@ public sealed class StepPublisher
     /// <summary>
     /// Production continuous loop: sleeps <paramref name="interval"/>, then
     /// ticks, until <paramref name="shouldStop"/> reports true -- same
-    /// test-controllable shape as <see cref="Atv.Watchdog.WatchdogLoop.Run"/>
+    /// test-controllable shape as <see cref="Codevoid.AgentTaskVoid.Watchdog.WatchdogLoop.Run"/>
     /// (<paramref name="sleep"/>/<paramref name="shouldStop"/> injected so a
     /// test can bound and fast-forward an otherwise-infinite loop
     /// deterministically).

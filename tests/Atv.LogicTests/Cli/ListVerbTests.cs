@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Atv.Cli.Verbs;
-using Atv.Config;
-using Atv.Diagnostics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Cli.Verbs;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC1's `list` coverage: empty, multiple tasks, `--json` array shape,

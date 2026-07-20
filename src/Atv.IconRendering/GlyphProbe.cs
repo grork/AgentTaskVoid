@@ -1,7 +1,7 @@
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.DirectWrite;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// ERGO-22's presence probe: does <paramref name="fontFamily"/> actually have

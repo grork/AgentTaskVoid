@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Atv.Diagnostics;
+namespace Codevoid.AgentTaskVoid.Diagnostics;
 
 /// <summary>
 /// FAIL-3's durable log entry shape: <c>{timestamp, verb, handle, error,
@@ -20,7 +20,7 @@ public sealed record LogEntry(DateTimeOffset Timestamp, string Verb, string? Han
 /// <summary>
 /// FAIL-1/FAIL-3's always-on durable failure log: lives in package app-data
 /// (same container as tasks.json / the sidecar -- production callers use
-/// <see cref="Atv.Persistence.AppPaths.LogPath"/>), NEVER a hand-rolled
+/// <see cref="Codevoid.AgentTaskVoid.Persistence.AppPaths.LogPath"/>), NEVER a hand-rolled
 /// global path. FAILURES are logged unconditionally (FAIL-1: "a durable
 /// failure log entry is ALWAYS written on the silent path" is a hard
 /// requirement, not optional); success entries are the caller's choice

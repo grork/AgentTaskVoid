@@ -1,4 +1,4 @@
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// The sidecar's per-handle payload (ERGO-21, "The sidecar store design",
@@ -12,11 +12,11 @@ namespace Atv.Persistence;
 /// deferred with INTER-4). <see cref="EngineMemory"/> is nullable so a
 /// pre-phase-15 (schema v1) entry on disk -- which never wrote this property
 /// -- deserializes cleanly as <see langword="null"/>, not a throw; every
-/// consumer treats <see langword="null"/> the same as <see cref="Atv.Persistence.EngineMemory.Empty"/>.
+/// consumer treats <see langword="null"/> the same as <see cref="Codevoid.AgentTaskVoid.Persistence.EngineMemory.Empty"/>.
 /// </summary>
 public sealed record SidecarEntry(string Id, DateTimeOffset LastUpdate, int SchemaVersion, EngineMemory? EngineMemory = null)
 {
-    /// <summary>Bump when this shape changes; keeps forward-compat cheap (ERGO-21 DP2). Bumped 1-&gt;2 for phase 15A's <see cref="EngineMemory"/> addition, 2-&gt;3 for phase 15B's decay/fan-out fields, 3-&gt;4 for <see cref="Atv.Persistence.EngineMemory.LastSummary"/> (the bug-fix "remember the platform's write-only <c>TextSummaryResult</c> text ourselves" addition, 2026-07-15).</summary>
+    /// <summary>Bump when this shape changes; keeps forward-compat cheap (ERGO-21 DP2). Bumped 1-&gt;2 for phase 15A's <see cref="EngineMemory"/> addition, 2-&gt;3 for phase 15B's decay/fan-out fields, 3-&gt;4 for <see cref="Codevoid.AgentTaskVoid.Persistence.EngineMemory.LastSummary"/> (the bug-fix "remember the platform's write-only <c>TextSummaryResult</c> text ourselves" addition, 2026-07-15).</summary>
     public const int CurrentSchemaVersion = 4;
 }
 
@@ -38,7 +38,7 @@ public sealed record BlockedLocus(string? AgentId, string Question, DateTimeOffs
 /// only while the owning card is currently semantically Ready
 /// (<c>AppTaskState.Completed</c>). <see cref="AccruedPresentTime"/> is
 /// elapsed WALL-CLOCK time that has passed while the user was present,
-/// summed incrementally one <see cref="Atv.Watchdog.WatchdogLoop"/> decay-pass
+/// summed incrementally one <see cref="Codevoid.AgentTaskVoid.Watchdog.WatchdogLoop"/> decay-pass
 /// tick at a time (the process is not continuously running, so this can never
 /// be a live in-memory timer -- LIFE-16's "stateless-over-disk"
 /// precedent). <see cref="LastSampledAt"/> is the wall-clock anchor for the
@@ -65,7 +65,7 @@ public sealed record AgentNameHint(string AgentId, string? Name);
 /// remember that the platform's <c>AppTaskInfo</c> itself has no slot for.
 /// Deliberately does NOT duplicate <c>SemanticState</c> itself: which of the
 /// five states a card is in is always read back off the live card's own
-/// <c>AppTaskState</c> (<see cref="Atv.Semantics.SemanticStateMapping"/>), so
+/// <c>AppTaskState</c> (<see cref="Codevoid.AgentTaskVoid.Semantics.SemanticStateMapping"/>), so
 /// there is exactly one source of truth for "what state is this card in."
 ///
 /// 15A fields: <see cref="Goal"/> (the last <c>working --goal</c> claim,
@@ -92,7 +92,7 @@ public sealed record AgentNameHint(string AgentId, string? Name);
 /// 2026-07-15): the text most recently written via <c>ready --summary</c>,
 /// kept here because <c>AppTaskInfo</c> has no readback for a
 /// <c>TextSummaryResult</c>'s text at all -- once written, the platform itself
-/// can never answer "what was that text" (see <see cref="Atv.Store.AppTaskView"/>'s
+/// can never answer "what was that text" (see <see cref="Codevoid.AgentTaskVoid.Store.AppTaskView"/>'s
 /// own remarks on this asymmetry). Without this, a bare re-affirming
 /// <c>ready</c> (no <c>--summary</c> -- e.g. Claude Code's <c>idle_prompt</c>
 /// following a <c>Stop</c> that DID carry one) or the <see cref="ReadyDecay"/>

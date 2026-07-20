@@ -1,8 +1,8 @@
-using Atv.Icons;
-using Atv.Persistence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Operations;
+namespace Codevoid.AgentTaskVoid.Operations;
 
 /// <summary>
 /// LIFE-15/LIFE-21's miss-path re-creation: rebuilds a live card from a

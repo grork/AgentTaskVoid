@@ -1,4 +1,4 @@
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 /// <summary>
 /// Claude-Code-specific wrapper over <see cref="IntegrationTranslatorProcess"/>.

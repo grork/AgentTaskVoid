@@ -1,7 +1,7 @@
-using Atv.Run;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Run;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>
 /// AC2's core: the debounced updater. All assertions go through

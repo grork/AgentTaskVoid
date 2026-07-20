@@ -1,4 +1,4 @@
-namespace Atv.Store;
+namespace Codevoid.AgentTaskVoid.Store;
 
 /// <summary>
 /// Repository seam between CLI logic and the platform's durable task store

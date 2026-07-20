@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// LIFE-17's production spawn mechanics: the SAME <c>atv</c> exe re-invoked
@@ -12,7 +12,7 @@ namespace Atv.Watchdog;
 /// empirically.
 ///
 /// <paramref name="exePath"/> is caller-supplied (never hardcoded here) --
-/// production wiring (<see cref="Atv.Cli.CompositionRoot"/>) passes
+/// production wiring (<see cref="Codevoid.AgentTaskVoid.Cli.CompositionRoot"/>) passes
 /// <see cref="Environment.ProcessPath"/> (literally "this same exe", per
 /// LIFE-17 -- no brand/PFN re-derivation needed), which doubles as the test
 /// hook: when a REAL-adapter test constructs its own <see cref="ProcessHost"/>

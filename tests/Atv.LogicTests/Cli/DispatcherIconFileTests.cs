@@ -1,7 +1,7 @@
-using Atv.Diagnostics;
-using Atv.IconRendering;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.IconRendering;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// Phase-16 acceptance criterion 5 at the full CLI-dispatch level:
@@ -30,7 +30,7 @@ public sealed class DispatcherIconFileTests
             Assert.AreEqual(0, exit);
             var view = h.Store.FindAll().Single();
             Assert.IsTrue(File.Exists(view.IconUri.LocalPath));
-            byte[] expected = RasterNormalizer.Normalize(source, Atv.Icons.IconService.DefaultSizePx).PngBytes!;
+            byte[] expected = RasterNormalizer.Normalize(source, Codevoid.AgentTaskVoid.Icons.IconService.DefaultSizePx).PngBytes!;
             CollectionAssert.AreEqual(expected, File.ReadAllBytes(view.IconUri.LocalPath));
         }
         finally
@@ -58,7 +58,7 @@ public sealed class DispatcherIconFileTests
 
             Assert.AreEqual(0, exit);
             var view = h.Store.FindAll().Single();
-            byte[] expected = RasterNormalizer.Normalize(source, Atv.Icons.IconService.DefaultSizePx).PngBytes!;
+            byte[] expected = RasterNormalizer.Normalize(source, Codevoid.AgentTaskVoid.Icons.IconService.DefaultSizePx).PngBytes!;
             CollectionAssert.AreEqual(expected, File.ReadAllBytes(view.IconUri.LocalPath), "a path-shaped --icon value must go through the same validation/normalization as --icon-file, not a raw unvalidated byte-copy.");
         }
         finally

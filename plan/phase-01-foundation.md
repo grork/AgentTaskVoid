@@ -13,7 +13,7 @@ with zero manual pre-steps, and a release AOT publish produces a ~3 MB single ex
 
 ## Decisions implemented
 
-- ERGO-18 ("The shipped command name"): binary `atv`, brand "Agentaskvoid", brand
+- ERGO-18 ("The shipped command name"): binary `atv`, brand "Agent Task Void", brand
   parameterized through a single source of truth.
 - INFRA-17 ("Dogfood/run ergonomics without a load-bearing script"): full-package
   identity via `Microsoft.Windows.SDK.BuildTools.WinApp` (build-time-only NuGet;

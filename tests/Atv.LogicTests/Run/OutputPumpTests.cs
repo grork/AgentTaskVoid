@@ -1,7 +1,7 @@
 using System.Text;
-using Atv.Run;
+using Codevoid.AgentTaskVoid.Run;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>
 /// Fake-backed (injected <see cref="MemoryStream"/>s, no real process):

@@ -5,7 +5,7 @@ using Windows.Win32.Graphics.DirectWrite;
 using Windows.Win32.Graphics.Imaging;
 using Windows.Win32.System.Com;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// Process-lifetime COM bootstrap: one WIC imaging factory, one single-threaded

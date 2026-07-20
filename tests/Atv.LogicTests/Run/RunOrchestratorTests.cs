@@ -1,8 +1,8 @@
-using Atv.Cli.Verbs;
-using Atv.Config;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Cli.Verbs;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>
 /// AC2's lifecycle mapping, one level below <c>RunVerbDispatchTests</c> (no

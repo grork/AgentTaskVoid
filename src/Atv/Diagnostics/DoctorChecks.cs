@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using Atv.Config;
+using Codevoid.AgentTaskVoid.Config;
 
-namespace Atv.Diagnostics;
+namespace Codevoid.AgentTaskVoid.Diagnostics;
 
 /// <summary>
 /// Injected probes for every real-OS/platform signal <c>doctor</c> reports
@@ -15,11 +15,11 @@ namespace Atv.Diagnostics;
 public sealed record DoctorProbes(
     /// <summary>Mirrors <c>Package.Current.Id.FullName</c> (the PFN) -- <see langword="null"/> when this process has no package identity.</summary>
     Func<string?> PackageFullName,
-    /// <summary>Mirrors <see cref="Atv.Store.IAppTaskStore.IsSupported"/> (already wrapped for <c>CLASS_E_CLASSNOTAVAILABLE</c>, INFRA-13) -- this seam takes the RESULT as a delegate, never importing <c>Windows.UI.Shell.Tasks</c> itself (plan/README.md standing invariant #7).</summary>
+    /// <summary>Mirrors <see cref="Codevoid.AgentTaskVoid.Store.IAppTaskStore.IsSupported"/> (already wrapped for <c>CLASS_E_CLASSNOTAVAILABLE</c>, INFRA-13) -- this seam takes the RESULT as a delegate, never importing <c>Windows.UI.Shell.Tasks</c> itself (plan/README.md standing invariant #7).</summary>
     Func<bool> ApiSupported,
     /// <summary>Windows Developer Mode (dev-facing only: loose-layout dev/test loop registration, INFRA-17 -- irrelevant to a properly-installed release package).</summary>
     Func<bool> DeveloperModeEnabled,
-    /// <summary>LIFE-18 watchdog liveness (informational only) -- see <see cref="Atv.Watchdog.EnsureWatchdog.IsRunning"/>.</summary>
+    /// <summary>LIFE-18 watchdog liveness (informational only) -- see <see cref="Codevoid.AgentTaskVoid.Watchdog.EnsureWatchdog.IsRunning"/>.</summary>
     Func<bool> WatchdogRunning,
     /// <summary>
     /// DIST-3's 2026-07-10 amendment: mirrors <c>Package.Current.Id.Name</c> (the
@@ -33,7 +33,7 @@ public sealed record DoctorProbes(
     /// </summary>
     Func<string?>? PackageName = null);
 
-/// <summary>Everything <c>doctor</c> needs beyond the four probes above: the ERGO-26 paths to surface, plus (phase 17) the ERGO-30 repo-defaults discovery delegate. Bundled so <see cref="Atv.Cli.Verbs.DoctorVerb"/> takes one parameter instead of several.</summary>
+/// <summary>Everything <c>doctor</c> needs beyond the four probes above: the ERGO-26 paths to surface, plus (phase 17) the ERGO-30 repo-defaults discovery delegate. Bundled so <see cref="Codevoid.AgentTaskVoid.Cli.Verbs.DoctorVerb"/> takes one parameter instead of several.</summary>
 public sealed record DoctorContext(
     DoctorProbes Probes,
     string ConfigPath,
@@ -42,7 +42,7 @@ public sealed record DoctorContext(
     string LogPath,
     /// <summary>
     /// ERGO-30's anti-"silent sea of robots" observability (AC7): the SAME
-    /// discovery delegate <see cref="Atv.Semantics.SemanticEngine"/> uses on
+    /// discovery delegate <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/> uses on
     /// its create branch, invoked HERE unconditionally -- `doctor` is a pure
     /// diagnostic verb, never gated by AC3's create-only rule (that rule is
     /// about upserting verbs' hot path, not about diagnosing why a hook's
@@ -91,7 +91,7 @@ public sealed record DoctorReport(
 /// <summary>
 /// The individual, injected-probe-driven checks behind `doctor`
 /// (FAIL-3/INFRA-13/INFRA-17/DIST-4/ERGO-26) -- pure data production, no
-/// stdout/exit-code work (that is <see cref="Atv.Cli.Verbs.DoctorVerb"/>'s
+/// stdout/exit-code work (that is <see cref="Codevoid.AgentTaskVoid.Cli.Verbs.DoctorVerb"/>'s
 /// job, matching every other verb's split between operation core and CLI
 /// wiring). <see cref="Run"/> ALWAYS runs every check to completion
 /// regardless of any other check's result -- diagnosing exactly why
@@ -101,16 +101,15 @@ public sealed record DoctorReport(
 public static class DoctorChecks
 {
     /// <summary>
-    /// Finalized winget package id (DIST-4, phase 12): <c>Agentaskvoid.Atv</c>.
-    /// Derived from <see cref="Branding"/> (plan/README.md standing invariant
-    /// #2: never re-literal the brand) rather than a second hardcoded
-    /// "Agentaskvoid" string; kept as a single, clearly-marked source so no
-    /// other file needs to know it changed. MUST match
-    /// <c>PackageIdentifier</c> in every file under
+    /// Finalized winget package id (DIST-4, phase 12): <c>Codevoid.AgentTaskVoid</c>
+    /// -- the package identity name itself. Derived from <see cref="Branding"/>
+    /// (plan/README.md standing invariant #2: never re-literal the brand); kept
+    /// as a single, clearly-marked source so no other file needs to know it
+    /// changed. MUST match <c>PackageIdentifier</c> in every file under
     /// <c>build/winget/manifests/.../</c> exactly -- doctor's remedy line is
     /// this codebase's other copy of the published package id.
     /// </summary>
-    public static readonly string WingetPackageId = $"{Branding.Name}.{char.ToUpperInvariant(Branding.Command[0])}{Branding.Command[1..]}";
+    public static readonly string WingetPackageId = Branding.IdentityName;
 
     public static DoctorReport Run(DoctorContext context)
     {

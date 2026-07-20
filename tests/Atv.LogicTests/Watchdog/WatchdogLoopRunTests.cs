@@ -1,7 +1,7 @@
-using Atv.Store;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Store;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Watchdog;
+namespace Codevoid.AgentTaskVoid.LogicTests.Watchdog;
 
 /// <summary>
 /// AC1's <see cref="WatchdogLoop.Run"/> coverage: LIFE-18 acquire-or-exit

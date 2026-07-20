@@ -1,16 +1,16 @@
-using Atv.Config;
-using Atv.Icons;
-using Atv.LogicTests.Persistence;
-using Atv.LogicTests.Store;
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Semantics;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.LogicTests.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Semantics;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// Shared fake-backed test rig for the phase-15 <see cref="SemanticEngine"/>
-/// suite -- mirrors <c>Atv.LogicTests.Operations.OperationsHarness</c>'s
+/// suite -- mirrors <c>Codevoid.AgentTaskVoid.LogicTests.Operations.OperationsHarness</c>'s
 /// shape (temp-dir sidecar/recycle-bin, unnamed per-instance mutex), plus an
 /// optional real <see cref="IconService"/> for the icon-forced-recreate
 /// tests (parallel to phase-07's <c>TaskOperationsIconTests</c> rig).

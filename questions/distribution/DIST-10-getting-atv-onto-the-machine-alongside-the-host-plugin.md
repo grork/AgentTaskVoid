@@ -4,7 +4,7 @@
 purely ship-time adoption friction gated on a deferred cert decision — nothing further to decide
 here now:
 - The engine's install vehicle is DIST-1 ("The end-user distribution vehicle"): `winget install
-  Agentaskvoid.Atv`, a one-time per-user step.
+  Codevoid.AgentTaskVoid`, a one-time per-user step.
 - The integration *artifact* is delivered separately and un-gated via the host's native plugin
   (DIST-11, "How the per-host integration artifact is delivered, placed on disk, and wired into
   the host's config"), so this question is now only about getting the **engine MSIX** on the box.
@@ -43,18 +43,18 @@ hook config is trivial to adopt (paste JSON), but it silently no-ops without `at
   per-machine trust elevation and materially lowers the bar; until then, sideloading is
   admin-gated.
 - **winget publication is deferred** (DIST-2; `docs/release.md` §4/§5): `winget install
-  Agentaskvoid.Atv` is the intended low-friction path but the manifest isn't submitted yet, so
+  Codevoid.AgentTaskVoid` is the intended low-friction path but the manifest isn't submitted yet, so
   it doesn't work for end users today.
 - **Plugin/marketplace mechanics vary per host** and move — a Claude Code plugin marketplace
   may or may not support declaring an external dependency or running an install step; Copilot
   CLI / Codex differ again. Anything host-specific must stay in the per-host artifact, not in
   `atv` (LIFE-10/11).
 - **Graceful degradation already exists**: hooks no-op cleanly if `atv` is absent, and
-  `doctor` prints the `winget install Agentaskvoid.Atv` remedy — so the failure mode is
+  `doctor` prints the `winget install Codevoid.AgentTaskVoid` remedy — so the failure mode is
   "nothing happens," not breakage. The question is how to convert that into "it just works."
 
 ## Options to explore later (NOT deciding now)
-1. Depend on winget: the plugin's install/readme is simply `winget install Agentaskvoid.Atv`
+1. Depend on winget: the plugin's install/readme is simply `winget install Codevoid.AgentTaskVoid`
    (blocked on DIST-2 publication). Lowest bar once it exists; cross-host uniform.
 2. Plugin bundles the signed MSIX + a bootstrap that runs `Add-AppxPackage` (needs a *trusted*
    cert → DIST-2 real cert to avoid the elevation).

@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>
 /// LIFE-24's five-state semantic model ("The host-event → task-state

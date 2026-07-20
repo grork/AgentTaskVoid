@@ -17,7 +17,7 @@ supervised version of the install flow this automates.
 Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) containing:
 1. **One dev-signed `.msixbundle`** spanning x64 + arm64 (`makeappx bundle` over the two per-arch
    release `.msix`, then signed with the same throwaway dev cert) — a single file that installs on
-   either architecture. Stamped with the **retail identity** (Name = `Agentaskvoid`, alias `atv`),
+   either architecture. Stamped with the **retail identity** (Name = `Codevoid.AgentTaskVoid`, alias `atv`),
    **not** `-reltest`: the plugins invoke bare `atv` (DIST-12, "Daily driver on the retail
    identity…"), so the alias must be `atv`, and dogfooders should exercise the literal release
    artifact.
@@ -37,7 +37,7 @@ Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) c
 - **Install the `.msixbundle`** (`Add-AppxPackage`) — per-user, no admin once the cert is trusted.
 - **For each implemented integration in the bundle whose host is detected present, prompt then
   wire its plugin** via that host's own local install mechanism (Claude Code: local-marketplace
-  add + `plugin install atv-integration@agentaskvoid`, `integrations/claude-code/README.md`
+  add + `plugin install atv-integration@agent-task-void`, `integrations/claude-code/README.md`
   Option B; Copilot CLI: its `.github/plugin/marketplace.json` equivalent). Prompted/consented
   because it writes host-security-relevant config (DIST-11's trust-surface note). A host that
   isn't installed is skipped; its README covers the manual path. (Operator reframe, 2026-07-19:
@@ -46,7 +46,7 @@ Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) c
 
 ### Uninstaller — ships in the bundle
 - Removes the wired plugins (each host's own uninstall) and the `atv` package
-  (`Remove-AppxPackage`, filtered to the retail Name — never a bare `*Agentaskvoid*` wildcard,
+  (`Remove-AppxPackage`, filtered to the retail Name — never a bare `*Codevoid.AgentTaskVoid*` wildcard,
   per `docs/release.md` §3.5).
 - **Prompts** whether to also remove the trusted dev cert.
 
@@ -54,7 +54,7 @@ Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) c
 - **Uninstall before the real release.** Because the eventual real cert (DIST-2) changes the
   Publisher → the Package Family Name changes, a dogfooder must uninstall this kit before
   installing the future real-cert release. The uninstall script is exactly that step.
-- **Targets external dogfooders.** The kit's retail identity (Name = `Agentaskvoid`, alias `atv`)
+- **Targets external dogfooders.** The kit's retail identity (Name = `Codevoid.AgentTaskVoid`, alias `atv`)
   is the SAME PFN + alias as DIST-12's daily driver install. For an external dogfooder (no prior
   install) that's clean. On the operator's own box, installing the kit would replace/upgrade the
   daily driver in place (same PFN) — not what the kit is for; it targets other people's machines.
@@ -97,7 +97,7 @@ record doesn't carry them forward.
 
 **Net wiring commands the installer runs, per detected host (both persistent, both from the
 bundled local plugin dir):**
-- Claude Code: `claude plugin marketplace add <dir>` + `claude plugin install atv-integration@agentaskvoid`.
+- Claude Code: `claude plugin marketplace add <dir>` + `claude plugin install atv-integration@agent-task-void`.
 - Copilot CLI: `copilot plugin marketplace add <dir>` + `copilot plugin install atv-integration@<marketplace>`.
 
 The two ERGO BLOCKERs the same review raised (icon/deep-link reverted on update) were **confirmed

@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 /// <summary>
 /// Phase 18 AC1 + AC7: static, artifact-shape teeth on the Claude Code v2

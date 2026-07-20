@@ -2,14 +2,14 @@
 # authored to the community winget-pkgs layout so it is directly submittable
 # once DIST-2's real signing certificate lands (this snapshot is signed with a
 # throwaway dev cert -- see docs/release.md). PackageIdentifier below MUST
-# match Atv.Diagnostics.DoctorChecks.WingetPackageId exactly (src/Atv/Diagnostics/DoctorChecks.cs) --
+# match Codevoid.AgentTaskVoid.Diagnostics.DoctorChecks.WingetPackageId exactly (src/Atv/Diagnostics/DoctorChecks.cs) --
 # that constant is doctor's other copy of this same id.
 #
 # This is a SNAPSHOT for one build (version = NBGV's $(BuildVersion) at the
 # time this pipeline last ran) -- regenerate the three files under a new
 # version folder for each real release; do not hand-edit stale snapshots back
 # into currency.
-PackageIdentifier: Agentaskvoid.Atv
+PackageIdentifier: Codevoid.AgentTaskVoid
 PackageVersion: 0.1.13.21419
 DefaultLocale: en-US
 ManifestType: version

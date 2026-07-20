@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 [TestClass]
 public sealed class CopilotCliPluginArtifactTests

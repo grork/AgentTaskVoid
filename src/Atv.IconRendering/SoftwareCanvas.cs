@@ -4,7 +4,7 @@ using Windows.Win32.Graphics.Direct2D.Common;
 using Windows.Win32.Graphics.Dxgi.Common;
 using Windows.Win32.Graphics.Imaging;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>Draws onto a fresh <see cref="SoftwareCanvas"/> canvas. <paramref name="renderTarget"/>/<paramref name="brush"/> are borrowed for the call only -- never released or cached by the callback.</summary>
 internal unsafe delegate void DrawCallback(ID2D1RenderTarget* renderTarget, ID2D1SolidColorBrush* brush);

@@ -11,14 +11,14 @@ A PFN is `<Name>_<PublisherId>`, and `PublisherId` is a hash of the manifest's d
 Identity"). So dev and release do NOT diverge merely by being signed with different certs;
 they diverge only when a declared identity STRING differs. As built through phase 11,
 dev-interactive and the dev-cert release share the same template → same Name
-(`Agentaskvoid-<pathhash>`) AND same Publisher (`CN=AppTaskInfoCli`) → the IDENTICAL PFN
-`Agentaskvoid-bbbb1168_016qghrny08mj` (confirmed by computing the PublisherId hash of
+(`Codevoid.AgentTaskVoid-<pathhash>`) AND same Publisher (`CN=AppTaskInfoCli`) → the IDENTICAL PFN
+`Codevoid.AgentTaskVoid-bbbb1168_016qghrny08mj` (confirmed by computing the PublisherId hash of
 `CN=AppTaskInfoCli`, 2026-07-10 — it equals the live dev PFN). Isolation was therefore NOT
 structural: it leaned entirely on the DEFERRED DIST-2 real-cert Publisher edit.
 
 Fix (ratified): make manifest stamping **build-kind-aware** (the mechanism INFRA-16 already
 uses for the test pool):
-- **Release** stamps a CLEAN, pathhash-free `Identity/@Name = <brand>` (e.g. `Agentaskvoid`)
+- **Release** stamps a CLEAN, pathhash-free `Identity/@Name = <brand>` (e.g. `Codevoid.AgentTaskVoid`)
   and owns the bare `atv` alias. A shipped identity must not encode the developer's build
   directory path.
 - **Dev-interactive** keeps `<brand>-<pathhash>` and also owns `atv` (on a dev box the

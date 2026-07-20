@@ -1,8 +1,8 @@
-using Atv.Operations;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// AC3: projection legality is structural. Enumerates every (state, content)

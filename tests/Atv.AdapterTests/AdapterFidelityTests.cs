@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.AdapterTests;
+namespace Codevoid.AgentTaskVoid.AdapterTests;
 
 /// <summary>
 /// INFRA-9's "small, data-driven, serial real-API adapter suite": proves the thin

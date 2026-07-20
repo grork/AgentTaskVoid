@@ -1,8 +1,8 @@
-using Atv;
-using Atv.Cli;
-using Atv.Cli.Verbs;
-using Atv.Diagnostics;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid;
+using Codevoid.AgentTaskVoid.Cli;
+using Codevoid.AgentTaskVoid.Cli.Verbs;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Watchdog;
 using Windows.ApplicationModel;
 
 // Thin main (plan/phase-08): parse -> (help/version/bare short-circuit, no

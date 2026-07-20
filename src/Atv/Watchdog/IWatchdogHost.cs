@@ -1,8 +1,8 @@
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// INFRA-21's hosting seam: the ONLY thing that differs by
-/// <see cref="Atv.Config.WatchdogMode"/> is the ACT of getting
+/// <see cref="Codevoid.AgentTaskVoid.Config.WatchdogMode"/> is the ACT of getting
 /// <see cref="WatchdogLoop.Run"/> running somewhere -- never the logic
 /// itself. <see cref="ProcessHost"/> spawns a detached windowless process
 /// (LIFE-17, production default); <see cref="InProcThreadHost"/> runs the

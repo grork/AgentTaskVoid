@@ -1,6 +1,6 @@
-using Atv.Run;
+using Codevoid.AgentTaskVoid.Run;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>AC1: table-driven coverage of the fixed 6-step pipeline -- ANSI-heavy lines, `\r` progress bars, control chars, blanks, over-long lines.</summary>
 [TestClass]

@@ -1,4 +1,4 @@
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// INFRA-19's <c>inproc</c> dev/debug hosting mode: runs the SAME

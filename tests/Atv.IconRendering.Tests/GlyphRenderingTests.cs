@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
-using Atv.IconRendering;
+using Codevoid.AgentTaskVoid.IconRendering;
 
-namespace Atv.IconRendering.Tests;
+namespace Codevoid.AgentTaskVoid.IconRendering.Tests;
 
 /// <summary>
 /// Phase-07 acceptance criterion 1: emoji -&gt; valid PNG NxN; Segoe codepoint

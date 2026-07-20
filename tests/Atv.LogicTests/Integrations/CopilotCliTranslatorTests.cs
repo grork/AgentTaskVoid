@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Atv.LogicTests.Persistence;
-using static Atv.LogicTests.Integrations.CopilotCliTranslatorHarness;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using static Codevoid.AgentTaskVoid.LogicTests.Integrations.CopilotCliTranslatorHarness;
 
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 [TestClass]
 [DoNotParallelize]

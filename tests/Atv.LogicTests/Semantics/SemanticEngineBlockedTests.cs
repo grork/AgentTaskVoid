@@ -1,7 +1,7 @@
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// AC2: <c>blocked</c> semantics -- the platform-enforced literal-question

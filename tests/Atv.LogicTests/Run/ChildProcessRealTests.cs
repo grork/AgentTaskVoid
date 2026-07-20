@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Text;
-using Atv.Cli.Verbs;
-using Atv.Config;
-using Atv.Run;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Cli.Verbs;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Run;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>
 /// AC3 + AC4: the two acceptance criteria that explicitly require a REAL

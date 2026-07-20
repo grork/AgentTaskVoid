@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Operations;
+namespace Codevoid.AgentTaskVoid.Operations;
 
 /// <summary>
 /// ERGO-8's "advance" model: the caller never manages the

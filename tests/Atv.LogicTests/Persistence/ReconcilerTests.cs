@@ -1,8 +1,8 @@
-using Atv.LogicTests.Store;
-using Atv.Persistence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.LogicTests.Store;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Persistence;
+namespace Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
 /// <summary>
 /// Covers phase-04 acceptance criterion 3: a data-driven test covers all

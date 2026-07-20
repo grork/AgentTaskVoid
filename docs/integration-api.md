@@ -1,7 +1,7 @@
-# The Agentaskvoid v2 integration API
+# The Agent Task Void v2 integration API
 
 This is the normative, host-agnostic contract for driving `atv` (brand
-**Agentaskvoid**) from an agent host's own event stream. It is the surface a
+**Agent Task Void**) from an agent host's own event stream. It is the surface a
 translator author — first-party or third-party — targets from this document
 alone, without needing to read `atv`'s source. The v1 lifecycle surface
 (`start`/`step`/`state`/`attention`/`done`/`fail`) is retired.

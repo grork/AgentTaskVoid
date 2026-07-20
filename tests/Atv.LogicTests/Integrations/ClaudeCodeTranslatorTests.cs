@@ -1,6 +1,6 @@
-using static Atv.LogicTests.Integrations.ClaudeCodeTranslatorHarness;
+using static Codevoid.AgentTaskVoid.LogicTests.Integrations.ClaudeCodeTranslatorHarness;
 
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 /// <summary>
 /// Phase 18 AC2: drives translate.ps1 under Windows PowerShell 5.1 against a

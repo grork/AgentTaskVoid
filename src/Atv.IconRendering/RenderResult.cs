@@ -1,4 +1,4 @@
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>Outcome of a render call -- ERGO-22's "PNG bytes or a 'glyph not present' signal", never an exception for the expected "this glyph doesn't exist on this build" case.</summary>
 public enum RenderStatus

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Atv.Config;
+namespace Codevoid.AgentTaskVoid.Config;
 
 /// <summary>
 /// Source-generated (AOT/trim-safe, ERGO-26) JSON metadata for the config

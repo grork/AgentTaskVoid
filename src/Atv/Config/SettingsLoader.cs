@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.Config;
+namespace Codevoid.AgentTaskVoid.Config;
 
 /// <summary>Everything <see cref="SettingsLoader.Load"/> resolved, plus any non-fatal problems it degraded past (ERGO-26/AC4: absent/malformed input never crashes -- it falls back and reports here instead of throwing).</summary>
 public sealed record SettingsLoadResult(Settings Settings, IReadOnlyList<string> Warnings);
@@ -173,7 +173,7 @@ public static class SettingsLoader
     /// ERGO-30's repo-scoped presentation-key precedence: <c>flag &gt; env &gt;
     /// repo-file &gt; user-file &gt;</c> (no built-in default -- absence at
     /// every layer is itself the answer; callers apply their OWN presentation
-    /// fallback, e.g. <c>Atv.Icons.IconTokens.Default</c>). Same "first source
+    /// fallback, e.g. <c>Codevoid.AgentTaskVoid.Icons.IconTokens.Default</c>). Same "first source
     /// that has this key wins" algorithm <see cref="Resolve{T}"/> uses for the
     /// tool's own operational tunables -- a fresh minimal implementation
     /// because these values are pure strings (no per-type parsing / mandatory

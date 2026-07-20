@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Atv.Diagnostics;
-using Atv.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
-namespace Atv.LogicTests.Diagnostics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
 /// <summary>
 /// FAIL-1/FAIL-2's non-disruptive wrapper (phase-06 AC2): default mode always

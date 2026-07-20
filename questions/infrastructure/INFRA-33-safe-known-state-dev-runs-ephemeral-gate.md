@@ -42,7 +42,7 @@ tear down explicitly, because cleanup can't be automatic.
    the `-reltest` variant (`docs/release.md` §3, alias `atv-reltest`, its own Name/PFN) or a one-off
    `winapp run` register — never the operator's `atv`. Registering guarantees the just-built version.
    Drive and observe the cards across as many invocations as needed, then remove the package by its
-   exact Name (`Remove-AppxPackage`, which drops the cards). Never a bare `*Agentaskvoid*` wildcard.
+   exact Name (`Remove-AppxPackage`, which drops the cards). Never a bare `*Codevoid.AgentTaskVoid*` wildcard.
    Cleanup is a deliberate teardown; it can't be automatic (see rule 4).
 4. **`--unregister-on-exit` is only for a self-contained programmatic check that leaves no residue** —
    one process that creates and asserts within its own lifetime. It cannot watch a card or hold state

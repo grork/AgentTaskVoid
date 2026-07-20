@@ -1,13 +1,13 @@
 {
-  "name": "agentaskvoid",
+  "name": "agent-task-void",
   "owner": {
-    "name": "Agentaskvoid"
+    "name": "Agent Task Void"
   },
   "plugins": [
     {
       "name": "atv-integration",
       "source": "./plugins/atv-integration",
-      "description": "Drives Agentaskvoid (atv) taskbar task cards from Claude Code session events: Working/Blocked/Ready/Broken states, activity lines, and subagent fan-out."
+      "description": "Drives Agent Task Void (atv) taskbar task cards from Claude Code session events: Working/Blocked/Ready/Broken states, activity lines, and subagent fan-out."
     }
   ]
 }

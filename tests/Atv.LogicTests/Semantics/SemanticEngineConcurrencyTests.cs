@@ -1,12 +1,12 @@
-using Atv.Operations;
+using Codevoid.AgentTaskVoid.Operations;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// Phase-15 counterpart of phase-05's <c>TaskOperationsConcurrencyTests</c>
 /// (AC7 in that phase's numbering; carried here as the same structural
-/// guarantee for the v2 engine): every <see cref="Atv.Semantics.SemanticEngine"/>
-/// verb acquires the <see cref="Atv.Persistence.WriteGate"/> exactly once
+/// guarantee for the v2 engine): every <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/>
+/// verb acquires the <see cref="Codevoid.AgentTaskVoid.Persistence.WriteGate"/> exactly once
 /// around its full read-modify-write, proven by having the fake's
 /// <c>InterleaveHook</c> fire INSIDE writer A's critical section and spawn
 /// writer B on another thread through a SEPARATE engine instance sharing the
@@ -62,13 +62,13 @@ public sealed class SemanticEngineConcurrencyTests
         {
             h.Store.InterleaveHook = null;
             threadB = new Thread(() => outcomeB = engineB.Activity("h2", "B", "", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink,
-                Atv.Semantics.ActivityKind.Shell, "b-step", null, null, SemanticEngineHarness.Now));
+                Codevoid.AgentTaskVoid.Semantics.ActivityKind.Shell, "b-step", null, null, SemanticEngineHarness.Now));
             threadB.Start();
             Thread.Sleep(150);
         };
 
         var outcomeA = h.Engine.Activity("h1", "A", "", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink,
-            Atv.Semantics.ActivityKind.Shell, "a-step", null, null, SemanticEngineHarness.Now);
+            Codevoid.AgentTaskVoid.Semantics.ActivityKind.Shell, "a-step", null, null, SemanticEngineHarness.Now);
 
         Assert.IsTrue(threadB!.Join(TimeSpan.FromSeconds(5)));
         Assert.AreEqual(OutcomeKind.Accepted, outcomeA.Kind);

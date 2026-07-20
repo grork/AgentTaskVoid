@@ -1,7 +1,7 @@
-using Atv.Config;
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Diagnostics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
 /// <summary>
 /// AC3's per-check coverage for <see cref="DoctorChecks"/>, driven entirely
@@ -16,7 +16,7 @@ namespace Atv.LogicTests.Diagnostics;
 public sealed class DoctorChecksTests
 {
     private static DoctorContext Context(
-        string? packageFullName = "Agentaskvoid-x_1.0.0.0_neutral",
+        string? packageFullName = "Codevoid.AgentTaskVoid-x_1.0.0.0_neutral",
         bool apiSupported = true,
         bool devMode = true,
         bool watchdogRunning = false,
@@ -39,10 +39,10 @@ public sealed class DoctorChecksTests
     [TestMethod]
     public void Run_IdentityPresent_ReportsPresentWithPfn()
     {
-        var report = DoctorChecks.Run(Context(packageFullName: "Agentaskvoid-abc123_1.2.3.4_x64"));
+        var report = DoctorChecks.Run(Context(packageFullName: "Codevoid.AgentTaskVoid-abc123_1.2.3.4_x64"));
 
         Assert.IsTrue(report.IdentityPresent);
-        Assert.AreEqual("Agentaskvoid-abc123_1.2.3.4_x64", report.PackageFullName);
+        Assert.AreEqual("Codevoid.AgentTaskVoid-abc123_1.2.3.4_x64", report.PackageFullName);
         Assert.IsNull(report.Remedy, "identity present -- no winget remedy needed.");
     }
 
@@ -121,21 +121,21 @@ public sealed class DoctorChecksTests
     [TestMethod]
     public void Run_PackageNameIsBrand_BuildKindMarkerIsNull_Release()
     {
-        var report = DoctorChecks.Run(Context(packageName: Atv.Branding.Name));
+        var report = DoctorChecks.Run(Context(packageName: Codevoid.AgentTaskVoid.Branding.IdentityName));
         Assert.IsNull(report.BuildKindMarker, "Release (clean brand-only Name) must be unmarked ship output.");
     }
 
     [TestMethod]
     public void Run_PackageNameIsBrandPlusHash_BuildKindMarkerIsDev()
     {
-        var report = DoctorChecks.Run(Context(packageName: $"{Atv.Branding.Name}-bbbb1168"));
+        var report = DoctorChecks.Run(Context(packageName: $"{Codevoid.AgentTaskVoid.Branding.IdentityName}-bbbb1168"));
         Assert.AreEqual("(dev)", report.BuildKindMarker);
     }
 
     [TestMethod]
     public void Run_PackageNameIsTestPool_BuildKindMarkerIsTest()
     {
-        var report = DoctorChecks.Run(Context(packageName: $"{Atv.Branding.Name}.Test.abcd1234"));
+        var report = DoctorChecks.Run(Context(packageName: $"{Codevoid.AgentTaskVoid.Branding.IdentityName}.Test.abcd1234"));
         Assert.AreEqual("(test)", report.BuildKindMarker);
     }
 
@@ -152,7 +152,7 @@ public sealed class DoctorChecksTests
         // A caller predating the DIST-3 amendment supplies no PackageName probe at
         // all (the record default) -- Run must not NullReferenceException on it.
         var probes = new DoctorProbes(
-            PackageFullName: () => "Agentaskvoid-x_1.0.0.0_neutral",
+            PackageFullName: () => "Codevoid.AgentTaskVoid-x_1.0.0.0_neutral",
             ApiSupported: () => true,
             DeveloperModeEnabled: () => true,
             WatchdogRunning: () => false);
@@ -263,7 +263,7 @@ public sealed class DoctorChecksTests
         var log = new FailureLog(Path.Combine(Path.GetTempPath(), $"atv-doctor-test-{Guid.NewGuid():N}.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
         var posture = new Posture(log, output, strict: false, verbose: false);
 
-        Atv.Cli.Verbs.DoctorVerb.Run(output, posture, Context(discoverRepo: () => discovery), DateTimeOffset.Now);
+        Codevoid.AgentTaskVoid.Cli.Verbs.DoctorVerb.Run(output, posture, Context(discoverRepo: () => discovery), DateTimeOffset.Now);
 
         string text = stdout.ToString();
         StringAssert.Contains(text, "repo config:");

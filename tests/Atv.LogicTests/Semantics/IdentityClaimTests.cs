@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// AC1's idempotency clause applied to the identity flags themselves:
@@ -29,7 +29,7 @@ public sealed class IdentityClaimTests
         using var h = new SemanticEngineHarness();
         h.Engine.Working("h1", "Original Title", "Original Sub", Icon, Link, "goal", Now);
 
-        var outcome = h.Engine.Activity("h1", title: null, subtitle: null, Icon, Link, Atv.Semantics.ActivityKind.Read, "x", null, null, Now.AddMinutes(1));
+        var outcome = h.Engine.Activity("h1", title: null, subtitle: null, Icon, Link, Codevoid.AgentTaskVoid.Semantics.ActivityKind.Read, "x", null, null, Now.AddMinutes(1));
 
         Assert.AreEqual("Original Title", outcome.View!.Title, "an absent --title must never wipe the existing title to empty.");
         Assert.AreEqual("Original Sub", outcome.View.Subtitle);
@@ -46,7 +46,7 @@ public sealed class IdentityClaimTests
         h.Engine.Working("h1", title: null, subtitle: null, Icon, Link, "goal", Now);
         Assert.AreEqual("", h.Store.FindAll().Single().Title, "sanity: Create with no title lands empty.");
 
-        var outcome = h.Engine.Activity("h1", title: null, subtitle: null, Icon, Link, Atv.Semantics.ActivityKind.Shell, "cmd", null, null, Now.AddMinutes(1));
+        var outcome = h.Engine.Activity("h1", title: null, subtitle: null, Icon, Link, Codevoid.AgentTaskVoid.Semantics.ActivityKind.Shell, "cmd", null, null, Now.AddMinutes(1));
 
         Assert.IsTrue(outcome.Success, "a follow-up call with no --title on a card whose title is already empty must still succeed, not crash.");
     }
@@ -69,7 +69,7 @@ public sealed class IdentityClaimTests
         using var h = new SemanticEngineHarness();
         h.Engine.Working("h1", "Kept Title", "S1", Icon, Link, "goal", Now);
 
-        var outcome = h.Engine.Activity("h1", title: null, subtitle: "New Sub", Icon, Link, Atv.Semantics.ActivityKind.Read, "x", null, null, Now.AddMinutes(1));
+        var outcome = h.Engine.Activity("h1", title: null, subtitle: "New Sub", Icon, Link, Codevoid.AgentTaskVoid.Semantics.ActivityKind.Read, "x", null, null, Now.AddMinutes(1));
 
         Assert.AreEqual("Kept Title", outcome.View!.Title);
         Assert.AreEqual("New Sub", outcome.View.Subtitle);

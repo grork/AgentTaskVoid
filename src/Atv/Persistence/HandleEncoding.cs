@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// Reversible percent-encoding of a caller-supplied handle (ERGO-6, "The

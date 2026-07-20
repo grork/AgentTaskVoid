@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Translates one Claude Code hook event into an Agentaskvoid (atv) v2
+    Translates one Claude Code hook event into an Agent Task Void (atv) v2
     semantic verb call. Bundled + wired by the atv-integration Claude Code
     plugin (plugin.json / hooks/hooks.json) -- never invoked directly by a
     human, and never shipped inside the atv MSIX (LIFE-10's no-host-specifics

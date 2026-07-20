@@ -1,13 +1,13 @@
-using Atv.LogicTests.Persistence;
-using Atv.LogicTests.Store;
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Semantics;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.LogicTests.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Semantics;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>
-/// Minimal fake-backed rig for phase-11's `Atv.Run` unit tests: a real
+/// Minimal fake-backed rig for phase-11's `Codevoid.AgentTaskVoid.Run` unit tests: a real
 /// <see cref="TaskOperations"/> + <see cref="SemanticEngine"/> (phase 15's
 /// re-seat -- <see cref="RunOrchestrator"/> now starts/finishes the card via
 /// <see cref="Engine"/>, while <c>StepPublisher</c> still writes through
@@ -15,7 +15,7 @@ namespace Atv.LogicTests.Run;
 /// <see cref="FakeAppTaskStore"/> (so a test can assert exactly how many
 /// whole-content writes happened) plus temp-dir sidecar/recycle-bin and an
 /// unnamed per-instance mutex -- same shape as
-/// <c>Atv.LogicTests.Cli.DispatcherHarness</c>, scoped down to what
+/// <c>Codevoid.AgentTaskVoid.LogicTests.Cli.DispatcherHarness</c>, scoped down to what
 /// <c>StepPublisher</c>/<c>RunOrchestrator</c> need (no icons/watchdog/doctor
 /// wiring).
 /// </summary>

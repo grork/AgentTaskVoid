@@ -155,7 +155,7 @@ The default is the anchor directory's own last path segment, plus the repo
 folder name in parentheses when the anchor sits below the discovered `.git`
 root — suppressed when the two names coincide (never `AppTaskInfoCli
 (AppTaskInfoCli)`). An anchor with no last path segment (a bare drive root,
-`C:\`) floors out at the brand name (`Agentaskvoid`) instead. The built-in
+`C:\`) floors out at the brand name (`Agent Task Void`) instead. The built-in
 default subtitle is the resolved git branch when a `.git` root is found,
 empty otherwise — subtitle has no never-blank guarantee (an anchor with no
 repo has no branch to show).

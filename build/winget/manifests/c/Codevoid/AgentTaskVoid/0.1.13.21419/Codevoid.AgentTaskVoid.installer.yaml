@@ -1,11 +1,11 @@
-# See Agentaskvoid.Atv.yaml for the snapshot/regeneration note.
+# See Codevoid.AgentTaskVoid.yaml for the snapshot/regeneration note.
 #
 # InstallerSha256 values are REAL hashes of the dev-cert-signed artifacts this
 # build produced (artifacts/release/msix/*.msix, build/Atv.Release.targets).
 # InstallerUrl points at this repo's GitHub Releases convention for a tag that
 # does not exist yet -- actual publication (cutting the release, uploading the
 # signed-with-a-REAL-cert artifacts, and `winget submit`) is DIST-2, deferred.
-PackageIdentifier: Agentaskvoid.Atv
+PackageIdentifier: Codevoid.AgentTaskVoid
 PackageVersion: 0.1.13.21419
 MinimumOSVersion: 10.0.26100.0
 InstallerType: msix
@@ -15,10 +15,10 @@ Commands:
   - atv
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/grork/AppTaskInfoCli/releases/download/v0.1.13.21419/Agentaskvoid_0.1.13.21419_x64.msix
+    InstallerUrl: https://github.com/grork/AppTaskInfoCli/releases/download/v0.1.13.21419/Codevoid.AgentTaskVoid_0.1.13.21419_x64.msix
     InstallerSha256: 9FBB687425015AAAA2062402C5957320BCB46EFADCE7702792F6686754059C8D
   - Architecture: arm64
-    InstallerUrl: https://github.com/grork/AppTaskInfoCli/releases/download/v0.1.13.21419/Agentaskvoid_0.1.13.21419_arm64.msix
+    InstallerUrl: https://github.com/grork/AppTaskInfoCli/releases/download/v0.1.13.21419/Codevoid.AgentTaskVoid_0.1.13.21419_arm64.msix
     InstallerSha256: CD768E828EA0E024AD92E32B8405368BA55F2DDE4E3AB07AE6AC989F58DD8D05
 ManifestType: installer
 ManifestVersion: 1.6.0

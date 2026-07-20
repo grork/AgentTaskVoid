@@ -1,7 +1,7 @@
-using Atv.Config;
-using Atv.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
-namespace Atv.LogicTests.Config;
+namespace Codevoid.AgentTaskVoid.LogicTests.Config;
 
 /// <summary>
 /// ERGO-30 (phase 17) AC5's precedence matrix for
@@ -10,7 +10,7 @@ namespace Atv.LogicTests.Config;
 /// user-file</c>), including the two orderings that are easy to get
 /// backwards: repo-beats-user and env-beats-repo. Also covers
 /// <see cref="SettingsLoader.ExtractEnvFor"/>/<see cref="SettingsLoader.ReadFileFor"/>,
-/// the reusable layer-extraction helpers <c>Atv.Config.RepoSettings</c>
+/// the reusable layer-extraction helpers <c>Codevoid.AgentTaskVoid.Config.RepoSettings</c>
 /// composes this precedence resolver against.
 /// </summary>
 [TestClass]

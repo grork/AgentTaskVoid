@@ -1,7 +1,7 @@
-using Atv.Config;
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC2's `clear` coverage: purges every task + sidecar entry + per-handle
@@ -55,7 +55,7 @@ public sealed class ClearVerbTests
         var dispatcher = h.BuildDispatcher();
         h.Run(dispatcher, "working", "h1");
         h.Run(dispatcher, "remove", "h1"); // ordinary remove doesn't tombstone; use a real recycle write directly
-        h.RecycleBin.Tombstone(new Atv.Persistence.RecycleRecord("recycled-h", "T", "S", null, new Uri("https://example.invalid"), DispatcherHarness.Now));
+        h.RecycleBin.Tombstone(new Codevoid.AgentTaskVoid.Persistence.RecycleRecord("recycled-h", "T", "S", null, new Uri("https://example.invalid"), DispatcherHarness.Now));
 
         h.Run(dispatcher, "clear");
 
@@ -67,7 +67,7 @@ public sealed class ClearVerbTests
     {
         using var h = new DispatcherHarness();
         var dispatcher = h.BuildDispatcher();
-        h.RecycleBin.Tombstone(new Atv.Persistence.RecycleRecord("recycled-h", "T", "S", null, new Uri("https://example.invalid"), DispatcherHarness.Now));
+        h.RecycleBin.Tombstone(new Codevoid.AgentTaskVoid.Persistence.RecycleRecord("recycled-h", "T", "S", null, new Uri("https://example.invalid"), DispatcherHarness.Now));
 
         h.Run(dispatcher, "clear", "--include-recycle-bin");
 

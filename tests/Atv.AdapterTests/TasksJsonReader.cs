@@ -1,14 +1,14 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Atv.AdapterTests;
+namespace Codevoid.AgentTaskVoid.AdapterTests;
 
 /// <summary>
 /// Raw reader for the current package's <c>tasks.json</c> -- the durable file
 /// <c>OSClient.API.dll</c> itself writes on every <c>Create</c>/<c>Update</c>/
 /// <c>Remove</c> (see docs/windows-ui-shell-tasks/README.md, "How it works"). Used
 /// by AdapterFidelityTests to assert on-disk fidelity directly, independent of (and as
-/// a cross-check against) what <see cref="Atv.Store.AppTaskStore"/>'s own
+/// a cross-check against) what <see cref="Codevoid.AgentTaskVoid.Store.AppTaskStore"/>'s own
 /// <c>FindAll()</c>/<c>Find()</c> report back through the seam.
 ///
 /// Shape verified empirically against a real <c>Create()</c> (2026-07-08, Windows 11
@@ -23,7 +23,7 @@ namespace Atv.AdapterTests;
 /// not guessing the other content shapes' on-disk field names).
 ///
 /// This is intentionally the only place in the test suite that parses <c>tasks.json</c>
-/// directly -- everything else goes through <see cref="Atv.Store.IAppTaskStore"/>,
+/// directly -- everything else goes through <see cref="Codevoid.AgentTaskVoid.Store.IAppTaskStore"/>,
 /// matching INFRA-9's "raw tasks.json reader" alongside <c>FindAll()</c> assertions.
 /// </summary>
 internal static class TasksJsonReader

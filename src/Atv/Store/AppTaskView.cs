@@ -1,4 +1,4 @@
-namespace Atv.Store;
+namespace Codevoid.AgentTaskVoid.Store;
 
 /// <summary>
 /// DTO mirror of <c>Windows.UI.Shell.Tasks.AppTaskState</c> (INFRA-8: no

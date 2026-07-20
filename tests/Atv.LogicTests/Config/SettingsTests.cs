@@ -1,6 +1,6 @@
-using Atv.Config;
+using Codevoid.AgentTaskVoid.Config;
 
-namespace Atv.LogicTests.Config;
+namespace Codevoid.AgentTaskVoid.LogicTests.Config;
 
 /// <summary>Sanity check on the concrete LIFE-22/INFRA-6/FAIL-3 numbers baked into <see cref="Settings.Default"/> -- guards against an accidental edit silently drifting a default (e.g. minutes vs. hours) unnoticed.</summary>
 [TestClass]

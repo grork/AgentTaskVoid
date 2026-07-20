@@ -1,6 +1,6 @@
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Diagnostics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
 /// <summary>
 /// INFRA-13's outcome mapping onto the FAIL-2 exit vocabulary: identity

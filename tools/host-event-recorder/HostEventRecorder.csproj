@@ -3,7 +3,7 @@
   <!--
     Host-agnostic, atv-independent capture core (INFRA-24,
     plan/phase-14-host-event-recorder.md Part A). Deliberately isolated from
-    src/Atv: no ProjectReference in either direction, no Atv.* namespace, no
+    src/Atv: no ProjectReference in either direction, no Codevoid.AgentTaskVoid.* namespace, no
     $(AtvBrandName)/$(AtvCommandName) consumption; standing invariant #2
     inverts for this tool (see CLAUDE.md and the plan's "Invariant note").
 

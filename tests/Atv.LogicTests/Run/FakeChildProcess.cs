@@ -1,7 +1,7 @@
 using System.Text;
-using Atv.Run;
+using Codevoid.AgentTaskVoid.Run;
 
-namespace Atv.LogicTests.Run;
+namespace Codevoid.AgentTaskVoid.LogicTests.Run;
 
 /// <summary>
 /// A tiny in-memory, blocking <see cref="Stream"/> standing in for a real

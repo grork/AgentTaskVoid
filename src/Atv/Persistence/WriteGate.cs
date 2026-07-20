@@ -1,4 +1,4 @@
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// INFRA-6's global write-mutex wrapper: acquire / bounded-wait / abandoned /

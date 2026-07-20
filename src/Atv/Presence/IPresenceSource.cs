@@ -1,9 +1,9 @@
-namespace Atv.Presence;
+namespace Codevoid.AgentTaskVoid.Presence;
 
 /// <summary>
 /// LIFE-24 §6's presence gate for the Ready-&gt;Idle decay clock: whether the
 /// interactive user currently "had a chance to act" -- device unlocked AND
-/// recent input. Polled fresh, once per <see cref="Atv.Watchdog.WatchdogLoop"/>
+/// recent input. Polled fresh, once per <see cref="Codevoid.AgentTaskVoid.Watchdog.WatchdogLoop"/>
 /// decay-pass tick (never cached/timer-driven -- LIFE-16's stateless-over-disk
 /// precedent applies here too: a respawned watchdog must be able to ask this
 /// cold and get a correct answer). <see cref="Win32PresenceSource"/> is the

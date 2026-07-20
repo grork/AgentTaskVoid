@@ -1,16 +1,16 @@
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// Phase-15 counterpart of phase-05's <c>TaskOperationsResurrectionTests</c>
 /// -- the LIFE-15/21 miss-path resurrection, now driven through every
 /// upserting <see cref="SemanticEngine"/> verb instead of the retired v1
 /// update-class verbs. A tombstone record is written directly into the
-/// harness's <see cref="Atv.Persistence.RecycleBin"/> (standing in for the
+/// harness's <see cref="Codevoid.AgentTaskVoid.Persistence.RecycleBin"/> (standing in for the
 /// watchdog that will normally put it there at expiry).
 /// </summary>
 [TestClass]

@@ -1,7 +1,7 @@
 using Windows.ApplicationModel;
 using Windows.Storage;
 
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// Runtime-derived app-data paths for every persistence mechanism this
@@ -61,7 +61,7 @@ public sealed class AppPaths
     /// composition root (production named, tests unnamed/unique; INFRA-8).
     /// This property is where PFN derivation for that name is centralized so
     /// no downstream phase re-derives or hardcodes it. Uses
-    /// <see cref="Branding.Name"/> (not <see cref="Branding.Command"/>) for
+    /// <see cref="Branding.IdentityName"/> (not <see cref="Branding.Command"/>) for
     /// the brand segment -- the same brand string that seeds the package
     /// Identity Name itself (<c>build/Atv.Package.targets</c>'
     /// <c>$(AtvBrandName)</c>), which is what the PFN is ultimately derived
@@ -71,7 +71,7 @@ public sealed class AppPaths
 
     /// <summary>Pure, testable half of <see cref="CurrentWriteMutexName"/> -- takes the package family name (PFN) as plain data.</summary>
     public static string BuildWriteMutexName(string packageFamilyName)
-        => $@"Local\{Branding.Name}-{packageFamilyName}-tasks-write";
+        => $@"Local\{Branding.IdentityName}-{packageFamilyName}-tasks-write";
 
     /// <summary>
     /// LIFE-18's ("Watchdog single-instance enforcement") named mutex for the
@@ -86,5 +86,5 @@ public sealed class AppPaths
 
     /// <summary>Pure, testable half of <see cref="CurrentWatchdogMutexName"/> -- takes the package family name (PFN) as plain data.</summary>
     public static string BuildWatchdogMutexName(string packageFamilyName)
-        => $@"Local\{Branding.Name}-{packageFamilyName}-watchdog";
+        => $@"Local\{Branding.IdentityName}-{packageFamilyName}-watchdog";
 }

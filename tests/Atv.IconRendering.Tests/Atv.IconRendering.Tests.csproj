@@ -7,7 +7,7 @@
       tests/Atv.LogicTests (phase 02).
     -->
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <RootNamespace>Atv.IconRendering.Tests</RootNamespace>
+    <RootNamespace>Codevoid.AgentTaskVoid.IconRendering.Tests</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>

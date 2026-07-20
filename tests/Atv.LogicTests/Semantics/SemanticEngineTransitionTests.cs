@@ -1,7 +1,7 @@
-using Atv.Operations;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// AC1: for each of the 8 verbs, proves its ERGO-31 §1 transition FROM EVERY
@@ -33,7 +33,7 @@ public sealed class SemanticEngineTransitionTests
                 h.Engine.Blocked(handle, "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, "Continue?", agentId: null, Now);
                 break;
             case Origin.Broken:
-                h.Engine.Broken(handle, "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, Atv.Semantics.BrokenReasonToken.Fatal, detail: null, Now);
+                h.Engine.Broken(handle, "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, Codevoid.AgentTaskVoid.Semantics.BrokenReasonToken.Fatal, detail: null, Now);
                 break;
             case Origin.Ready:
                 h.Engine.Ready(handle, "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, summary: null, Now);
@@ -100,7 +100,7 @@ public sealed class SemanticEngineTransitionTests
         Reach(h, "h1", origin);
 
         var outcome = h.Engine.Activity("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink,
-            Atv.Semantics.ActivityKind.Read, "auth.ts", agentId: null, name: null, Now.AddMinutes(1));
+            Codevoid.AgentTaskVoid.Semantics.ActivityKind.Read, "auth.ts", agentId: null, name: null, Now.AddMinutes(1));
 
         Assert.IsTrue(outcome.Success);
         Assert.AreEqual(AppTaskState.Running, outcome.View!.State);
@@ -275,7 +275,7 @@ public sealed class SemanticEngineTransitionTests
         Reach(h, "h1", origin);
 
         var outcome = h.Engine.Broken("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink,
-            Atv.Semantics.BrokenReasonToken.Timeout, detail: null, Now.AddMinutes(1));
+            Codevoid.AgentTaskVoid.Semantics.BrokenReasonToken.Timeout, detail: null, Now.AddMinutes(1));
 
         Assert.IsTrue(outcome.Success);
         Assert.AreEqual(AppTaskState.Error, outcome.View!.State);
@@ -287,7 +287,7 @@ public sealed class SemanticEngineTransitionTests
         using var h = new SemanticEngineHarness();
 
         var outcome = h.Engine.Broken("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink,
-            Atv.Semantics.BrokenReasonToken.ApiError, "connection reset by peer", Now);
+            Codevoid.AgentTaskVoid.Semantics.BrokenReasonToken.ApiError, "connection reset by peer", Now);
 
         Assert.AreEqual(AppTaskState.Error, outcome.View!.State);
     }
@@ -351,7 +351,7 @@ public sealed class SemanticEngineTransitionTests
         // there -- it needs to move into history like any other Advance call.
         using var h = new SemanticEngineHarness();
         h.Engine.Activity("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink,
-            Atv.Semantics.ActivityKind.Write, "Foo.txt", agentId: null, name: null, Now);
+            Codevoid.AgentTaskVoid.Semantics.ActivityKind.Write, "Foo.txt", agentId: null, name: null, Now);
 
         var outcome = h.Engine.AgentStarted("h1", "T", "S", SemanticEngineHarness.IconUri, SemanticEngineHarness.DeepLink, agentId: "a1", name: "worker", Now.AddMinutes(1));
 

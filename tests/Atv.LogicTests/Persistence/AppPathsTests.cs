@@ -1,6 +1,6 @@
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.LogicTests.Persistence;
+namespace Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
 /// <summary>
 /// AppPaths supports every other phase-04 mechanism's testing seam (temp-dir
@@ -28,11 +28,11 @@ public sealed class AppPathsTests
     [TestMethod]
     public void BuildWriteMutexName_IncludesBrandAndPfn_FormatIsLocalScoped()
     {
-        string name = AppPaths.BuildWriteMutexName("Agentaskvoid_abc123xyz");
+        string name = AppPaths.BuildWriteMutexName("Codevoid.AgentTaskVoid_abc123xyz");
 
-        Assert.AreEqual(@"Local\Agentaskvoid-Agentaskvoid_abc123xyz-tasks-write", name);
-        StringAssert.Contains(name, Branding.Name);
-        StringAssert.Contains(name, "Agentaskvoid_abc123xyz");
+        Assert.AreEqual(@"Local\Codevoid.AgentTaskVoid-Codevoid.AgentTaskVoid_abc123xyz-tasks-write", name);
+        StringAssert.Contains(name, Branding.IdentityName);
+        StringAssert.Contains(name, "Codevoid.AgentTaskVoid_abc123xyz");
         StringAssert.StartsWith(name, @"Local\");
         StringAssert.EndsWith(name, "-tasks-write");
     }
@@ -51,10 +51,10 @@ public sealed class AppPathsTests
     [TestMethod]
     public void BuildWatchdogMutexName_IncludesBrandAndPfn_FormatIsLocalScoped()
     {
-        string name = AppPaths.BuildWatchdogMutexName("Agentaskvoid_abc123xyz");
+        string name = AppPaths.BuildWatchdogMutexName("Codevoid.AgentTaskVoid_abc123xyz");
 
-        Assert.AreEqual(@"Local\Agentaskvoid-Agentaskvoid_abc123xyz-watchdog", name);
-        StringAssert.Contains(name, Branding.Name);
+        Assert.AreEqual(@"Local\Codevoid.AgentTaskVoid-Codevoid.AgentTaskVoid_abc123xyz-watchdog", name);
+        StringAssert.Contains(name, Branding.IdentityName);
         StringAssert.StartsWith(name, @"Local\");
         StringAssert.EndsWith(name, "-watchdog");
     }

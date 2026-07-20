@@ -1,4 +1,4 @@
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// LIFE-20's boot/crash-recovery half: no task is valid across a reboot, so
@@ -41,7 +41,7 @@ public static class BootRecovery
     /// recycle bin -- tombstone records AND their co-located icon files (the
     /// one internal, non-interactive exception to `clear`'s default
     /// recycle-bin exclusion, ERGO-16/ERGO-27). Runs entirely inside one
-    /// <see cref="Atv.Persistence.WriteGate.TryRun{T}"/> critical section,
+    /// <see cref="Codevoid.AgentTaskVoid.Persistence.WriteGate.TryRun{T}"/> critical section,
     /// like every other read-modify-write in this codebase (invariant #5).
     /// Returns the count of live tasks cleared, for the caller's log line;
     /// on a mutex-unavailable tick this is non-disruptively skipped (FAIL-1)

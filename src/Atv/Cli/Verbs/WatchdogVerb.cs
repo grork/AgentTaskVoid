@@ -1,6 +1,6 @@
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.Cli.Verbs;
+namespace Codevoid.AgentTaskVoid.Cli.Verbs;
 
 /// <summary>
 /// The hidden <c>atv watchdog</c> verb (LIFE-17: "the same atv exe in a

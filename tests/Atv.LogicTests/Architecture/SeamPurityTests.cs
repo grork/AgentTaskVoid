@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Atv.LogicTests.Architecture;
+namespace Codevoid.AgentTaskVoid.LogicTests.Architecture;
 
 /// <summary>
 /// Enforces plan/README.md standing invariant #7: "Exactly one type imports

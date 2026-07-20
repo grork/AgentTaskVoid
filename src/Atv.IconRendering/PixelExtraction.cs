@@ -1,6 +1,6 @@
 using Windows.Win32.Graphics.Imaging;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// Shared premultiplied-BGRA -&gt; straight-alpha RGBA8 pixel extraction, used

@@ -1,18 +1,18 @@
 using System.Text;
-using Atv.Config;
-using Atv.Diagnostics;
-using Atv.Icons;
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Presence;
-using Atv.Run;
-using Atv.Semantics;
-using Atv.Store;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Presence;
+using Codevoid.AgentTaskVoid.Run;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
+using Codevoid.AgentTaskVoid.Watchdog;
 using Microsoft.Win32;
 using Windows.ApplicationModel;
 
-namespace Atv.Cli;
+namespace Codevoid.AgentTaskVoid.Cli;
 
 /// <summary>Everything <see cref="CompositionRoot.Build"/> assembled for one CLI invocation.</summary>
 public sealed record RootContext(Dispatcher Dispatcher, Settings Settings, IReadOnlyList<string> SettingsWarnings);
@@ -35,7 +35,7 @@ public sealed record RootContext(Dispatcher Dispatcher, Settings Settings, IRead
 /// Wires the two items phase 06 deliberately parked here: (a) feeds
 /// <see cref="SettingsLoader"/>'s non-fatal <see cref="SettingsLoadResult.Warnings"/>
 /// into the durable log immediately after resolving settings -- the loader
-/// itself has no <c>Atv.Diagnostics</c> dependency by design (config
+/// itself has no <c>Codevoid.AgentTaskVoid.Diagnostics</c> dependency by design (config
 /// resolution stays a pure function of its three input layers); (b) the
 /// `--json`+`--strict` combination itself is a pure <see cref="Posture"/>
 /// behavior with no composition-root-specific wiring, covered instead by
@@ -223,7 +223,7 @@ public static class CompositionRoot
     private static string ResolveWatchdogMutexName()
     {
         try { return AppPaths.CurrentWatchdogMutexName; }
-        catch (Exception) { return $@"Local\{Branding.Name}-no-identity-watchdog"; }
+        catch (Exception) { return $@"Local\{Branding.IdentityName}-no-identity-watchdog"; }
     }
 
     private static Mutex ResolveWatchdogInstanceMutex(string name)

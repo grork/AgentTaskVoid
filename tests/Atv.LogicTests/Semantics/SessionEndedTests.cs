@@ -1,13 +1,13 @@
-using Atv.Operations;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// ERGO-31 §1's <c>session-ended</c> row: the one verb that does NOT accept
 /// identity flags and does NOT upsert -- <c>finished</c> removes the card
-/// (delegating to the surviving <see cref="Atv.Operations.TaskOperations.Remove"/>),
+/// (delegating to the surviving <see cref="Codevoid.AgentTaskVoid.Operations.TaskOperations.Remove"/>),
 /// <c>error</c> projects Broken with a fixed phrase.
 /// </summary>
 [TestClass]

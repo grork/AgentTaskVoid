@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.AdapterTests;
+namespace Codevoid.AgentTaskVoid.AdapterTests;
 
 /// <summary>
 /// The demoted periodic reality-check (INFRA-9, INFRA-15): confirms the real platform

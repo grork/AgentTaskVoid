@@ -1,4 +1,4 @@
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>ERGO-31 §3's closed <c>broken --reason</c> vocabulary. <see cref="Fatal"/> is the catch-all.</summary>
 public enum BrokenReasonToken

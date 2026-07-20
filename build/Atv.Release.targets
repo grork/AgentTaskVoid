@@ -18,8 +18,8 @@
                                                    docs\release.md)
     artifacts\release\publish\win-x64\...       (NativeAOT publish output)
     artifacts\release\publish\win-arm64\...
-    artifacts\release\msix\Agentaskvoid_<ver>_x64.msix     (signed)
-    artifacts\release\msix\Agentaskvoid_<ver>_arm64.msix   (signed)
+    artifacts\release\msix\Codevoid.AgentTaskVoid_<ver>_x64.msix     (signed)
+    artifacts\release\msix\Codevoid.AgentTaskVoid_<ver>_arm64.msix   (signed)
 
   Orchestration is out-of-process Exec (dotnet publish / winapp package /
   winapp sign) - the same idiom build/Atv.Package.targets documents ("an
@@ -138,8 +138,8 @@
   <Target Name="AtvReleaseComputeVersion" DependsOnTargets="GetBuildVersion">
     <PropertyGroup>
       <!-- $(_AtvMsixNameSuffix) is "_reltest" under -p:AtvVerifyIdentity=true, empty otherwise (see the header comment / top PropertyGroup) - keeps the smoke artifact from ever colliding with, or falsely up-to-date-skipping against, the real release msix. -->
-      <_AtvMsixWinX64>$(_AtvMsixDir)\Agentaskvoid_$(BuildVersion)_x64$(_AtvMsixNameSuffix).msix</_AtvMsixWinX64>
-      <_AtvMsixWinArm64>$(_AtvMsixDir)\Agentaskvoid_$(BuildVersion)_arm64$(_AtvMsixNameSuffix).msix</_AtvMsixWinArm64>
+      <_AtvMsixWinX64>$(_AtvMsixDir)\$(AtvBrandName)_$(BuildVersion)_x64$(_AtvMsixNameSuffix).msix</_AtvMsixWinX64>
+      <_AtvMsixWinArm64>$(_AtvMsixDir)\$(AtvBrandName)_$(BuildVersion)_arm64$(_AtvMsixNameSuffix).msix</_AtvMsixWinArm64>
     </PropertyGroup>
   </Target>
 

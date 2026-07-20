@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
-namespace Atv.Diagnostics;
+namespace Codevoid.AgentTaskVoid.Diagnostics;
 
 /// <summary>FAIL-2/ERGO-27 C5's mutating-verb `--json` shape: <c>{"ok":bool,"reason":str}</c>.</summary>
 public sealed record MutatingResultDto(bool Ok, string Reason);

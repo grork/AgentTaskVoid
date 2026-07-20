@@ -1,6 +1,6 @@
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.Cli.Verbs;
+namespace Codevoid.AgentTaskVoid.Cli.Verbs;
 
 /// <summary>
 /// `doctor [--json] [--verbose]` (FAIL-3; INFRA-13; INFRA-17; DIST-4;

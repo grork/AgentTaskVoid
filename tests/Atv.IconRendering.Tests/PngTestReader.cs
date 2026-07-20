@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 
-namespace Atv.IconRendering.Tests;
+namespace Codevoid.AgentTaskVoid.IconRendering.Tests;
 
 /// <summary>
 /// A minimal test-only PNG pixel reader, the decode-side mirror of the

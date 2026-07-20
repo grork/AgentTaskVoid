@@ -1,6 +1,6 @@
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC3: "the hook can never break the host" -- a missing/failing platform

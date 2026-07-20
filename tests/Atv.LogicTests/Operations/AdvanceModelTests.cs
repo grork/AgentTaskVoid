@@ -1,6 +1,6 @@
-using Atv.Operations;
+using Codevoid.AgentTaskVoid.Operations;
 
-namespace Atv.LogicTests.Operations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Operations;
 
 /// <summary>Covers phase-05 acceptance criterion 2's pure half: the ERGO-8 advance model -- archive-then-set, blank-executing-step is not archived, and the 10-deep FIFO cap.</summary>
 [TestClass]

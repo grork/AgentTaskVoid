@@ -1,7 +1,7 @@
 using Windows.Win32.Graphics.Direct2D;
 using Windows.Win32.Graphics.Direct2D.Common;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// ERGO-28's theme-neutral tile treatment: a filled rounded-rect (squircle-ish)

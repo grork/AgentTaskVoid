@@ -1,6 +1,6 @@
-using Atv.IconRendering;
+using Codevoid.AgentTaskVoid.IconRendering;
 
-namespace Atv.IconRendering.Tests;
+namespace Codevoid.AgentTaskVoid.IconRendering.Tests;
 
 /// <summary>
 /// Phase-16 acceptance criterion 1: monochrome Segoe Fluent Icons glyphs

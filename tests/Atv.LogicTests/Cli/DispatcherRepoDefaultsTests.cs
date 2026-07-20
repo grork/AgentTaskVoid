@@ -1,13 +1,13 @@
-using Atv.Config;
+using Codevoid.AgentTaskVoid.Config;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// ERGO-30 (phase 17) at the full CLI-dispatch level: proves the actual
 /// wiring in <c>Dispatcher</c>'s 7 upserting verb bodies (icon-explicitness
 /// threading into <c>SemanticEngine</c>) and <c>doctor</c>'s repo-discovery
 /// surfacing, on top of the exhaustive engine-level coverage in
-/// <c>Atv.LogicTests.Semantics.SemanticEngineRepoDefaultsTests</c>.
+/// <c>Codevoid.AgentTaskVoid.LogicTests.Semantics.SemanticEngineRepoDefaultsTests</c>.
 /// </summary>
 [TestClass]
 public sealed class DispatcherRepoDefaultsTests

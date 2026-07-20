@@ -1,7 +1,7 @@
-using Atv.Operations;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Operations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Operations;
 
 /// <summary>
 /// Covers phase-05 acceptance criterion 1's exhaustive half: every one of the

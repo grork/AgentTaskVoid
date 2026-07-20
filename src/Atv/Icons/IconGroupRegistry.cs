@@ -1,6 +1,6 @@
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.Icons;
+namespace Codevoid.AgentTaskVoid.Icons;
 
 /// <summary>
 /// ERGO-30's repo-grouping-intent owner registry: a tiny one-line text file
@@ -12,7 +12,7 @@ namespace Atv.Icons;
 /// cross-card routing fact), and keeping it out of <c>SidecarEntry</c> avoids
 /// a schema-version bump for a purely-additive, self-healing mechanism: a
 /// stale/dangling owner record is corrected the next time ANY card is
-/// created in that repo (<see cref="Atv.Semantics.SemanticEngine"/> notices
+/// created in that repo (<see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/> notices
 /// the recorded owner handle is no longer live and simply becomes the new
 /// owner itself, overwriting the record) -- see that type's repo-defaults
 /// application for the full ownership-transfer algorithm. Same atomic

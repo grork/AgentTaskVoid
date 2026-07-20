@@ -1,7 +1,7 @@
-using Atv.Diagnostics;
-using Atv.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
-namespace Atv.LogicTests.Diagnostics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
 /// <summary>FAIL-1/FAIL-3: the durable failure log, its {timestamp, verb, handle, error, buildKind} shape (the trailing marker field is DIST-3's 2026-07-10 amendment), size/age rotation, and the hard "never throws" requirement (phase-06 AC3).</summary>
 [TestClass]

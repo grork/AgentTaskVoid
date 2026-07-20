@@ -1,7 +1,7 @@
-using Atv;
-using Atv.Config;
+using Codevoid.AgentTaskVoid;
+using Codevoid.AgentTaskVoid.Config;
 
-namespace Atv.LogicTests.Config;
+namespace Codevoid.AgentTaskVoid.LogicTests.Config;
 
 /// <summary>
 /// ERGO-17's precedence chain (flag &gt; env &gt; file &gt; default) and

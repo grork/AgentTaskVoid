@@ -23,8 +23,9 @@ its file alone, consulting the cited question records only for deeper rationale.
    phase lists its test obligations; "implemented but untested" does not meet
    acceptance.
 2. **Brand parameterization** (ERGO-18, "The shipped command name"): binary `atv`,
-   brand "Agentaskvoid". ONE brand constant feeds identity, command name, env/config
-   names, mutex names, paths, artifact names. Never bake the string in twice.
+   identity `Codevoid.AgentTaskVoid`, display name "Agent Task Void". The three
+   `Branding` constants feed identity, command name, display strings, env/config
+   names, mutex names, paths, artifact names. Never bake a string in twice.
 3. **Never hardcode a PFN** (DIST-3, "Dev vs release identity (PFN) divergence"):
    everything PFN-keyed (mutexes, app-data paths) derives at runtime from the current
    package. Three identity pools (release / dev-interactive / per-worktree test) are

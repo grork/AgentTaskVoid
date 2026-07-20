@@ -1,18 +1,18 @@
-using Atv.Config;
-using Atv.Icons;
-using Atv.LogicTests.Persistence;
-using Atv.LogicTests.Store;
-using Atv.Persistence;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.LogicTests.Store;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Watchdog;
+namespace Codevoid.AgentTaskVoid.LogicTests.Watchdog;
 
 /// <summary>
 /// Shared fake-backed test rig for the phase-09 watchdog suite: a temp-dir
 /// sidecar/recycle-bin/icons (same <see cref="TempDirectory"/> seam every
 /// other phase's tests use), an unnamed per-instance <see cref="Mutex"/>
 /// wrapped in a <see cref="WriteGate"/>, and a REAL <see cref="IconService"/>
-/// (phase 07: no fake exists -- <c>Atv.IconRendering</c> has no filesystem/
+/// (phase 07: no fake exists -- <c>Codevoid.AgentTaskVoid.IconRendering</c> has no filesystem/
 /// handle/policy surface to fake against). One instance per test method --
 /// never shared across tests.
 /// </summary>

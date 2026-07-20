@@ -1,8 +1,8 @@
-using Atv.Icons;
-using Atv.Persistence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Operations;
+namespace Codevoid.AgentTaskVoid.Operations;
 
 /// <summary>How a <see cref="TaskOperations"/> call resolved. Boundary note: this is a structured result for a caller (phase 08) to map to exit codes / `--json` -- this type does no exit-code or CLI-output work itself.</summary>
 public enum OutcomeKind
@@ -56,7 +56,7 @@ public sealed record OperationOutcome(OutcomeKind Kind, string Handle, string Re
 /// <c>state</c>/<c>done</c>/<c>fail</c>/<c>attention</c>) are RETIRED --
 /// their claim-semantics successors (<c>working</c>/<c>activity</c>/
 /// <c>blocked</c>/<c>ready</c>/<c>broken</c>) now live in
-/// <see cref="Atv.Semantics.SemanticEngine"/>, which composes THIS type only
+/// <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/>, which composes THIS type only
 /// for <c>session-ended --reason finished</c> (== <see cref="Remove"/>).
 ///
 /// Every write here still runs WriteGate -&gt; reconcile -&gt; miss-path check
@@ -142,7 +142,7 @@ public sealed class TaskOperations
     /// <paramref name="parentHandle"/> (handle <c>&lt;parent&gt;#&lt;agentId&gt;</c>,
     /// identified purely via <see cref="EngineMemory.ParentHandle"/> --
     /// <see cref="SidecarStore.ReadChildrenOf"/>). Shared by <see cref="Remove"/>
-    /// above and, via composition, <c>Atv.Semantics.SemanticEngine</c>'s
+    /// above and, via composition, <c>Codevoid.AgentTaskVoid.Semantics.SemanticEngine</c>'s
     /// <c>session-ended --reason error</c> path (which also cascades -- a
     /// session that's over takes its fanned-out workers with it either way).
     /// Callers MUST already be running inside their own <see cref="WriteGate"/>
@@ -270,7 +270,7 @@ public sealed class TaskOperations
     /// The `run` wrapper's step-stream write: replaces the WHOLE step list
     /// with <paramref name="lines"/> wholesale (last line -&gt; executingStep,
     /// everything before it -&gt; completedSteps) -- NOT the ERGO-8 "advance"
-    /// model <c>Atv.Semantics.SemanticEngine.Activity</c> uses. The wrapper owns its rolling buffer
+    /// model <c>Codevoid.AgentTaskVoid.Semantics.SemanticEngine.Activity</c> uses. The wrapper owns its rolling buffer
     /// exclusively (ERGO-5: "no read-back"), so there is nothing to archive;
     /// each call is a full, idempotent snapshot of "the last N lines as of
     /// now". Reuses the same resolve -&gt; validate -&gt; write -&gt; sidecar-stamp

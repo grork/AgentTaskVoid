@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  AppxManifest TEMPLATE for Agentaskvoid (atv).
+  AppxManifest TEMPLATE for Agent Task Void (atv).
   See build/Atv.Package.targets and questions/distribution/DIST-7-release-full-package-manifest.md.
 
   The Identity element's Name and Version attributes, plus the AppExecutionAlias's
@@ -40,8 +40,8 @@
     Version="{Version}" />
 
   <Properties>
-    <DisplayName>Agentaskvoid</DisplayName>
-    <PublisherDisplayName>AppTaskInfoCli</PublisherDisplayName>
+    <DisplayName>Agent Task Void</DisplayName>
+    <PublisherDisplayName>Codevoid</PublisherDisplayName>
     <Logo>Assets\Square44x44Logo.png</Logo>
   </Properties>
 
@@ -55,12 +55,12 @@
 
   <Applications>
     <Application
-      Id="Agentaskvoid"
+      Id="Atv"
       Executable="atv.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Agentaskvoid"
-        Description="Agentaskvoid: agent task presence on the Windows 11 taskbar"
+        DisplayName="Agent Task Void"
+        Description="Agent Task Void: agent task presence on the Windows 11 taskbar"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png" />
@@ -74,8 +74,8 @@
           <uap3:AppExtension
             Name="com.microsoft.apptaskprovider"
             PublicFolder="Public"
-            Id="Agentaskvoid.AppTaskProvider"
-            DisplayName="AppTaskProvider for Agentaskvoid" />
+            Id="Codevoid.AgentTaskVoid.AppTaskProvider"
+            DisplayName="AppTaskProvider for Agent Task Void" />
         </uap3:Extension>
         <!-- Puts the build-kind-aware alias on PATH (ERGO-18, DIST-7; DIST-3's
              2026-07-10 amendment - `atv` for dev/release, `atv-reltest` for the
@@ -96,9 +96,9 @@
           Executable="atv.exe"
           EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask
-            TaskId="AgentaskvoidBootRecovery"
+            TaskId="CodevoidAgentTaskVoidBootRecovery"
             Enabled="false"
-            DisplayName="Agentaskvoid boot recovery" />
+            DisplayName="Agent Task Void boot recovery" />
         </desktop:Extension>
       </Extensions>
     </Application>

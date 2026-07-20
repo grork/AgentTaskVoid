@@ -1,7 +1,7 @@
-using Atv.IconRendering;
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.IconRendering;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.Icons;
+namespace Codevoid.AgentTaskVoid.Icons;
 
 /// <summary>
 /// ERGO-13/15/23: the main project's icon management -- everything the

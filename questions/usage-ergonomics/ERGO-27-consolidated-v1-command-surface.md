@@ -24,7 +24,7 @@ ERGO-31 is the current surface. See ERGO-31 §5 for the full supersession terms.
 
 ## Binary
 `atv` -- one exe (the watchdog is the same exe in a hidden mode, LIFE-17, "Watchdog spawn
-mechanics"). Brand "Agentaskvoid," parameterized through the system (ERGO-18).
+mechanics"). Brand "Agent Task Void," parameterized through the system (ERGO-18).
 
 ## Global options
 Accepted anywhere (before or after the verb); per-verb flags come after the verb. All layered

@@ -1,4 +1,4 @@
-namespace Atv.Cli;
+namespace Codevoid.AgentTaskVoid.Cli;
 
 /// <summary>ERGO-27's global options, layered flag &gt; env &gt; config &gt; default (phase 06) once resolved by <see cref="Config.SettingsLoader"/>. <see cref="WatchdogModeRaw"/> is the raw, UNPARSED <c>--watchdog-mode</c> value (if any) -- <see cref="CompositionRoot"/> feeds it into <see cref="Config.SettingsLoader.Load"/>'s <c>flags</c> layer rather than parsing it here, so there is exactly one parser for that tunable (the same one env/config already share).</summary>
 public sealed record GlobalOptions(

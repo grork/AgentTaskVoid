@@ -13,12 +13,15 @@
       brand/command strings are NOT re-literaled here. They are extracted from
       src/Atv/Branding.cs (the one checked-in source of truth) via regex, so
       renaming Branding.cs's constants is the only edit a rebrand ever needs.
-      $(AtvBrandName)/$(AtvCommandName) feed AssemblyName (Atv.csproj) and the
+      $(AtvBrandName) (= Branding.IdentityName) and $(AtvCommandName)
+      (= Branding.Command) feed AssemblyName (Atv.csproj) and the
       AppxManifest Identity Name stamp (build/Atv.Package.targets, DIST-7).
+      Branding.DisplayName has no MSBuild consumer; the manifest templates'
+      display fields are hand-authored to match it (DIST-7).
     -->
     <_AtvBrandingFile>$(MSBuildThisFileDirectory)src\Atv\Branding.cs</_AtvBrandingFile>
     <_AtvBrandingText Condition="Exists('$(_AtvBrandingFile)')">$([System.IO.File]::ReadAllText('$(_AtvBrandingFile)'))</_AtvBrandingText>
-    <AtvBrandName Condition="'$(_AtvBrandingText)' != ''">$([System.Text.RegularExpressions.Regex]::Match($(_AtvBrandingText), 'public\s+const\s+string\s+Name\s*=\s*"([^"]*)"').Groups[1].Value)</AtvBrandName>
+    <AtvBrandName Condition="'$(_AtvBrandingText)' != ''">$([System.Text.RegularExpressions.Regex]::Match($(_AtvBrandingText), 'public\s+const\s+string\s+IdentityName\s*=\s*"([^"]*)"').Groups[1].Value)</AtvBrandName>
     <AtvCommandName Condition="'$(_AtvBrandingText)' != ''">$([System.Text.RegularExpressions.Regex]::Match($(_AtvBrandingText), 'public\s+const\s+string\s+Command\s*=\s*"([^"]*)"').Groups[1].Value)</AtvCommandName>
   </PropertyGroup>
 

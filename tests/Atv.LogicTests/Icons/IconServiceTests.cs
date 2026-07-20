@@ -1,14 +1,14 @@
-using Atv.Icons;
-using Atv.IconRendering;
-using Atv.LogicTests.Persistence;
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.IconRendering;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.LogicTests.Icons;
+namespace Codevoid.AgentTaskVoid.LogicTests.Icons;
 
 /// <summary>
 /// Phase-07 acceptance criteria 2-4: cache (render once, per-handle copies
 /// distinct), ownership (reap/move/purge), and the fallback chain. Real
-/// rendering throughout (no fake -- <c>Atv.IconRendering</c> has no
+/// rendering throughout (no fake -- <c>Codevoid.AgentTaskVoid.IconRendering</c> has no
 /// filesystem/handle/policy surface to fake against; its own test suite
 /// covers the mechanism in isolation). Temp-dir injected, same pattern as
 /// <see cref="RecycleBinTests"/>/<see cref="SidecarStoreTests"/> -- no
@@ -268,7 +268,7 @@ public sealed class IconServiceTests
 
         Uri uri = service.Place("session-a", IconToken.RawPath(sourcePath));
 
-        CollectionAssert.AreEqual(expectedNormalized, File.ReadAllBytes(uri.LocalPath), "IconService must normalize a --icon-file source through Atv.IconRendering.RasterNormalizer, not copy raw bytes.");
+        CollectionAssert.AreEqual(expectedNormalized, File.ReadAllBytes(uri.LocalPath), "IconService must normalize a --icon-file source through Codevoid.AgentTaskVoid.IconRendering.RasterNormalizer, not copy raw bytes.");
     }
 
     [TestMethod]

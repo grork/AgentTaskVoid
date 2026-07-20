@@ -1,4 +1,4 @@
-namespace Atv.LogicTests.Integrations;
+namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
 
 internal static class CopilotCliTranslatorHarness
 {

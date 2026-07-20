@@ -1,9 +1,9 @@
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.AdapterTests;
+namespace Codevoid.AgentTaskVoid.AdapterTests;
 
 /// <summary>
 /// Phase-15 AC9's real-API e2e requirement: at least one real-API test PER

@@ -1,4 +1,4 @@
-namespace Atv.Diagnostics;
+namespace Codevoid.AgentTaskVoid.Diagnostics;
 
 /// <summary>
 /// DIST-3's 2026-07-10 amendment (phase 12): classifies which of the
@@ -13,7 +13,7 @@ public enum BuildKind
     /// <summary>No package identity at all (unpackaged process) -- documented as unmarked, same as Release.</summary>
     NoIdentity,
 
-    /// <summary>Name == <see cref="Branding.Name"/> exactly -- the clean, pathhash-free shipped release identity.</summary>
+    /// <summary>Name == <see cref="Branding.IdentityName"/> exactly -- the clean, pathhash-free shipped release identity.</summary>
     Release,
 
     /// <summary>Name starts with <c>&lt;brand&gt;.Test.</c> -- the per-worktree real-API adapter-test pool (INFRA-16).</summary>
@@ -48,10 +48,10 @@ public static class BuildKindResolver
         if (string.IsNullOrEmpty(packageIdentityName))
             return BuildKind.NoIdentity;
 
-        if (string.Equals(packageIdentityName, Branding.Name, StringComparison.Ordinal))
+        if (string.Equals(packageIdentityName, Branding.IdentityName, StringComparison.Ordinal))
             return BuildKind.Release;
 
-        if (packageIdentityName.StartsWith(Branding.Name + TestInfix, StringComparison.Ordinal))
+        if (packageIdentityName.StartsWith(Branding.IdentityName + TestInfix, StringComparison.Ordinal))
             return BuildKind.Test;
 
         return BuildKind.Dev;

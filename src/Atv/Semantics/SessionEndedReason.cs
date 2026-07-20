@@ -1,4 +1,4 @@
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>ERGO-31 §3's closed <c>session-ended --reason</c> vocabulary -- token-only, no free-text (unlike <see cref="BrokenReasonToken"/>, no <c>--detail</c>).</summary>
 public enum SessionEndedReasonToken

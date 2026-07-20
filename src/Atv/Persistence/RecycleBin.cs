@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// LIFE-21 ("What expiry does"): the record captured when a task is
@@ -128,10 +128,10 @@ public sealed class RecycleBin
     /// <summary>
     /// LIFE-20's boot-recovery unconditional wipe: deletes EVERY file in the
     /// directory -- both tombstone <c>.json</c> records and their co-located
-    /// <c>Atv.Icons.IconService</c> recycle-side <c>.png</c> copies (same
+    /// <c>Codevoid.AgentTaskVoid.Icons.IconService</c> recycle-side <c>.png</c> copies (same
     /// directory, same <see cref="HandleEncoding"/> filename convention, by
     /// deliberate convention rather than a dependency between the two types
-    /// -- see <c>Atv.Icons.IconService</c>'s own remarks). Ignores TTL
+    /// -- see <c>Codevoid.AgentTaskVoid.Icons.IconService</c>'s own remarks). Ignores TTL
     /// entirely -- never called from any hot path, boot-recovery only.
     /// Returns the count of files removed.
     /// </summary>

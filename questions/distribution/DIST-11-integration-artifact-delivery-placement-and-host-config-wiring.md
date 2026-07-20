@@ -61,7 +61,7 @@ it is exactly the class of implicit wiring that has produced plausible-but-wrong
 ## What makes it non-trivial (constraints)
 - **The opaque, versioned MSIX install path is a landmine.** If the translator files ride inside
   the `atv` MSIX (DIST-1's full-package model), they land under
-  `…\WindowsApps\Agentaskvoid_<ver>_<arch>_<pubhash>\…` — a path that is read-only and **changes
+  `…\WindowsApps\Codevoid.AgentTaskVoid_<ver>_<arch>_<pubhash>\…` — a path that is read-only and **changes
   on every version bump**. A hard-coded path in the host's `settings.json` would break on the
   next `atv` upgrade. So placement can't naively be "wherever the package unpacked."
 - **`map.json` is meant to be user-editable** (LIFE-24: users add rows for their own MCP tools

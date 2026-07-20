@@ -1,13 +1,13 @@
-using Atv.Icons;
-using Atv.Persistence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// Phase-15 counterpart of phase-07's <c>TaskOperationsIconTests</c> --
 /// same icon-cleanup wiring obligations (ERGO-23), now proven through
-/// <see cref="Atv.Semantics.SemanticEngine"/>'s own upsert pipeline instead
+/// <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/>'s own upsert pipeline instead
 /// of the retired <c>TaskOperations.Start</c>.
 /// </summary>
 [TestClass]
@@ -55,7 +55,7 @@ public sealed class SemanticEngineIconTests
         // constants stand in for that -- the same shape the v1 predecessor test used).
         using var h = new SemanticEngineHarness(withIcons: true);
         h.Engine.Working("h1", "T", "S", SemanticEngineHarness.IconUri, DeepLink, "goal", Now);
-        h.Engine.Activity("h1", "T", "S", SemanticEngineHarness.IconUri, DeepLink, Atv.Semantics.ActivityKind.Read, "a.txt", null, null, Now.AddMinutes(1));
+        h.Engine.Activity("h1", "T", "S", SemanticEngineHarness.IconUri, DeepLink, Codevoid.AgentTaskVoid.Semantics.ActivityKind.Read, "a.txt", null, null, Now.AddMinutes(1));
 
         Uri secondIcon = SemanticEngineHarness.OtherIconUri;
         var outcome = h.Engine.Working("h1", "T", "S", secondIcon, DeepLink, "new goal", Now.AddMinutes(2));
@@ -82,7 +82,7 @@ public sealed class SemanticEngineIconTests
         Uri freshUri = h.Icons.Place("h1", IconTokens.Default);
         var outcome = h.Engine.Working("h1", "T", "S", freshUri, DeepLink, "goal", Now);
 
-        Assert.AreEqual(Atv.Operations.OutcomeKind.Resurrected, outcome.Kind);
+        Assert.AreEqual(Codevoid.AgentTaskVoid.Operations.OutcomeKind.Resurrected, outcome.Kind);
         Assert.AreEqual(freshUri, outcome.View!.IconUri, "the caller's fresh icon wins -- v2 never moves the old recycled copy back.");
         Assert.IsFalse(File.Exists(recycledIconPath), "the now-orphaned recycled copy must be reaped, not left behind.");
     }

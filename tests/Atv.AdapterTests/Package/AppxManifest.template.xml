@@ -30,8 +30,8 @@
     Version="{Version}" />
 
   <Properties>
-    <DisplayName>Agentaskvoid Adapter Tests</DisplayName>
-    <PublisherDisplayName>AppTaskInfoCli</PublisherDisplayName>
+    <DisplayName>Agent Task Void Adapter Tests</DisplayName>
+    <PublisherDisplayName>Codevoid</PublisherDisplayName>
     <Logo>Assets\Square44x44Logo.png</Logo>
   </Properties>
 
@@ -45,12 +45,12 @@
 
   <Applications>
     <Application
-      Id="AgentaskvoidAdapterTests"
+      Id="AtvAdapterTests"
       Executable="Atv.AdapterTests.real.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Agentaskvoid Adapter Tests"
-        Description="Per-worktree real-API adapter test identity for Agentaskvoid (phase 03)"
+        DisplayName="Agent Task Void Adapter Tests"
+        Description="Per-worktree real-API adapter test identity for Agent Task Void (phase 03)"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png" />
@@ -63,8 +63,8 @@
           <uap3:AppExtension
             Name="com.microsoft.apptaskprovider"
             PublicFolder="Public"
-            Id="AgentaskvoidTest.AppTaskProvider"
-            DisplayName="AppTaskProvider for Agentaskvoid Adapter Tests" />
+            Id="Codevoid.AgentTaskVoid.TestProvider"
+            DisplayName="AppTaskProvider for Agent Task Void Adapter Tests" />
         </uap3:Extension>
         <!--
           The per-worktree-unique alias: not a user-facing PATH convenience like the

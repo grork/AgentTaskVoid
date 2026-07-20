@@ -1,4 +1,4 @@
-namespace Atv.Watchdog;
+namespace Codevoid.AgentTaskVoid.Watchdog;
 
 /// <summary>
 /// LIFE-20's real WinRT half of the boot-recovery startup-item toggle: thin,
@@ -24,7 +24,7 @@ namespace Atv.Watchdog;
 /// </summary>
 public static class StartupTaskControl
 {
-    public const string TaskId = "AgentaskvoidBootRecovery";
+    public const string TaskId = "CodevoidAgentTaskVoidBootRecovery";
 
     public static void EnableSync()
     {

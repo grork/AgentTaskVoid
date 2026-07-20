@@ -9,7 +9,7 @@
       CsWin32 projects against).
     -->
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <RootNamespace>Atv.IconRendering</RootNamespace>
+    <RootNamespace>Codevoid.AgentTaskVoid.IconRendering</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

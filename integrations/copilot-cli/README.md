@@ -1,6 +1,6 @@
 # GitHub Copilot CLI integration
 
-Wires GitHub Copilot CLI sessions to Agentaskvoid (`atv`) taskbar cards through
+Wires GitHub Copilot CLI sessions to Agent Task Void (`atv`) taskbar cards through
 a native Copilot plugin. The plugin targets only the host-agnostic v2 semantic
 API in [docs/integration-api.md](../../docs/integration-api.md); no
 Copilot-specific logic lives in `atv.exe`.

@@ -1,6 +1,6 @@
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>AC1's `remove` coverage: task+sidecar+icon removal, the ERGO-2 hidden sweep on remove, and required-handle enforcement.</summary>
 [TestClass]

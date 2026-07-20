@@ -1,6 +1,6 @@
-using Atv.Cli;
+using Codevoid.AgentTaskVoid.Cli;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC2: global options parse in ANY position (before or after the verb,

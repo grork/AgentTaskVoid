@@ -1,6 +1,6 @@
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.LogicTests.Persistence;
+namespace Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
 /// <summary>
 /// Covers phase-04 acceptance criterion 4: record round-trip; miss-path
@@ -129,7 +129,7 @@ public sealed class RecycleBinTests
         var bin = new RecycleBin(dir.Path);
         bin.Tombstone(new RecycleRecord("a", "T", "S", null, DeepLink, DateTimeOffset.Now));
         bin.Tombstone(new RecycleRecord("b", "T", "S", null, DeepLink, DateTimeOffset.Now));
-        // Simulate a co-located icon file (Atv.Icons.IconService's own convention -- same directory, different extension).
+        // Simulate a co-located icon file (Codevoid.AgentTaskVoid.Icons.IconService's own convention -- same directory, different extension).
         File.WriteAllBytes(Path.Combine(dir.Path, "a.png"), [1, 2, 3]);
 
         int removed = bin.WipeAll();

@@ -1,6 +1,6 @@
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.LogicTests.Persistence;
+namespace Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
 /// <summary>
 /// Covers phase-04 acceptance criterion 2's "handle encoding round-trips

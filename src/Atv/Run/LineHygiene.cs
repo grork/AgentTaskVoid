@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Atv.Run;
+namespace Codevoid.AgentTaskVoid.Run;
 
 /// <summary>
 /// ERGO-5's fixed, bounded per-line hygiene pipeline for the `run` wrapper's

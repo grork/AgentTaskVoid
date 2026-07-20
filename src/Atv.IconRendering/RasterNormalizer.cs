@@ -2,9 +2,9 @@ using Windows.Win32;
 using Windows.Win32.Graphics.Imaging;
 using Windows.Win32.System.Com;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
-/// <summary>Why a <see cref="RasterNormalizer.Normalize"/> call did not produce a usable PNG. Distinct reasons so <c>Atv.Icons.IconService</c> can log something more useful than "failed" (FAIL-3).</summary>
+/// <summary>Why a <see cref="RasterNormalizer.Normalize"/> call did not produce a usable PNG. Distinct reasons so <c>Codevoid.AgentTaskVoid.Icons.IconService</c> can log something more useful than "failed" (FAIL-3).</summary>
 public enum NormalizeStatus
 {
     /// <summary><see cref="NormalizeResult.PngBytes"/> holds a valid, normalized 64px PNG.</summary>
@@ -31,7 +31,7 @@ public readonly record struct NormalizeResult(NormalizeStatus Status, byte[]? Pn
 /// <summary>
 /// ERGO-29's bring-your-own-image normalization: arbitrary caller-supplied
 /// PNG/JPG/ICO bytes -&gt; the pipeline's one 64px PNG shape, via WIC decode
-/// (no filesystem access here -- <c>Atv.Icons.IconService</c> owns reading the
+/// (no filesystem access here -- <c>Codevoid.AgentTaskVoid.Icons.IconService</c> owns reading the
 /// source file and the byte-size cap; this type only ever sees bytes already
 /// in memory, matching ERGO-22's "pure mechanism, no filesystem" project
 /// boundary).

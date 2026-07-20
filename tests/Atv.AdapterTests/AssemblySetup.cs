@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using Atv.Config;
+using Codevoid.AgentTaskVoid.Config;
 
-namespace Atv.AdapterTests;
+namespace Codevoid.AgentTaskVoid.AdapterTests;
 
 /// <summary>
 /// INFRA-19 ("Inner-loop watchdog suppression"): "real-adapter test runs set

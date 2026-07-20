@@ -1,6 +1,6 @@
-using Atv.Semantics;
+using Codevoid.AgentTaskVoid.Semantics;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// AC4: the shared engine normalizer (LIFE-24 S2-walk item 2) -- collapse

@@ -1,7 +1,7 @@
-using Atv.Diagnostics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC1/AC4/AC7 at the full CLI-dispatch level: <c>CommandLine.Parse</c> -&gt;
@@ -10,7 +10,7 @@ namespace Atv.LogicTests.Cli;
 /// closed vocabularies, the `-` stdin convention's real wiring through
 /// <see cref="DispatcherHarness.Stdin"/>, and AC7's "the parser rejects the
 /// six v1 lifecycle verbs") -- the engine's own claim-semantics matrix lives
-/// in <c>Atv.LogicTests.Semantics</c>.
+/// in <c>Codevoid.AgentTaskVoid.LogicTests.Semantics</c>.
 /// </summary>
 [TestClass]
 public sealed class DispatcherSemanticVerbsTests

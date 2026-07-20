@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Atv.Config;
+namespace Codevoid.AgentTaskVoid.Config;
 
 /// <summary>Where the create-time anchor directory came from (ERGO-30's "the load-bearing bit"): the caller-supplied <c>--cwd</c> flag, or (direct human use) a fallback to the CURRENT PROCESS's own working directory. Never anything else -- in particular, never a host env var (see <see cref="RepoSettings.Discover"/>'s own remarks; <c>tests/Atv.LogicTests/Config/RepoSettingsTests.cs</c>'s structural test greps this very file's source for that).</summary>
 public enum AnchorSource
@@ -33,7 +33,7 @@ public enum RepoConfigParseStatus
 /// disallowed-key warning -- ERGO-30: "ignored AND logged, never silently
 /// dropped"), and the repo root / branch this SAME walk discovered (used for
 /// the <c>{repo}</c>/<c>{branch}</c> title-template tokens and the
-/// grouping-intent key -- see <see cref="Atv.Semantics.SemanticEngine"/>'s
+/// grouping-intent key -- see <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/>'s
 /// repo-defaults application).
 /// </summary>
 public sealed record RepoDiscoveryResult(
@@ -62,7 +62,7 @@ public sealed record RepoDiscoveryResult(
 /// This type owns discovery MECHANICS only (anchor, walk, parse, allowlist
 /// filter, cheap git branch read). It knows nothing about flag/env/user-file
 /// PRECEDENCE -- that is <see cref="SettingsLoader.ResolvePresentationKey"/>'s
-/// job, composed by <see cref="Atv.Semantics.SemanticEngine"/>'s repo-defaults
+/// job, composed by <see cref="Codevoid.AgentTaskVoid.Semantics.SemanticEngine"/>'s repo-defaults
 /// application (the ONLY call site, gated to the upsert CREATE branch --
 /// ERGO-30 AC3).
 /// </summary>
@@ -74,7 +74,7 @@ public static class RepoSettings
     public const string KeyIcon = "icon";
     public const string KeyIconFile = "icon-file";
 
-    /// <summary>ERGO-14's deferred glomming intent, arriving repo-scoped: a truthy value (<c>"true"</c>, case-insensitive) makes every card created while this repo's <c>.git</c> root is the discovered repo root SHARE one exact icon <see cref="Uri"/> (ERGO-13 physics) -- see <c>Atv.Semantics.SemanticEngine</c>'s repo-defaults application.</summary>
+    /// <summary>ERGO-14's deferred glomming intent, arriving repo-scoped: a truthy value (<c>"true"</c>, case-insensitive) makes every card created while this repo's <c>.git</c> root is the discovered repo root SHARE one exact icon <see cref="Uri"/> (ERGO-13 physics) -- see <c>Codevoid.AgentTaskVoid.Semantics.SemanticEngine</c>'s repo-defaults application.</summary>
     public const string KeyGroup = "group";
 
     public static readonly IReadOnlyList<string> AllowlistKeys = [KeyTitleTemplate, KeySubtitle, KeyIcon, KeyIconFile, KeyGroup];
@@ -100,7 +100,7 @@ public static class RepoSettings
     /// <summary>
     /// Anchor resolution (ERGO-30's "load-bearing bit"): <paramref name="cwdFlag"/>
     /// (the caller-supplied <c>--cwd</c>, already parsed off argv by
-    /// <see cref="Atv.Cli.CommandLine"/>) wins when present; otherwise
+    /// <see cref="Codevoid.AgentTaskVoid.Cli.CommandLine"/>) wins when present; otherwise
     /// <paramref name="processCwd"/> (the CALLER's own choice of fallback --
     /// production passes <see cref="Environment.CurrentDirectory"/>, tests pass
     /// an arbitrary string). Then walks UP: at each directory, the nearest

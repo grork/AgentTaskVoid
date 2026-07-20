@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Operations;
+namespace Codevoid.AgentTaskVoid.Operations;
 
 /// <summary>How <see cref="Validator.Validate"/> classified a (content, state) pair.</summary>
 public enum ValidationOutcome

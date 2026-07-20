@@ -1,6 +1,6 @@
-using Atv.Semantics;
+using Codevoid.AgentTaskVoid.Semantics;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>AC7's closed-vocabulary parsing (ERGO-31 §2): every documented token parses to its kind, and the vocabulary is genuinely CLOSED (an arbitrary/unmapped token is rejected, never silently accepted).</summary>
 [TestClass]

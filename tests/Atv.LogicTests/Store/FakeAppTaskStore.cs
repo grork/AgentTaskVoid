@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Store;
+namespace Codevoid.AgentTaskVoid.LogicTests.Store;
 
 /// <summary>
 /// In-memory <see cref="IAppTaskStore"/> test double. Test-only -- lives in

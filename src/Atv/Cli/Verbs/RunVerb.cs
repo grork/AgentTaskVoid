@@ -1,11 +1,11 @@
-using Atv.Config;
-using Atv.Diagnostics;
-using Atv.Icons;
-using Atv.Operations;
-using Atv.Run;
-using Atv.Semantics;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Run;
+using Codevoid.AgentTaskVoid.Semantics;
 
-namespace Atv.Cli.Verbs;
+namespace Codevoid.AgentTaskVoid.Cli.Verbs;
 
 /// <summary>
 /// Everything <see cref="RunVerb.Run"/> needs, gathered in one place

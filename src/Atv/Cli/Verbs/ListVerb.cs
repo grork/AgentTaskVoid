@@ -1,9 +1,9 @@
 using System.Text.Json.Serialization;
-using Atv.Diagnostics;
-using Atv.Operations;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Cli.Verbs;
+namespace Codevoid.AgentTaskVoid.Cli.Verbs;
 
 /// <summary>
 /// FAIL-2/ERGO-27 C5's `list --json` shape: one row per live task.

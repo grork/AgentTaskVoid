@@ -1,6 +1,6 @@
-using Atv.Icons;
+using Codevoid.AgentTaskVoid.Icons;
 
-namespace Atv.LogicTests.Icons;
+namespace Codevoid.AgentTaskVoid.LogicTests.Icons;
 
 /// <summary>ERGO-20's token vocabulary parsing: curated Segoe name -> SegoeGlyph, a literal single character -> Emoji, anything else -> the RawPath escape hatch.</summary>
 [TestClass]

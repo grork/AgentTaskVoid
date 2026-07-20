@@ -1,10 +1,10 @@
-using Atv.Config;
-using Atv.Icons;
-using Atv.Operations;
-using Atv.Persistence;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Semantics;
+namespace Codevoid.AgentTaskVoid.Semantics;
 
 /// <summary>
 /// ERGO-31/LIFE-24's engine: the eight v2 semantic verbs. Every verb except
@@ -91,7 +91,7 @@ public sealed class SemanticEngine
 
     // ==== shared claim shapes ================================================
 
-    /// <summary>What a <c>Claim*</c> method sees: the card's live view if one already exists (<see langword="null"/> for a brand-new or about-to-be-resurrected handle -- in which case <see cref="CurrentSteps"/> reports the fresh baseline) and its existing engine memory (<see cref="Atv.Persistence.EngineMemory.Empty"/> for a fresh/resurrected handle -- engine memory restarts fresh exactly like steps/state do, LIFE-21 precedent).</summary>
+    /// <summary>What a <c>Claim*</c> method sees: the card's live view if one already exists (<see langword="null"/> for a brand-new or about-to-be-resurrected handle -- in which case <see cref="CurrentSteps"/> reports the fresh baseline) and its existing engine memory (<see cref="Codevoid.AgentTaskVoid.Persistence.EngineMemory.Empty"/> for a fresh/resurrected handle -- engine memory restarts fresh exactly like steps/state do, LIFE-21 precedent).</summary>
     private readonly record struct ClaimContext(AppTaskView? Live, EngineMemory Memory);
 
     /// <summary>
@@ -897,7 +897,7 @@ public sealed class SemanticEngine
     /// names coincide -- e.g. the anchor IS the repo root -- so a card is
     /// never titled <c>AppTaskInfoCli (AppTaskInfoCli)</c>). An anchor with
     /// no last path segment (a drive root, <c>C:\</c>) floors out at
-    /// <see cref="Branding.Name"/> (ERGO-18 -- derived, never re-literal).
+    /// <see cref="Branding.DisplayName"/> (ERGO-18 -- derived, never re-literal).
     /// Only ever consulted from <see cref="ApplyRepoDefaults"/>'s
     /// <see cref="_discoverRepo"/>-wired branch -- <c>CompositionRoot</c>
     /// wires it unconditionally in the shipped CLI (falling back to
@@ -911,7 +911,7 @@ public sealed class SemanticEngine
         catch (Exception) { anchorName = ""; } // A malformed anchor must never throw (FAIL-1) -- floors out below.
 
         if (anchorName.Length == 0)
-            return Branding.Name;
+            return Branding.DisplayName;
 
         if (discovery.RepoName is { Length: > 0 } repoName && !string.Equals(anchorName, repoName, StringComparison.OrdinalIgnoreCase))
             return $"{anchorName} ({repoName})";

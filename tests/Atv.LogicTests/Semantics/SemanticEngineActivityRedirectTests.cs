@@ -1,10 +1,10 @@
-using Atv.Icons;
-using Atv.LogicTests.Persistence;
-using Atv.Operations;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Icons;
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// Phase 19A (ERGO-31 §5's redirect, root-caused in the phase-18 live

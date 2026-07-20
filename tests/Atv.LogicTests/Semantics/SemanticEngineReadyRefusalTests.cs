@@ -1,8 +1,8 @@
-using Atv.Operations;
-using Atv.Semantics;
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Operations;
+using Codevoid.AgentTaskVoid.Semantics;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.LogicTests.Semantics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Semantics;
 
 /// <summary>
 /// Phase 19 Part C (found live during AC11's own dogfood, 2026-07-15): Claude
@@ -12,8 +12,8 @@ namespace Atv.LogicTests.Semantics;
 /// claims the PARENT card into Completed while children are still
 /// demonstrably running. <see cref="SemanticEngine.Ready"/> now structurally
 /// refuses the Completed transition while the addressed handle's own
-/// <see cref="Atv.Persistence.EngineMemory.ActiveAgentLoci"/> (the FULL active
-/// set, not <see cref="Atv.Persistence.EngineMemory.CardedAgentLoci"/> -- a
+/// <see cref="Codevoid.AgentTaskVoid.Persistence.EngineMemory.ActiveAgentLoci"/> (the FULL active
+/// set, not <see cref="Codevoid.AgentTaskVoid.Persistence.EngineMemory.CardedAgentLoci"/> -- a
 /// lone, not-yet-carded subagent's activity is designed to land on the
 /// parent per Part A decision point 4, so the parent legitimately still has
 /// real outstanding work below the 2-concurrent carding threshold too) is

@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Atv;
-using Atv.Config;
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid;
+using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Cli;
+namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
 /// <summary>
 /// AC3's `doctor` integration coverage (Dispatcher-level, via
@@ -165,7 +165,7 @@ public sealed class DoctorTests
     [TestMethod]
     public void Doctor_DevBuildKind_HumanOutputShowsDevMarker()
     {
-        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.Name}-bbbb1168" };
+        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.IdentityName}-bbbb1168" };
         var dispatcher = h.BuildDispatcher();
 
         h.Run(dispatcher, "doctor");
@@ -176,7 +176,7 @@ public sealed class DoctorTests
     [TestMethod]
     public void Doctor_TestBuildKind_HumanOutputShowsTestMarker()
     {
-        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.Name}.Test.abcd1234" };
+        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.IdentityName}.Test.abcd1234" };
         var dispatcher = h.BuildDispatcher();
 
         h.Run(dispatcher, "doctor");
@@ -187,7 +187,7 @@ public sealed class DoctorTests
     [TestMethod]
     public void Doctor_ReleaseBuildKind_HumanOutputHasNoMarker()
     {
-        using var h = new DispatcherHarness { DoctorPackageName = Branding.Name };
+        using var h = new DispatcherHarness { DoctorPackageName = Branding.IdentityName };
         var dispatcher = h.BuildDispatcher();
 
         h.Run(dispatcher, "doctor");
@@ -200,7 +200,7 @@ public sealed class DoctorTests
     [TestMethod]
     public void Doctor_Json_DevBuildKind_IncludesBuildKindMarkerField()
     {
-        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.Name}-bbbb1168" };
+        using var h = new DispatcherHarness { DoctorPackageName = $"{Branding.IdentityName}-bbbb1168" };
         var dispatcher = h.BuildDispatcher(json: true);
 
         h.Run(dispatcher, "doctor");
@@ -212,7 +212,7 @@ public sealed class DoctorTests
     [TestMethod]
     public void Doctor_Json_ReleaseBuildKind_BuildKindMarkerFieldIsNull()
     {
-        using var h = new DispatcherHarness { DoctorPackageName = Branding.Name };
+        using var h = new DispatcherHarness { DoctorPackageName = Branding.IdentityName };
         var dispatcher = h.BuildDispatcher(json: true);
 
         h.Run(dispatcher, "doctor");

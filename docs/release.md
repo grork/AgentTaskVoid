@@ -25,11 +25,11 @@ Artifacts (gitignored):
 artifacts\release\cert\devcert.pfx / .cer   -- self-signed, CN=AppTaskInfoCli
 artifacts\release\publish\win-x64\atv.exe
 artifacts\release\publish\win-arm64\atv.exe
-artifacts\release\msix\Agentaskvoid_<version>_x64.msix     -- signed
-artifacts\release\msix\Agentaskvoid_<version>_arm64.msix   -- signed
+artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_x64.msix     -- signed
+artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_arm64.msix   -- signed
 ```
 
-This stamps the release identity (`Identity/@Name = Agentaskvoid`,
+This stamps the release identity (`Identity/@Name = Codevoid.AgentTaskVoid`,
 `AppExecutionAlias = atv`) into both packages. Section 2 covers why a
 supervised smoke test installs a third, throwaway identity instead of these
 two artifacts directly.
@@ -45,11 +45,11 @@ artifacts that never collide with (or up-to-date-skip against) the real
 release msix above:
 
 ```
-artifacts\release\msix\Agentaskvoid_<version>_x64_reltest.msix     -- signed
-artifacts\release\msix\Agentaskvoid_<version>_arm64_reltest.msix   -- signed
+artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_x64_reltest.msix     -- signed
+artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_arm64_reltest.msix   -- signed
 ```
 
-stamped with `Identity/@Name = Agentaskvoid-reltest`,
+stamped with `Identity/@Name = Codevoid.AgentTaskVoid-reltest`,
 `AppExecutionAlias = atv-reltest` — a package that installs and launches
 independently of both the real release identity and the dev-interactive one.
 Section 3 installs this artifact.
@@ -139,7 +139,7 @@ it has its own non-colliding `atv-reltest` alias, so this install cannot
 disturb a dev-interactive `atv` binding already registered on the box.
 
 ```
-Add-AppxPackage -Path "artifacts\release\msix\Agentaskvoid_<version>_<arch>_reltest.msix"
+Add-AppxPackage -Path "artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_<arch>_reltest.msix"
 ```
 
 ### 3.3 Identity, API, alias-on-PATH — from a freshly-spawned `cmd.exe`
@@ -153,11 +153,11 @@ resolves without manually reopening a terminal. The command name is
 cmd.exe /c "atv-reltest doctor"
 ```
 
-Confirm the printed identity line ends `Agentaskvoid-reltest` (structurally
+Confirm the printed identity line ends `Codevoid.AgentTaskVoid-reltest` (structurally
 distinct from the dev-interactive PFN), with a trailing `(dev)` marker. That
 marker is expected: `BuildKindResolver` classifies `-reltest` as dev-pool
 (its Name is neither the bare brand nor `<brand>.Test.*`); the only unmarked
-identity is the real release build (Name = bare `Agentaskvoid`). Also
+identity is the real release build (Name = bare `Codevoid.AgentTaskVoid`). Also
 confirm `api: AppTaskInfo.IsSupported() -> true`, and that `config file:` /
 `app-data folder:` / `sidecar dir:` / `log file:` all resolve under this
 package's own `LocalState`, distinct from both the dev worktree's and the
@@ -178,7 +178,7 @@ running`, or check `Get-Process atv-reltest`).
    any trivial change (NBGV's `$(BuildVersion)` is git-height-derived — any
    commit bumps it) and re-run section 1's `-p:AtvVerifyIdentity=true` build
    command to produce v(N+1) of the `-reltest` artifact.
-2. `Add-AppxPackage -Path "artifacts\release\msix\Agentaskvoid_<new-version>_<arch>_reltest.msix"`
+2. `Add-AppxPackage -Path "artifacts\release\msix\Codevoid.AgentTaskVoid_<new-version>_<arch>_reltest.msix"`
    over the running watchdog.
 3. Expected: install succeeds; if the watchdog holds `atv.exe` open, Windows
    may defer registration (`ERROR_PACKAGES_IN_USE` fallback) rather than fail
@@ -187,18 +187,18 @@ running`, or check `Get-Process atv-reltest`).
    the old watchdog self-exits (empty supervised set) and Windows completes
    the deferred registration.
 4. Confirm via `cmd.exe /c "atv-reltest doctor"` (or `Get-AppxPackage
-   *Agentaskvoid-reltest* | Select Version`) that the new version becomes
+   *Codevoid.AgentTaskVoid-reltest* | Select Version`) that the new version becomes
    active, with no corruption of existing card/sidecar state.
 
 ### 3.5 Uninstall with live cards + a running watchdog
 
-Filter specifically on the `-reltest` Name. A bare `*Agentaskvoid*` wildcard
-would also match (and remove) the dev-interactive `Agentaskvoid-<hash>`
+Filter specifically on the `-reltest` Name. A bare `*Codevoid.AgentTaskVoid*` wildcard
+would also match (and remove) the dev-interactive `Codevoid.AgentTaskVoid-<hash>`
 registration and, if also installed on this box, the real release
-`Agentaskvoid` package. Never use the bare wildcard on a dev box.
+`Codevoid.AgentTaskVoid` package. Never use the bare wildcard on a dev box.
 
 ```
-Get-AppxPackage -Name "*Agentaskvoid-reltest*" | Remove-AppxPackage
+Get-AppxPackage -Name "*Codevoid.AgentTaskVoid-reltest*" | Remove-AppxPackage
 ```
 
 Expected: the taskbar card(s) disappear immediately (the Shell drops them on
@@ -211,21 +211,21 @@ a fresh terminal) is untouched throughout.
 ### 3.6 Cleanup
 
 ```
-Get-AppxPackage -Name "*Agentaskvoid-reltest*" | Remove-AppxPackage   # if 3.5 wasn't already run
+Get-AppxPackage -Name "*Codevoid.AgentTaskVoid-reltest*" | Remove-AppxPackage   # if 3.5 wasn't already run
 Remove-Item -Path "Cert:\LocalMachine\TrustedPeople\<thumbprint from devcert.cer>" -Confirm:$false
 ```
 
-Confirm the smoke install is fully gone: no `*Agentaskvoid-reltest*` package
+Confirm the smoke install is fully gone: no `*Codevoid.AgentTaskVoid-reltest*` package
 (`Get-AppxPackage`), no leftover
-`%LOCALAPPDATA%\Packages\Agentaskvoid-reltest_*` folder, no `StartupTask`
+`%LOCALAPPDATA%\Packages\Codevoid.AgentTaskVoid-reltest_*` folder, no `StartupTask`
 entry for it (Settings > Apps > Startup, or `Get-StartupTask`), no stray
-`atv-reltest.exe` process. The dev-interactive `Agentaskvoid-<hash>` package
-should still be present (`Get-AppxPackage -Name "*Agentaskvoid-<hash>*"`) —
+`atv-reltest.exe` process. The dev-interactive `Codevoid.AgentTaskVoid-<hash>` package
+should still be present (`Get-AppxPackage -Name "*Codevoid.AgentTaskVoid-<hash>*"`) —
 this cleanup must never touch it.
 
 ## 4. winget manifest set
 
-`build/winget/manifests/a/Agentaskvoid/Atv/<version>/` — the standard
+`build/winget/manifests/c/Codevoid/AgentTaskVoid/<version>/` — the standard
 community `winget-pkgs` multi-file layout (version / installer /
 `locale.en-US` manifests), authored against the artifacts this pipeline
 produces. `winget validate` reports "Manifest validation succeeded." against
@@ -245,11 +245,11 @@ starting point.
 
 ## 5. The finalized winget package id
 
-`Agentaskvoid.Atv` — `Atv.Diagnostics.DoctorChecks.WingetPackageId`
+`Codevoid.AgentTaskVoid` — `Codevoid.AgentTaskVoid.Diagnostics.DoctorChecks.WingetPackageId`
 (`src/Atv/Diagnostics/DoctorChecks.cs`), brand-derived
-(`{Branding.Name}.{PascalCase(Branding.Command)}` — never re-literaled).
-`doctor`'s not-installed remedy line and `Atv.Diagnostics.Capability.Check`'s
+(`{Branding.IdentityName}.{PascalCase(Branding.Command)}` — never re-literaled).
+`doctor`'s not-installed remedy line and `Codevoid.AgentTaskVoid.Diagnostics.Capability.Check`'s
 identity-absent failure reason both print this exact string.
-`build/winget/manifests/.../Agentaskvoid.Atv*.yaml`'s `PackageIdentifier`
+`build/winget/manifests/.../Codevoid.AgentTaskVoid*.yaml`'s `PackageIdentifier`
 matches it exactly; there is no automated cross-check between the two files,
 since the manifest lives outside the compiled product.

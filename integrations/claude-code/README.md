@@ -1,7 +1,7 @@
 # Claude Code integration (v2 plugin)
 
 Wires a [Claude Code](https://code.claude.com/docs/en/hooks) session to `atv`
-(brand **Agentaskvoid**) taskbar task cards: one card per Claude Code
+(brand **Agent Task Void**) taskbar task cards: one card per Claude Code
 session, appearing/updating/disappearing as the session works, needs your
 input, finishes a turn, fails, or ends — with fanned-out subagents getting
 their own glomming child cards.
@@ -61,10 +61,10 @@ or `/plugin` → **Installed**.
 
 ```
 /plugin marketplace add integrations/claude-code
-/plugin install atv-integration@agentaskvoid
+/plugin install atv-integration@agent-task-void
 ```
 
-(or the non-interactive form: `claude plugin install atv-integration@agentaskvoid`,
+(or the non-interactive form: `claude plugin install atv-integration@agent-task-void`,
 after adding the marketplace). This writes a normal `enabledPlugins` entry to
 your chosen scope's settings file (`user`/`project`/`local` — pass `--scope`).
 The CLI writes this entry; there's no hand-editing involved.
@@ -77,9 +77,9 @@ next prompt.
 
 - Option A: delete the folder (or `claude plugin disable atv-integration@skills-dir`
   — there's no marketplace install to remove).
-- Option B: `/plugin uninstall atv-integration@agentaskvoid` (or
-  `claude plugin uninstall atv-integration@agentaskvoid --scope <scope>`),
-  then optionally `/plugin marketplace remove agentaskvoid`.
+- Option B: `/plugin uninstall atv-integration@agent-task-void` (or
+  `claude plugin uninstall atv-integration@agent-task-void --scope <scope>`),
+  then optionally `/plugin marketplace remove agent-task-void`.
 
 ## Event → verb mapping
 

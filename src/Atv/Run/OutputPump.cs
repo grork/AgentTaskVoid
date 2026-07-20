@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Atv.Run;
+namespace Codevoid.AgentTaskVoid.Run;
 
 /// <summary>
 /// ERGO-5's "decoupled reader" half: drains <paramref name="source"/> and

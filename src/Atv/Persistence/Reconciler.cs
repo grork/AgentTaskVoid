@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>Result of resolving a single caller handle for an update-class verb (rules 1-2 only, ERGO-21 "scoped 2026-07-07").</summary>
 public enum ResolveOutcome

@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Atv.Persistence;
+using Codevoid.AgentTaskVoid.Persistence;
 
-namespace Atv.LogicTests.Persistence;
+namespace Codevoid.AgentTaskVoid.LogicTests.Persistence;
 
 /// <summary>
 /// Covers phase-04 acceptance criterion 2: write/read round-trip; atomic

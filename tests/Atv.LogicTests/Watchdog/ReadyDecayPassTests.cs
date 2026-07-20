@@ -1,8 +1,8 @@
-using Atv.Persistence;
-using Atv.Store;
-using Atv.Watchdog;
+using Codevoid.AgentTaskVoid.Persistence;
+using Codevoid.AgentTaskVoid.Store;
+using Codevoid.AgentTaskVoid.Watchdog;
 
-namespace Atv.LogicTests.Watchdog;
+namespace Codevoid.AgentTaskVoid.LogicTests.Watchdog;
 
 /// <summary>
 /// AC5's watchdog-side coverage: the LIFE-24 §6 presence-gated Ready-&gt;Idle
@@ -10,14 +10,14 @@ namespace Atv.LogicTests.Watchdog;
 /// hygiene reap (<see cref="WatchdogLoopTickTests"/>) -- accrual only while
 /// present, a demotion at threshold, and (the control) the hygiene reap
 /// firing regardless of presence. The "only a transition INTO Ready starts
-/// the clock" half of AC5 is <c>Atv.Semantics.SemanticEngine</c>'s job
+/// the clock" half of AC5 is <c>Codevoid.AgentTaskVoid.Semantics.SemanticEngine</c>'s job
 /// (<c>ReadyDecayClockTests.cs</c>) -- this file only covers what happens to
 /// an ALREADY-started clock once the watchdog observes it.
 /// </summary>
 [TestClass]
 public sealed class ReadyDecayPassTests
 {
-    private static Atv.Store.AppTaskView SeedReadyCard(Atv.LogicTests.Store.FakeAppTaskStore store, string title = "T")
+    private static Codevoid.AgentTaskVoid.Store.AppTaskView SeedReadyCard(Codevoid.AgentTaskVoid.LogicTests.Store.FakeAppTaskStore store, string title = "T")
         => store.SeedEntrylessTask(title, "S", AppTaskState.Completed);
 
     /// <summary>
@@ -143,7 +143,7 @@ public sealed class ReadyDecayPassTests
         Assert.AreEqual(1, result.ReadyDecayedCount);
         var found = h.Store.Find(view.Id)!;
         Assert.AreEqual(AppTaskState.Paused, found.State);
-        Assert.AreEqual(Atv.Operations.AdvanceModel.NoStepsYetPlaceholder, found.ExecutingStep);
+        Assert.AreEqual(Codevoid.AgentTaskVoid.Operations.AdvanceModel.NoStepsYetPlaceholder, found.ExecutingStep);
     }
 
     [TestMethod]

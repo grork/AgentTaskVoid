@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <RootNamespace>Atv</RootNamespace>
+    <RootNamespace>Codevoid.AgentTaskVoid</RootNamespace>
     <AssemblyName>$(AtvCommandName)</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

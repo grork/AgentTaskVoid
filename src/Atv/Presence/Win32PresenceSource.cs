@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Atv.Presence;
+namespace Codevoid.AgentTaskVoid.Presence;
 
 /// <summary>
 /// Real Win32 presence probe (LIFE-24 §6, "build detail: CsWin32-style
@@ -31,9 +31,9 @@ namespace Atv.Presence;
 public sealed partial class Win32PresenceSource : IPresenceSource
 {
     /// <summary>
-    /// How recent "recent input" means. Not a <see cref="Atv.Config.Settings"/>
+    /// How recent "recent input" means. Not a <see cref="Codevoid.AgentTaskVoid.Config.Settings"/>
     /// tunable (no acceptance criterion calls for one -- matches
-    /// <c>Atv.Semantics.FieldBudgets</c>'s own "build-phase default, not
+    /// <c>Codevoid.AgentTaskVoid.Semantics.FieldBudgets</c>'s own "build-phase default, not
     /// config" precedent): a generous default -- shorter than this and a
     /// still-seated-but-reading user would wrongly read as "away".
     /// </summary>

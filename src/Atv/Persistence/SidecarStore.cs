@@ -1,11 +1,11 @@
 using System.Text.Json;
 
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// ERGO-21 ("The sidecar store design"): a directory of PER-HANDLE files,
 /// each holding a <see cref="SidecarEntry"/>. An INDEX, never authoritative
-/// for task existence -- the API (<see cref="Atv.Store.IAppTaskStore"/>)
+/// for task existence -- the API (<see cref="Codevoid.AgentTaskVoid.Store.IAppTaskStore"/>)
 /// stays source of truth; a wiped/corrupt sidecar degrades to
 /// "un-addressable by handle", never mass-deletes anything.
 ///
@@ -82,7 +82,7 @@ public sealed class SidecarStore
     /// Same atomic create-or-replace as <see cref="Write"/>, but sets
     /// <see cref="SidecarEntry.EngineMemory"/> to <paramref name="memory"/>
     /// explicitly rather than preserving whatever was already there -- the
-    /// v2 <c>Atv.Semantics.SemanticEngine</c>'s own write path.
+    /// v2 <c>Codevoid.AgentTaskVoid.Semantics.SemanticEngine</c>'s own write path.
     /// </summary>
     public void WriteWithMemory(string handle, string id, DateTimeOffset now, EngineMemory memory, int schemaVersion = SidecarEntry.CurrentSchemaVersion)
         => WriteEntry(handle, new SidecarEntry(id, now, schemaVersion, memory));

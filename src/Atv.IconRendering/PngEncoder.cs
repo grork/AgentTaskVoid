@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// A minimal, dependency-free PNG encoder: straight (non-premultiplied) RGBA8

@@ -2,7 +2,7 @@ using Windows.Win32.Graphics.Direct2D;
 using Windows.Win32.Graphics.Direct2D.Common;
 using Windows.Win32.Graphics.DirectWrite;
 
-namespace Atv.IconRendering;
+namespace Codevoid.AgentTaskVoid.IconRendering;
 
 /// <summary>
 /// ERGO-22's glyph -&gt; PNG mechanism: ONE rendering path (a single
@@ -26,14 +26,14 @@ namespace Atv.IconRendering;
 /// reasoning.
 ///
 /// Pure mechanism only (ERGO-22): no filesystem, no caching, no fallback
-/// policy -- those are the main project's job (<c>Atv.Icons.IconService</c>).
+/// policy -- those are the main project's job (<c>Codevoid.AgentTaskVoid.Icons.IconService</c>).
 /// </summary>
 public static unsafe class GlyphRenderer
 {
     /// <summary>The one color-emoji font every supported Windows 11 build ships.</summary>
     public const string EmojiFontFamily = "Segoe UI Emoji";
 
-    /// <summary>The Windows 11 icon font (superset of the older Segoe MDL2 Assets codepoint ranges the curated list in <c>Atv.Icons.IconTokens</c> draws from).</summary>
+    /// <summary>The Windows 11 icon font (superset of the older Segoe MDL2 Assets codepoint ranges the curated list in <c>Codevoid.AgentTaskVoid.Icons.IconTokens</c> draws from).</summary>
     public const string SegoeIconFontFamily = "Segoe Fluent Icons";
 
     /// <summary>Fraction of the canvas the font size targets -- leaves a small margin so glyphs with generous side-bearings (common in both emoji and icon fonts) aren't edge-clipped at taskbar size.</summary>

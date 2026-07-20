@@ -1,6 +1,6 @@
-using Atv.Store;
+using Codevoid.AgentTaskVoid.Store;
 
-namespace Atv.Operations;
+namespace Codevoid.AgentTaskVoid.Operations;
 
 /// <summary>
 /// Which <see cref="AppTaskContentDto"/> factory shape a piece of content was

@@ -3,7 +3,7 @@ using WinRtContent = Windows.UI.Shell.Tasks.AppTaskContent;
 using WinRtInfo = Windows.UI.Shell.Tasks.AppTaskInfo;
 using WinRtState = Windows.UI.Shell.Tasks.AppTaskState;
 
-namespace Atv.Store;
+namespace Codevoid.AgentTaskVoid.Store;
 
 /// <summary>
 /// The real <see cref="IAppTaskStore"/> implementation, and the SOLE file in

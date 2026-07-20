@@ -1,7 +1,7 @@
-using Atv;
-using Atv.Diagnostics;
+using Codevoid.AgentTaskVoid;
+using Codevoid.AgentTaskVoid.Diagnostics;
 
-namespace Atv.LogicTests.Diagnostics;
+namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
 /// <summary>
 /// DIST-3's 2026-07-10 amendment: <see cref="BuildKindResolver"/> classifies
@@ -31,16 +31,16 @@ public sealed class BuildKindResolverTests
     public void Resolve_ExactBrandName_IsRelease()
     {
         // The clean, pathhash-free Name build/Atv.Package.targets stamps under
-        // AtvReleaseIdentity=true (DIST-3 amendment) -- e.g. "Agentaskvoid".
-        Assert.AreEqual(BuildKind.Release, BuildKindResolver.Resolve(Branding.Name));
+        // AtvReleaseIdentity=true (DIST-3 amendment) -- e.g. "Codevoid.AgentTaskVoid".
+        Assert.AreEqual(BuildKind.Release, BuildKindResolver.Resolve(Branding.IdentityName));
     }
 
     [TestMethod]
     public void Resolve_BrandPlusPathHash_IsDev()
     {
         // The default (UNCHANGED) dev-interactive Name shape, e.g.
-        // "Agentaskvoid-bbbb1168" -- CRITICAL that this stays Dev, never Release.
-        Assert.AreEqual(BuildKind.Dev, BuildKindResolver.Resolve($"{Branding.Name}-bbbb1168"));
+        // "Codevoid.AgentTaskVoid-bbbb1168" -- CRITICAL that this stays Dev, never Release.
+        Assert.AreEqual(BuildKind.Dev, BuildKindResolver.Resolve($"{Branding.IdentityName}-bbbb1168"));
     }
 
     [TestMethod]
@@ -48,14 +48,14 @@ public sealed class BuildKindResolverTests
     {
         // The phase-12 throwaway "-reltest" smoke identity (AtvVerifyIdentity=true)
         // is developer-machine-local, same bucket as ordinary dev-interactive.
-        Assert.AreEqual(BuildKind.Dev, BuildKindResolver.Resolve($"{Branding.Name}-reltest"));
+        Assert.AreEqual(BuildKind.Dev, BuildKindResolver.Resolve($"{Branding.IdentityName}-reltest"));
     }
 
     [TestMethod]
     public void Resolve_TestPoolName_IsTest()
     {
         // INFRA-16's per-worktree adapter-test pool shape: "<brand>.Test.<hash>".
-        Assert.AreEqual(BuildKind.Test, BuildKindResolver.Resolve($"{Branding.Name}.Test.abcd1234"));
+        Assert.AreEqual(BuildKind.Test, BuildKindResolver.Resolve($"{Branding.IdentityName}.Test.abcd1234"));
     }
 
     [TestMethod]
@@ -64,7 +64,7 @@ public sealed class BuildKindResolverTests
         // Anything that isn't the exact brand string and isn't the Test prefix
         // falls into Dev, per the documented "otherwise -> Dev" rule -- it must
         // never be silently treated as Release just because it starts with the brand.
-        Assert.AreEqual(BuildKind.Dev, BuildKindResolver.Resolve($"{Branding.Name}Extra"));
+        Assert.AreEqual(BuildKind.Dev, BuildKindResolver.Resolve($"{Branding.IdentityName}Extra"));
     }
 
     [TestMethod]
@@ -94,7 +94,7 @@ public sealed class BuildKindResolverTests
     [TestMethod]
     public void MarkerFromName_ConvenienceOverload_MatchesResolveThenMarker()
     {
-        string name = $"{Branding.Name}.Test.deadbeef";
+        string name = $"{Branding.IdentityName}.Test.deadbeef";
         Assert.AreEqual(BuildKindResolver.Marker(BuildKindResolver.Resolve(name)), BuildKindResolver.Marker(name));
         Assert.AreEqual("(test)", BuildKindResolver.Marker(name));
     }
@@ -102,21 +102,21 @@ public sealed class BuildKindResolverTests
     [TestMethod]
     public void FormatVersionLine_Release_NoSuffix()
     {
-        string line = BuildKindResolver.FormatVersionLine("1.2.3.4", Branding.Name);
+        string line = BuildKindResolver.FormatVersionLine("1.2.3.4", Branding.IdentityName);
         Assert.AreEqual("1.2.3.4", line);
     }
 
     [TestMethod]
     public void FormatVersionLine_Dev_AppendsMarker()
     {
-        string line = BuildKindResolver.FormatVersionLine("1.2.3.4", $"{Branding.Name}-bbbb1168");
+        string line = BuildKindResolver.FormatVersionLine("1.2.3.4", $"{Branding.IdentityName}-bbbb1168");
         Assert.AreEqual("1.2.3.4 (dev)", line);
     }
 
     [TestMethod]
     public void FormatVersionLine_Test_AppendsMarker()
     {
-        string line = BuildKindResolver.FormatVersionLine("1.2.3.4", $"{Branding.Name}.Test.abcd1234");
+        string line = BuildKindResolver.FormatVersionLine("1.2.3.4", $"{Branding.IdentityName}.Test.abcd1234");
         Assert.AreEqual("1.2.3.4 (test)", line);
     }
 

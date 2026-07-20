@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Atv.Persistence;
+namespace Codevoid.AgentTaskVoid.Persistence;
 
 /// <summary>
 /// Source-generated (trim/AOT-safe, ERGO-26's "System.Text.Json,
