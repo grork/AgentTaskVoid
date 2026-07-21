@@ -160,11 +160,12 @@
       DIST-14: $(_AtvIdentityName) is stamped into the AppExtension Id (the
       AppTaskProvider) as well as Identity/@Name, and the AppExtension Id has a hard
       39-character platform limit that Identity/@Name itself does not. All four
-      build-kind values are comfortably under it today; this guard is here so a
-      future brand change can't blow past it silently.
+      build-kind values are comfortably under it today; a future brand change could
+      blow past it silently, so it's guarded - by AtvValidateStampedAppxManifest
+      below, against the FILE this target actually writes, not against this property
+      (a property-only guard here would be redundant with, and weaker than, that
+      check - see its header comment).
     -->
-    <Error Condition="'$(_AtvIdentityName.Length)' &gt; '39'"
-           Text="[Atv.Package] Stamped Identity Name '$(_AtvIdentityName)' is $(_AtvIdentityName.Length) characters - over the AppExtension Id's 39-character platform limit (it is stamped as both Identity/@Name and the AppTaskProvider extension's Id). Shorten AtvBrandName or the build-kind suffix." />
 
     <MakeDir Directories="$(IntermediateOutputPath)" Condition="!Exists('$(IntermediateOutputPath)')" />
 
@@ -176,6 +177,53 @@
 
     <Message Importance="high"
              Text="[Atv.Package] Stamped manifest: $(_AtvStampedManifestPath) (BuildKind=$(_AtvBuildKind), Identity Name=$(_AtvIdentityName), Alias=$(_AtvExecutionAlias), Version=$(BuildVersion))" />
+  </Target>
+
+  <!--
+    Structural build-safety guard, not a test (DIST-14 - "AppTaskProvider extension Id
+    must be build-kind-aware too"). A shared/misstamped AppExtension Id silently breaks
+    taskbar rendering with no other symptom - cards persist, FindAll() still returns
+    them, nothing draws - and that went unnoticed for a long, costly live-debugging
+    session. Nothing else in the repo verifies the stamped manifest at all.
+
+    Reads the manifest AtvStampAppxManifest just WROTE TO DISK (not the in-memory
+    $(_AtvStampedContent) property that target built) and cross-checks it against the
+    SAME execution-time properties that target computed -
+    $(_AtvStampedManifestPath)/$(_AtvIdentityName)/$(_AtvExecutionAlias), reused as-is
+    (standing invariant #2: no second computation of the identity name). Recomputing
+    the expected values the stamper's own way and comparing properties-to-properties
+    would be circular and prove nothing ("who watches the watchers"); reading the
+    WRITTEN FILE instead catches what a property-only check cannot - a botched
+    .Replace(), a renamed/typo'd token, a template edit that drops a substitution, or a
+    stale file some other bug failed to rewrite.
+
+    Runs AfterTargets="AtvStampAppxManifest" - every build (not just release), in the
+    SAME MSBuild invocation that stamps.
+  -->
+  <Target Name="AtvValidateStampedAppxManifest" AfterTargets="AtvStampAppxManifest">
+    <PropertyGroup>
+      <_AtvWrittenManifest>$([System.IO.File]::ReadAllText('$(_AtvStampedManifestPath)'))</_AtvWrittenManifest>
+      <_AtvWrittenIdentityName>$([System.Text.RegularExpressions.Regex]::Match($(_AtvWrittenManifest), 'Identity\s+Name="([^"]*)"').Groups[1].Value)</_AtvWrittenIdentityName>
+      <_AtvWrittenAlias>$([System.Text.RegularExpressions.Regex]::Match($(_AtvWrittenManifest), 'ExecutionAlias\s+Alias="([^"]*)"').Groups[1].Value)</_AtvWrittenAlias>
+      <_AtvWrittenExtensionId>$([System.Text.RegularExpressions.Regex]::Match($(_AtvWrittenManifest), 'com\.microsoft\.apptaskprovider"[\s\S]*?Id="([^"]*)"').Groups[1].Value)</_AtvWrittenExtensionId>
+      <!-- Highest-value check: catches whole classes of template/token mistakes without enumerating them. Verified against both templates: every literal '{...}' in them is one of the known stamped tokens (in an attribute value or, in a couple of DIST-14 comment sentences, spelled out in prose) - the stamper's blunt whole-file .Replace() rewrites all such occurrences identically, so none survive a correct stamp. -->
+      <_AtvWrittenPlaceholder>$([System.Text.RegularExpressions.Regex]::Match($(_AtvWrittenManifest), '\{[^}]*\}').Value)</_AtvWrittenPlaceholder>
+    </PropertyGroup>
+
+    <Error Condition="'$(_AtvWrittenIdentityName)' != '$(_AtvIdentityName)'"
+           Text="[Atv.Package] Manifest validation failed for '$(_AtvStampedManifestPath)': Identity/@Name is '$(_AtvWrittenIdentityName)', expected '$(_AtvIdentityName)'." />
+
+    <Error Condition="'$(_AtvWrittenAlias)' != '$(_AtvExecutionAlias)'"
+           Text="[Atv.Package] Manifest validation failed for '$(_AtvStampedManifestPath)': ExecutionAlias/@Alias is '$(_AtvWrittenAlias)', expected '$(_AtvExecutionAlias)'." />
+
+    <Error Condition="'$(_AtvWrittenExtensionId)' != '$(_AtvIdentityName)'"
+           Text="[Atv.Package] Manifest validation failed for '$(_AtvStampedManifestPath)': AppTaskProvider AppExtension/@Id is '$(_AtvWrittenExtensionId)', expected '$(_AtvIdentityName)' (DIST-14 requires it to match Identity/@Name)." />
+
+    <Error Condition="'$(_AtvWrittenPlaceholder)' != ''"
+           Text="[Atv.Package] Manifest validation failed for '$(_AtvStampedManifestPath)': found an unsubstituted placeholder token '$(_AtvWrittenPlaceholder)' - a template edit or stamping change dropped a substitution." />
+
+    <Error Condition="'$(_AtvWrittenExtensionId.Length)' &gt; '39'"
+           Text="[Atv.Package] Manifest validation failed for '$(_AtvStampedManifestPath)': AppTaskProvider AppExtension/@Id '$(_AtvWrittenExtensionId)' is $(_AtvWrittenExtensionId.Length) characters - over the 39-character platform limit. Shorten AtvBrandName or the build-kind suffix." />
   </Target>
 
 </Project>

@@ -186,10 +186,10 @@
       already stamps it per-worktree - no separate token, no separate property. Same
       39-character AppExtension Id platform limit as the src template; guarded here
       too since $(_AtvTestIdentityName) has its own suffix shape
-      ("<brand>.Test.<hash>").
+      ("<brand>.Test.<hash>") - by AtvValidateStampedTestManifest below, against the
+      FILE this target actually writes (see that target's header comment for why a
+      property-only guard here would be redundant with, and weaker than, that check).
     -->
-    <Error Condition="'$(_AtvTestIdentityName.Length)' &gt; '39'"
-           Text="[Atv.TestIdentity] Stamped Identity Name '$(_AtvTestIdentityName)' is $(_AtvTestIdentityName.Length) characters - over the AppExtension Id's 39-character platform limit (it is stamped as both Identity/@Name and the AppTaskProvider extension's Id). Shorten AtvBrandName." />
 
     <MakeDir Directories="$(TargetDir)" Condition="!Exists('$(TargetDir)')" />
 
@@ -201,6 +201,41 @@
 
     <Message Importance="high"
              Text="[Atv.TestIdentity] Stamped manifest: $(_AtvTestStampedManifestPath) (Identity Name=$(_AtvTestIdentityName), Alias=$(_AtvTestAlias), Version=$(BuildVersion))" />
+  </Target>
+
+  <!--
+    Structural build-safety guard, not a test - same rationale as
+    build/Atv.Package.targets' AtvValidateStampedAppxManifest (DIST-14): reads the
+    manifest AtvStampTestManifest just WROTE TO DISK and cross-checks it against the
+    SAME execution-time properties that target computed -
+    $(_AtvTestStampedManifestPath)/$(_AtvTestIdentityName)/$(_AtvTestAlias), reused
+    as-is (standing invariant #2: no second computation). See the sibling target's
+    fuller comment for why reading the written file (not re-deriving expected values)
+    is the point.
+  -->
+  <Target Name="AtvValidateStampedTestManifest" AfterTargets="AtvStampTestManifest">
+    <PropertyGroup>
+      <_AtvTestWrittenManifest>$([System.IO.File]::ReadAllText('$(_AtvTestStampedManifestPath)'))</_AtvTestWrittenManifest>
+      <_AtvTestWrittenIdentityName>$([System.Text.RegularExpressions.Regex]::Match($(_AtvTestWrittenManifest), 'Identity\s+Name="([^"]*)"').Groups[1].Value)</_AtvTestWrittenIdentityName>
+      <_AtvTestWrittenAlias>$([System.Text.RegularExpressions.Regex]::Match($(_AtvTestWrittenManifest), 'ExecutionAlias\s+Alias="([^"]*)"').Groups[1].Value)</_AtvTestWrittenAlias>
+      <_AtvTestWrittenExtensionId>$([System.Text.RegularExpressions.Regex]::Match($(_AtvTestWrittenManifest), 'com\.microsoft\.apptaskprovider"[\s\S]*?Id="([^"]*)"').Groups[1].Value)</_AtvTestWrittenExtensionId>
+      <_AtvTestWrittenPlaceholder>$([System.Text.RegularExpressions.Regex]::Match($(_AtvTestWrittenManifest), '\{[^}]*\}').Value)</_AtvTestWrittenPlaceholder>
+    </PropertyGroup>
+
+    <Error Condition="'$(_AtvTestWrittenIdentityName)' != '$(_AtvTestIdentityName)'"
+           Text="[Atv.TestIdentity] Manifest validation failed for '$(_AtvTestStampedManifestPath)': Identity/@Name is '$(_AtvTestWrittenIdentityName)', expected '$(_AtvTestIdentityName)'." />
+
+    <Error Condition="'$(_AtvTestWrittenAlias)' != '$(_AtvTestAlias)'"
+           Text="[Atv.TestIdentity] Manifest validation failed for '$(_AtvTestStampedManifestPath)': ExecutionAlias/@Alias is '$(_AtvTestWrittenAlias)', expected '$(_AtvTestAlias)'." />
+
+    <Error Condition="'$(_AtvTestWrittenExtensionId)' != '$(_AtvTestIdentityName)'"
+           Text="[Atv.TestIdentity] Manifest validation failed for '$(_AtvTestStampedManifestPath)': AppTaskProvider AppExtension/@Id is '$(_AtvTestWrittenExtensionId)', expected '$(_AtvTestIdentityName)' (DIST-14 requires it to match Identity/@Name)." />
+
+    <Error Condition="'$(_AtvTestWrittenPlaceholder)' != ''"
+           Text="[Atv.TestIdentity] Manifest validation failed for '$(_AtvTestStampedManifestPath)': found an unsubstituted placeholder token '$(_AtvTestWrittenPlaceholder)' - a template edit or stamping change dropped a substitution." />
+
+    <Error Condition="'$(_AtvTestWrittenExtensionId.Length)' &gt; '39'"
+           Text="[Atv.TestIdentity] Manifest validation failed for '$(_AtvTestStampedManifestPath)': AppTaskProvider AppExtension/@Id '$(_AtvTestWrittenExtensionId)' is $(_AtvTestWrittenExtensionId.Length) characters - over the 39-character platform limit. Shorten AtvBrandName." />
   </Target>
 
   <Target Name="AtvBuildTestIdentityTool" DependsOnTargets="AtvValidateTestIdentityInputs">
