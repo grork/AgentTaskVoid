@@ -641,7 +641,27 @@ so they aren't lost:**
   whose PATH carries a live install** — judge red-first discipline from test structure instead. The
   reviewer was explicitly forbidden from repeating it.
 
-**Phase 20's automated half is DONE. AC7–AC10 (dev alias binding, retail install, plugin override
-smoke, the five-step operator migration checklist) remain — they are the next action, operator-run.**
+#### Live half (operator-run, 2026-07-20)
+
+- **AC7 met.** Operator removed every registered `Codevoid.AgentTaskVoid*` package (migration steps
+  1–2 satisfied outright: nothing held `atv`), then `dotnet run --project src/Atv -- -- doctor`
+  re-registered the working copy. From a fresh shell, `atv-dev doctor` reported
+  `Codevoid.AgentTaskVoid-bbbb1168_0.1.84.14087_arm64__016qghrny08mj` with the `(dev)` marker. No
+  version skew: registered `0.1.84.14087` matches the build (INFRA-33's check).
+- **Cert snag worth remembering.** The install first failed as untrusted. Cause: `artifacts/` is
+  gitignored, so a clean at some point dropped `devcert.pfx` and a later `-t:AtvRelease` regenerated
+  it — a NEW key with the SAME subject `CN=AppTaskInfoCli`. The 2026-07-10 trusted cert
+  (`EE72026D…`) no longer matches the signing cert (`02228A9E…`). **Subject is not identity — compare
+  thumbprints.** `docs/release.md` §3.1's "once per cert" is right; it is once per *generated* cert,
+  and regeneration is invisible unless you check. Fixed by importing the current `devcert.cer` into
+  `LocalMachine\TrustedPeople`.
+- **AC8 met.** `Add-AppxPackage` on the plain arm64 release msix; from a fresh shell `atv doctor`
+  reported PFN `Codevoid.AgentTaskVoid_0.1.84.14087_arm64__016qghrny08mj` — Name = brand exactly,
+  **no marker** (correct Release classification) — with its own state tree
+  (`…\Packages\Codevoid.AgentTaskVoid_016qghrny08mj\LocalState`), distinct from dev's
+  `…-bbbb1168_016qghrny08mj`. Both aliases resolve, no contention. DIST-12's split is live.
+
+**Remaining: AC9 (plugin override smoke) and the tail of AC10 (install the daily Claude Code plugin
+from the git repo, verify the installed copy carries no `atv-command.txt`).**
 
 _(Further per-phase notes appended below as phases execute.)_
