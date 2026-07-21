@@ -39,3 +39,4 @@ aims.
 - [`INFRA-31`: Recorder legs for the not-yet-testable hosts (Copilot / Codex / pi)](./INFRA-31-recorder-legs-for-not-yet-testable-hosts.md) -- DEFERRED
 - [`INFRA-32`: The host-onboarding playbook — trace to shipped integration](./INFRA-32-host-onboarding-playbook-trace-to-shipped-integration.md) -- DEFERRED
 - [`INFRA-33`: Safe, known-state dev/agent runs — validate through `dotnet run`, tear down explicitly](./INFRA-33-safe-known-state-dev-runs-ephemeral-gate.md) -- DECIDED
+- [`INFRA-34`: The detached watchdog inherits the caller's stdio handles — redirected callers never see EOF](./INFRA-34-detached-watchdog-inherits-caller-stdio-handles.md) -- OPEN

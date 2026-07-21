@@ -576,8 +576,11 @@ plan phase, logged here per the same convention as 19D/19E.
   `Atv.AdapterTests`/translator changes needed -- all three fixes are pure engine/watchdog logic.
 
 **Two OPEN loose ends surfaced during this dogfood, NOT fixed, NOT yet triaged -- flagged here
-so they aren't lost, no `questions/` doc opened yet:**
-1. **Detached watchdog holds a piped stdout handle open forever.** Invoking the bare `atv`
+so they aren't lost:**
+1. **Detached watchdog holds a piped stdout handle open forever.** _(Filed 2026-07-20 as
+   [[INFRA-34]] "The detached watchdog inherits the caller's stdio handles" -- OPEN. It recurred
+   during phase-20 execution; the question doc carries the mechanism, the call sites, and the
+   options. The note below is the original observation, kept as provenance.)_ Invoking the bare `atv`
    PATH alias directly from a piped/redirected terminal (bypassing the dev launch profile's
    `ATV_WATCHDOG_MODE=off`) spawns a real detached watchdog (`EnsureWatchdog`'s default
    "spawn" mode) that appears to inherit the caller's stdout/stderr handles -- the caller's
