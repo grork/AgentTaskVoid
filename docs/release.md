@@ -55,13 +55,11 @@ stamped with `Identity/@Name = Codevoid.AgentTaskVoid-reltest`,
 independently of both the real release identity and the dev-interactive one.
 Section 3 installs this artifact.
 
-Prerequisite on an ARM64 machine: `win-x64` is a cross-AOT publish, and
-NativeAOT's cross-linking step shells out to `vswhere.exe`, which is not on
-PATH by default. Add it for the session before running the command above:
-
-```
-$env:PATH += ";C:\Program Files (x86)\Microsoft Visual Studio\Installer"
-```
+Prerequisite: both publishes need the matching Visual Studio VC build tools
+component installed — `Microsoft.VisualStudio.Component.VC.Tools.x86.x64` for
+`win-x64`, `Microsoft.VisualStudio.Component.VC.Tools.ARM64` for `win-arm64`.
+See [`CLAUDE.md`](../CLAUDE.md)'s NativeAOT section for the check and the
+failure symptom.
 
 To bump the version for a new build (e.g. to exercise an upgrade-in-place),
 make any commit — NBGV's `$(BuildVersion)` is git-height-derived, so height

@@ -28,13 +28,11 @@
   re-run with no source/manifest/cert changes a no-op repack (AC1) - winapp
   itself is not asked to do any incremental work.
 
-  win-x64 is a CROSS-AOT publish on this ARM64 dev machine: NativeAOT's cross
-  linking step shells out to vswhere.exe to locate the matching MSVC tools,
-  which is not on PATH by default even with Visual Studio installed (see
-  CLAUDE.md). This target does NOT add it to PATH itself (would have to guess
-  the VS install location); the invoking session must already have
-  `...\Microsoft Visual Studio\Installer` on PATH, exactly as for any other
-  win-x64 publish on this machine.
+  Both publishes need the matching Visual Studio VC build tools component
+  installed (VC.Tools.x86.x64 for win-x64, VC.Tools.ARM64 for win-arm64).
+  ILCompiler's findvcvarsall.bat finds them through vswhere.exe at a fixed
+  path under the VS Installer directory, so there is nothing for this target
+  or the invoking session to put on PATH - see CLAUDE.md's NativeAOT section.
 
   Manifest consumption: explicit winapp "manifest" flag pointed at the phase-01
   stamped obj\ copy, PER RID (DIST-7 - never auto-detect). That file is produced as a

@@ -82,7 +82,13 @@ The published binary is about 4.4–4.8 MB, reflecting real functional surface (
 
 A published AOT exe still has no identity by itself — to smoke-test it standalone, register + launch it with `winapp run <publish-output-folder> --manifest <RID-qualified obj/AppxManifest.xml> --with-alias`. For the full signed-MSIX release build, see "Release build (signed MSIX)" below.
 
-On an ARM64 dev machine, publishing a non-native RID (e.g. `-r win-x64`) needs `vswhere.exe` on `PATH`, for NativeAOT's cross-architecture native linking step (`Microsoft.DotNet.ILCompiler`'s targets shell out to it to locate the matching MSVC cross tools). It isn't on `PATH` by default even when Visual Studio is installed — add `...\Microsoft Visual Studio\Installer` for that session. Without it, `link.exe` fails with an opaque "filename, directory, or volume label syntax is incorrect" (exit 123). This also applies to a same-architecture (`win-arm64`) publish, not just cross-arch — `vswhere.exe` is needed regardless of RID.
+NativeAOT publish needs the Visual Studio VC build tools for its native linking step, on every RID including the native `win-arm64`. `Microsoft.DotNet.ILCompiler`'s `findvcvarsall.bat` locates them by running `%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe` at that fixed path, so `PATH` is not consulted and adding the installer directory to it has no effect. The requirement is the VS component: `Microsoft.VisualStudio.Component.VC.Tools.x86.x64` for `-r win-x64`, `Microsoft.VisualStudio.Component.VC.Tools.ARM64` for `-r win-arm64`. When one is missing, `link.exe` fails with an opaque "filename, directory, or volume label syntax is incorrect" (exit 123). Check a component with:
+
+```
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires <component-id> -property installationPath
+```
+
+Empty output means it isn't installed.
 
 ### Release build (signed MSIX)
 
