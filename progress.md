@@ -661,7 +661,62 @@ so they aren't lost:**
   (`…\Packages\Codevoid.AgentTaskVoid_016qghrny08mj\LocalState`), distinct from dev's
   `…-bbbb1168_016qghrny08mj`. Both aliases resolve, no contention. DIST-12's split is live.
 
-**Remaining: AC9 (plugin override smoke) and the tail of AC10 (install the daily Claude Code plugin
-from the git repo, verify the installed copy carries no `atv-command.txt`).**
+#### The rendering collision found mid-AC9 — DIST-14 ("AppTaskProvider extension Id must be build-kind-aware too")
+
+AC9's override smoke proved its ROUTING half immediately (session events went to `atv-dev`; the
+retail `atv.log` showed only two read-only orchestrator calls). But no card rendered on the dev
+pool, which opened a long live diagnosis. The answer was a real platform defect, unrelated to
+phase 20's own changes but exposed by them.
+
+**The defect.** The `com.microsoft.apptaskprovider` `uap3:AppExtension`'s `Id` was a static
+literal shared by all four identity pools. The Shell resolves its provider registration by that Id
+ALONE, so two registered atv packages collide and only one provides tasks. The loser still writes
+cards to its own `SystemAppData\AppTasks\tasks.json` and `FindAll()` still returns them — only the
+taskbar stays blank. Silent, and invisible until two pools drive cards at once, which had never
+happened before: phase 20 is what makes coexistence the everyday arrangement.
+
+**How it was established, in order:** dev alone renders → register a second package sharing the Id
+and dev immediately stops → give the two DISTINCT Ids and both render concurrently (operator ran
+this; two icons at once) → the execution alias is not a variable (`atv.exe`, `atv-dev.exe`,
+`atv-test.exe` each render when that package is the only one registered).
+
+**It contradicts the documented contract.** Microsoft documents `uap3:AppExtension`'s `Id` as a
+within-app discriminator, `AppExtensionCatalog` exposes each extension as (package, id), and
+`uap11:Id` explicitly scopes uniqueness "for all extensions in a package". Nothing documents
+machine-global uniqueness. So this is the experimental `Windows.UI.Shell.Tasks` host diverging
+from its own documented identity model — worth knowing so a future reader does not assume it was
+our manifest authoring at fault. Written up in `docs/windows-ui-shell-tasks/README.md`.
+
+**Fix (`a9fdfee`):** the Id stamps from the same `{IdentityName}` token as `Identity/@Name`, so
+there is no second computation to drift. Reviewer independently re-derived all four values (22/31/
+30/36 chars, each equal to its pool's Name) and verified the Microsoft citations verbatim against
+the live docs.
+
+**Follow-on (`954a259`), operator-directed:** nothing in the repo verified the stamped manifest at
+all — phase 20's AC1 was checked by ad-hoc `-getProperty:` calls that were never captured. Rather
+than a unit test, the operator asked for a build-time validation step: read back the manifest
+ACTUALLY WRITTEN to disk and fail the build on any mismatch (`Identity/@Name`, the alias, the
+extension Id, any surviving `{...}` placeholder, the 39-char limit). Reading the written file is
+the whole point — a check that recomputes expected values the way the stamper does would be
+circular ("who watches the watchers"). The reviewer provoked all five conditions against the
+SHIPPED targets, each error carrying its `build\Atv.*.targets(<line>,<col>)` prefix as proof it
+was the real `<Error>` firing and not a reproduction of the logic.
+
+**Diagnostic lesson worth keeping.** The collision hypothesis was raised early and dropped after
+the operator (correctly, per the docs) said provider extensions are not single-per-machine, and
+after a "dev alone still does not render" result appeared to refute it. That result was misleading:
+the package had already been poisoned by the retail install and did not recover when retail was
+removed. The cheap decisive test — two packages, distinct Ids — was available the whole time and
+would have settled it in one step. **A hypothesis contradicted by documentation is still worth one
+empirical test when the test is cheap.**
+
+**Non-blocking, carried forward:** the validation's regexes match raw text near the attribute
+rather than anchoring to the element, so a future template attribute reorder could make the
+extension-Id check read the wrong value. Verified correct against both templates today. Worth
+anchoring to element boundaries whenever those targets are next touched.
+
+**Remaining: AC9's rendering half (re-register both pools from a build carrying the fix and confirm
+both render at once) and the tail of AC10 (install the daily Claude Code plugin from the git repo,
+verify the installed copy carries no `atv-command.txt`).**
 
 _(Further per-phase notes appended below as phases execute.)_
