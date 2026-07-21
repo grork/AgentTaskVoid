@@ -37,7 +37,7 @@ The safe subset this codebase uses is encoded as data in
 **How to re-check on a new build:** manually drive each safe cell in
 `SafeCombinationMatrix.SafeCells` (7 cells: `SequenceOfSteps` at
 Running/Completed/Paused/Error/NeedsAttention-with-question,
-`TextSummaryResult` at Completed/Error) via `atv start`/`step`/`state`/
+`TextSummaryResult` at Completed/Error) via `atv-dev start`/`step`/`state`/
 `done`/`fail`/`attention` and eyeball the taskbar card each time — confirm it
 still renders as expected, no crash. Optionally also spot-check a couple of
 the documented-unsafe cells (e.g. `TextSummaryResult` + a question, `Running`
@@ -66,9 +66,9 @@ The per-handle icon model (`src/Atv/Icons/IconService.cs`) depends on this:
 each handle gets its own rendered icon copy specifically so cards never
 accidentally merge just because two callers picked the same title.
 
-**How to re-check on a new build:** `atv start a --title "Same Title" --icon
-Robot`, `atv start b --title "Same Title" --icon Robot` (same icon token —
-should merge into one taskbar icon with two cards in its flyout); then `atv
+**How to re-check on a new build:** `atv-dev start a --title "Same Title" --icon
+Robot`, `atv-dev start b --title "Same Title" --icon Robot` (same icon token —
+should merge into one taskbar icon with two cards in its flyout); then `atv-dev
 start c --title "Same Title" --icon Bug` (different icon — should get its
 own taskbar icon despite the identical title). Eyeball both outcomes.
 
@@ -123,9 +123,9 @@ ERGO-2 sweep) to notice and `Remove()` it, or it lingers forever. This is
 the one fidelity promise with no automated check at all — no automated
 harness can drive a real Shell click.
 
-**How to re-check:** `atv start x --title "Hide me"`; eyeball the card on
+**How to re-check:** `atv-dev start x --title "Hide me"`; eyeball the card on
 the taskbar; click its **X** dismiss button in the flyout; confirm (a) the
-icon disappears from the taskbar immediately (Shell-side) and (b) `atv list
+icon disappears from the taskbar immediately (Shell-side) and (b) `atv-dev list
 --json` still reports the handle (i.e. `HiddenByUser` is now `true` but the
 task is still live) until the next sweep-triggering verb (`start`/`remove` on
 any handle) or the watchdog's own reconciliation removes it.
