@@ -47,6 +47,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
 | 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
+| 20 | Daily-driver retail identity + plugin command override | 🔄 | 1 | Automated half (AC1–AC6, AC11) PASS on 2nd review, committed `269a164`. **AC7–AC10 are LIVE and unrun** — operator-supervised migration/install/dogfood. |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -600,5 +601,47 @@ so they aren't lost:**
    from these fixes -- appears to be pre-existing `translate.ps1` behavior, visible in this
    session's captures going back to the very first `atv-dogfood-p19` log excerpt read at the
    start of this investigation.
+
+### Phase 20 — Daily-driver retail identity + plugin command override 🔄 (automated half signed off on 2nd review, `269a164`; AC7–AC10 LIVE and unrun)
+
+- **Scope split, same pattern as phases 18/19:** subagents ran AC1–AC6 + AC11 only. AC7–AC10 are
+  live and operator-supervised — DIST-12 §3 grounds that identity attaches only through packaged
+  activation via the alias shim, so no build-log or stamped-file inspection substitutes for them.
+- **Files:** modified `build/Atv.Package.targets` (dev alias branch → `$(AtvCommandName)-dev.exe`),
+  `src/Atv/Package/AppxManifest.template.xml` (comments), both
+  `integrations/{claude-code,copilot-cli}/plugins/atv-integration/translate.ps1` (the
+  `atv-command.txt` tier), `tests/Atv.LogicTests/Integrations/*` (harness env-override +
+  `CreateAtvDecoy`/`PrependToPath` + 8 precedence tests), `.gitignore`, `CLAUDE.md`,
+  `docs/release.md`, both integration READMEs, `plan/README.md` (invariant #3 → four pools).
+- **Result:** build 0/0; LogicTests **822/822** unfiltered (+9 net); NativeAOT clean, 5,128,704 B
+  (~4.9 MB) arm64. All four build kinds verified stamped via `-getProperty:` without touching the
+  live dev `obj/` manifest: dev → `atv-dev.exe`, release → `atv.exe`, verify → `atv-reltest.exe`,
+  test template unchanged. `BuildKind.cs` untouched, its 27 tests unchanged.
+- **Review:** **FAIL then PASS.** First pass confirmed AC1–AC6 by independent re-run (incl. reading
+  `StubAtv/Program.cs` to prove the AC5 decoy assertion is non-vacuous — the decoy only writes its
+  output file when actually invoked, so `File.Exists == false` is real evidence of zero calls), but
+  failed AC11: the alias rename was applied to the sections the phase file named and left stale in
+  three other sentences of the same two files, one of which (`docs/release.md` §3.5) was a live
+  runbook step telling the operator to verify dev-interactive via `atv doctor` — which post-migration
+  reads the **retail** install instead. Fixed inline by the orchestrator (phase-04 precedent; doc
+  text only, no code, so the reviewer's build/test/AOT runs stood), then re-verified by the same
+  reviewer → PASS.
+- **The review sweep found a fourth spot, pre-existing:** `docs/maintenance/new-build-checklist.md`
+  told the reader to drive bare `atv` with state-changing verbs (`atv start a --title …`) to render
+  cards for platform verification. Harmless while dev owned `atv`; after this phase those commands
+  land on the operator's retail daily install. Fixed in its own commit (`9fb7063`), NOT bundled into
+  the phase commit (phase-10 convention). **Still stale there and not fixed:** those steps use the
+  v1 lifecycle verbs, retired by ERGO-31 in phase 15 — a separate, larger doc job.
+- **⚠️ Safety incident during execution.** The executor `git stash`-reverted both `translate.ps1`
+  files to observe a red test; the reverted script's fallback resolved bare `atv` on PATH — the
+  operator's live dev-interactive install — and really ran `atv working sess-1 --goal -`. It then
+  hung ~8 minutes (that is [[INFRA-34]], filed this session) and was terminated by exact PID. A stray
+  `sess-1` card may have been minted on the operator's taskbar; flagged to the operator, not touched
+  by any agent. **Rule reinforced for future phases: never stash/revert to re-run a red test on a box
+  whose PATH carries a live install** — judge red-first discipline from test structure instead. The
+  reviewer was explicitly forbidden from repeating it.
+
+**Phase 20's automated half is DONE. AC7–AC10 (dev alias binding, retail install, plugin override
+smoke, the five-step operator migration checklist) remain — they are the next action, operator-run.**
 
 _(Further per-phase notes appended below as phases execute.)_
