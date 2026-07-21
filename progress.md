@@ -24,8 +24,8 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 
 ## RESUME HERE
 
-Phase 20 is ✅ complete (live half closed 2026-07-21). **Next: phase 21** ("Dev-run safety rules in
-the docs", doc-only) via the normal executor → reviewer loop.
+Phase 21 is ✅ complete (doc-only, signed off 2026-07-21). **Next: phase 22** ("Create-anchored card
+defaults: per-repo icon + anchor deep-link", ERGO-34/35) via the normal executor → reviewer loop.
 
 **Live-phase protocol that worked, for the next one:** the orchestrator drives, the operator
 executes. The operator is the hands and eyes (elevation, registration, eyeballing the taskbar), not
@@ -67,6 +67,7 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
 | 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
 | 20 | Daily-driver retail identity + plugin command override | ✅ | 1 | All ACs met. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`); AC9's rendering half and AC10's tail closed live 2026-07-21. |
+| 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -788,5 +789,12 @@ elevation was needed — the pfx survived because only the `msix/` subfolder was
 **Also observed, unrelated:** `README.md`'s Manual usage examples still show the v1 lifecycle verbs
 (`step`/`attention`/`state`/`done`), retired by ERGO-31 in phase 15 — the same staleness already
 logged against `docs/maintenance/new-build-checklist.md`. Separate doc job.
+
+### Phase 21 — Dev-run safety rules in the docs ✅ (doc-only; signed off 1st attempt; lean mode)
+- **Files:** `CLAUDE.md` only (two new paragraphs in the "Dev loop: `dotnet run` / F5" section, between the `tests/Atv.LogicTests` line and the "One quirk" paragraph). No source/test/build/manifest changes.
+- **Landed (INFRA-33 rules 3–4 + caveat):** Rule 3 — a real-taskbar check registers a throwaway identity you control (`-reltest`/alias `atv-reltest` per `docs/release.md` §3, or a one-off `winapp run`), never the operator's `atv`, and tears down by **exact Name** (`Remove-AppxPackage`, never a bare `*Codevoid.AgentTaskVoid*` wildcard — it sweeps the retail/dev/test pools); teardown-drops-cards cited to DIST-9, not restated. Rule 4 — `--unregister-on-exit` is a narrow programmatic-only path: no MSBuild property passes it through `dotnet run` (WinApp targets map only `--with-alias`/`--no-launch`/`--debug-output`/`--args` → direct `winapp run` only), and it drops cards on exit so it can't observe a persistent card or hold state. The `ERROR_PACKAGES_IN_USE`/live-watchdog deferral caveat = one brief DIST-6-cited sentence by the teardown guidance.
+- **Item 4 (stale bare-alias prose) required zero edits:** the phase-21 spec assumed phase 20 left the validate-through-`dotnet run` paragraph untouched, but phase 20's build-half commit `269a164` had already rewritten it to the four-pool language (`atv-dev` = working copy, bare `atv` = retail). Executor and reviewer both independently confirmed the tree's end state is AC4-compliant; the paragraph was verified, not re-touched.
+- **Review:** PASS (independent, 1st). All 6 ACs met — AC4 checked by the reviewer's own full-file grep (no sentence frames bare `atv` as a dev/worktree alias or validation target; the two remaining bare-`atv` mentions are the correct retail-install framing). Doc-style compliant (reviewer ran the skill's AI-tell grep net — no matches). AC6 doc-only diff: `git status` shows only `CLAUDE.md`; `dotnet build` 0/0; logic suite 821/821 (executor's run — a doc-only diff cannot move it, reviewer relied on that reasoning rather than re-running).
+- **Still-open doc job (NOT phase 21 scope, carried from phase 20's log):** both integration READMEs say "disable" the daily plugin where the correct advice is "uninstall" (name stays claimed on disable + the skills-dir copy silently stops loading). Phase 20's note guessed phase 21 as its home, but phase 21's plan scope is `CLAUDE.md`-only ("No other docs"), so it was NOT taken here — remains an unhomed doc fix. Also still open from phase 20's log: `README.md` Manual-usage examples show retired v1 lifecycle verbs.
 
 _(Further per-phase notes appended below as phases execute.)_
