@@ -19,5 +19,10 @@ tools/host-event-recorder/captures/
 # Claude Code local settings (user-specific overrides)
 .claude/settings.local.json
 
+# DIST-12: hand-written atv command override for a working-tree Claude Code
+# dogfood (points at the atv-dev shim instead of the daily retail atv install).
+# Never checked in, so a marketplace/skills-dir copy of the plugin never carries one.
+integrations/claude-code/plugins/atv-integration/atv-command.txt
+
 # Rider
 .idea/

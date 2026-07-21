@@ -71,16 +71,39 @@ $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 # ---- atv command resolution -------------------------------------------------
 # Production: the bare alias "atv" resolved via PATH (the AppExecutionAlias
-# every install -- dev-loop, test, or release -- registers). Offline
-# translator tests point $env:ATV_TRANSLATOR_STUB_EXE at a compiled stub exe
-# that records argv + stdin instead of the real atv.exe (a genuine separate
-# process, exactly like the real atv.exe -- never an in-process "& script.ps1"
-# invocation, which would route piped text through PowerShell's own pipeline
-# objects instead of a real OS stdin handle). See
-# tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs. This env
-# var is a translator-test-only seam -- atv.exe itself has no knowledge of it.
+# every install -- dev-loop, test, or release -- registers). Two overrides sit
+# above that, in priority order (DIST-12 SS4):
+#   1. $env:ATV_TRANSLATOR_STUB_EXE -- the test seam, absolute priority. Offline
+#      translator tests point this at a compiled stub exe that records argv +
+#      stdin instead of the real atv.exe (a genuine separate process, exactly
+#      like the real atv.exe -- never an in-process "& script.ps1" invocation,
+#      which would route piped text through PowerShell's own pipeline objects
+#      instead of a real OS stdin handle). See
+#      tests/Atv.LogicTests/Integrations/ClaudeCodeTranslatorTests.cs. This env
+#      var is a translator-test-only seam -- atv.exe itself has no knowledge of it.
+#   2. atv-command.txt, next to this script -- a hand-written, single-line,
+#      verbatim command override (typically the atv-dev shim's full path), for
+#      pointing a working-tree dogfood at the dev pool instead of the operator's
+#      daily retail atv install. Gitignored: a marketplace/skills-dir copy of
+#      this plugin never carries one, so daily use never sees it. A
+#      present-but-broken target no-ops (caught by Invoke-Atv's try/catch
+#      below) rather than falling back to bare atv -- that fallback would leak
+#      a dev session's cards onto the daily install. An empty/whitespace-only
+#      file counts as absent (falls through to the guard below it).
 $script:AtvStubExe = $env:ATV_TRANSLATOR_STUB_EXE
-$script:AtvIsOverridden = -not [string]::IsNullOrEmpty($script:AtvStubExe)
+$script:AtvCommand = $null
+if (-not [string]::IsNullOrEmpty($script:AtvStubExe)) {
+    $script:AtvCommand = $script:AtvStubExe
+} else {
+    $atvCommandOverridePath = Join-Path $PSScriptRoot "atv-command.txt"
+    if (Test-Path -LiteralPath $atvCommandOverridePath) {
+        $atvCommandOverrideText = (Get-Content -Raw -LiteralPath $atvCommandOverridePath).Trim()
+        if (-not [string]::IsNullOrEmpty($atvCommandOverrideText)) {
+            $script:AtvCommand = $atvCommandOverrideText
+        }
+    }
+}
+$script:AtvIsOverridden = ($null -ne $script:AtvCommand)
 
 function Get-Prop {
     param($Obj, [string]$Name)
@@ -122,9 +145,9 @@ function Invoke-Atv {
     try {
         if ($script:AtvIsOverridden) {
             if ($null -ne $StdinText) {
-                $StdinText | & $script:AtvStubExe @AtvArgs *> $null
+                $StdinText | & $script:AtvCommand @AtvArgs *> $null
             } else {
-                & $script:AtvStubExe @AtvArgs *> $null
+                & $script:AtvCommand @AtvArgs *> $null
             }
         } else {
             if (-not (Get-Command atv -ErrorAction SilentlyContinue)) {

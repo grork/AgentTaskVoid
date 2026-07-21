@@ -16,14 +16,20 @@ internal static class CopilotCliTranslatorHarness
     internal static List<StubInvocation> RunTranslator(
         string eventName,
         string payloadJson,
-        string stateDirectory)
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?>? environment = null)
     {
-        var environment = new Dictionary<string, string?>
+        var mergedEnvironment = new Dictionary<string, string?>
         {
             ["ATV_COPILOT_STATE_DIR"] = stateDirectory,
             ["COPILOT_PLUGIN_DATA"] = null,
             ["CLAUDE_PLUGIN_DATA"] = null,
         };
+        if (environment is not null)
+        {
+            foreach ((string key, string? value) in environment)
+                mergedEnvironment[key] = value;
+        }
 
         return
         [
@@ -31,7 +37,7 @@ internal static class CopilotCliTranslatorHarness
                     TranslatePath,
                     ["-Event", eventName],
                     payloadJson,
-                    environment)
+                    mergedEnvironment)
                 .Select(call => new StubInvocation(call.Argv, call.Stdin)),
         ];
     }

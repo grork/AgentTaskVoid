@@ -291,4 +291,81 @@ public sealed class CopilotCliTranslatorTests
         Assert.IsEmpty(RunTranslator("preToolUse", "{not-json", state.Path));
         Assert.IsEmpty(RunTranslator("preToolUse", ChildTool("view", """{"path":"README.md"}""", "call_unknown"), state.Path));
     }
+
+    // ---- DIST-12 SS4: atv-command.txt override precedence ---------------------
+    // The override file lives in the state root Get-StateRoot resolves (here,
+    // the per-test TempDirectory ATV_COPILOT_STATE_DIR already points at) --
+    // beside correlation-state.json/translator.log, no extra isolation needed.
+
+    [TestMethod]
+    public void AtvCommandTxt_FileUsed_InvokesConfiguredCommand()
+    {
+        using var state = new TempDirectory();
+        Directory.CreateDirectory(state.Path);
+        File.WriteAllText(Path.Combine(state.Path, "atv-command.txt"), EnsureStubBuilt());
+
+        var environment = new Dictionary<string, string?> { ["ATV_TRANSLATOR_STUB_EXE"] = null };
+        var calls = RunTranslator("userPromptSubmitted", ParentPrompt(), state.Path, environment);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", Parent, "--goal", "-", "--cwd", Cwd }, calls[0].Argv);
+        Assert.AreEqual("Fix the login bug", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void AtvCommandTxt_StubVarBeatsFile_FileIgnored()
+    {
+        using var state = new TempDirectory();
+        Directory.CreateDirectory(state.Path);
+        File.WriteAllText(Path.Combine(state.Path, "atv-command.txt"), @"C:\does\not\exist\bogus-atv.exe");
+
+        // Stub var left set (RunTranslator sets it by default) -- it must win
+        // over the present-but-bogus file.
+        var calls = RunTranslator("userPromptSubmitted", ParentPrompt(), state.Path);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", Parent, "--goal", "-", "--cwd", Cwd }, calls[0].Argv);
+        Assert.AreEqual("Fix the login bug", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void AtvCommandTxt_Absent_MatchesExistingBehavior()
+    {
+        using var state = new TempDirectory();
+        // No atv-command.txt dropped -- the new tier must be inert.
+
+        var calls = RunTranslator("userPromptSubmitted", ParentPrompt(), state.Path);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", Parent, "--goal", "-", "--cwd", Cwd }, calls[0].Argv);
+        Assert.AreEqual("Fix the login bug", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void AtvCommandTxt_BrokenTarget_NoOp_NeverFallsThroughToPathAtv()
+    {
+        using var state = new TempDirectory();
+        Directory.CreateDirectory(state.Path);
+        File.WriteAllText(Path.Combine(state.Path, "atv-command.txt"), @"C:\does\not\exist\bogus-atv.exe");
+
+        // A decoy "atv.exe" is the ONLY atv resolvable from this run's PATH, so a
+        // buggy fall-through to Get-Command atv -> & atv would be caught here --
+        // and physically cannot reach any live install.
+        using var decoyDir = new TempDirectory();
+        IntegrationTranslatorProcess.CreateAtvDecoy(decoyDir.Path);
+        string decoyOutput = Path.Combine(decoyDir.Path, "decoy-out.jsonl");
+
+        var environment = new Dictionary<string, string?>
+        {
+            ["ATV_TRANSLATOR_STUB_EXE"] = null,
+            ["PATH"] = IntegrationTranslatorProcess.PrependToPath(decoyDir.Path),
+            ["ATV_STUB_OUTPUT"] = decoyOutput,
+        };
+
+        RunTranslator("userPromptSubmitted", ParentPrompt(), state.Path, environment);
+
+        Assert.IsFalse(
+            File.Exists(decoyOutput),
+            "A broken atv-command.txt override must no-op, never fall through to Get-Command atv -> & atv -- the decoy on PATH must never be invoked.");
+    }
 }

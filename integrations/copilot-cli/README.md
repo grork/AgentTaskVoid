@@ -115,6 +115,29 @@ missing, or multiple identical pending prompts make the match ambiguous,
 Copilot continues normally and the integration falls back to parent/task
 lifecycle reporting rather than guessing.
 
+## Dev dogfood: the `atv-command.txt` override
+
+`translate.ps1` resolves the `atv` command it invokes in this order: the
+`ATV_TRANSLATOR_STUB_EXE` test seam, then `atv-command.txt` in the state
+root, then the bare `atv` alias. `atv-command.txt` is a hand-written,
+single-line file holding the verbatim command to run — typically the
+`atv-dev` shim's full path — so a working-tree dogfood routes cards onto the
+dev pool instead of the operator's daily retail install. A broken or missing
+target no-ops rather than falling back to bare `atv`, so a stale override
+can never leak a dev session onto the daily cards.
+
+The state root is the directory holding this plugin's `correlation-state.json`
+and `translator.log` — `COPILOT_PLUGIN_DATA` only exists inside the hook
+process, so it can't be read from a shell; find the directory by those two
+files instead. Drop `atv-command.txt` there for a dogfood session, and
+remove it for daily use.
+
+Before dogfooding against a real session, disable the daily install first
+(`copilot plugin uninstall atv-integration`, or confirm it isn't installed
+for the profile you're dogfooding with `--plugin-dir`) — the same
+discipline as any capture-harness run, so the plugin under test is the only
+one wired to this session's hooks.
+
 ## Failure and security posture
 
 - The translator always exits 0 and never passes `--strict`.

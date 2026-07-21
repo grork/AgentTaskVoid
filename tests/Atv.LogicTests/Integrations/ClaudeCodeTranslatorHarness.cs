@@ -19,7 +19,11 @@ internal static class ClaudeCodeTranslatorHarness
 
     internal static string EnsureStubBuilt() => IntegrationTranslatorProcess.EnsureStubBuilt();
 
-    internal static List<StubInvocation> RunTranslator(string eventName, string payloadJson, string? projectDir = null)
+    internal static List<StubInvocation> RunTranslator(
+        string eventName,
+        string payloadJson,
+        string? projectDir = null,
+        IReadOnlyDictionary<string, string?>? environment = null)
     {
         var arguments = new List<string> { "-Event", eventName };
         if (projectDir is not null)
@@ -30,7 +34,43 @@ internal static class ClaudeCodeTranslatorHarness
 
         return
         [
-            .. IntegrationTranslatorProcess.Run(TranslatePath, arguments, payloadJson)
+            .. IntegrationTranslatorProcess.Run(TranslatePath, arguments, payloadJson, environment)
+                .Select(call => new StubInvocation(call.Argv, call.Stdin)),
+        ];
+    }
+
+    /// <summary>
+    /// Populates <paramref name="destinationDir"/> with a copy of translate.ps1 +
+    /// map.json (the script loads map.json from $PSScriptRoot, so the two must
+    /// travel together). Phase 20's atv-command.txt precedence tests run from a
+    /// per-test temp copy rather than the shared working-tree plugin dir, so
+    /// dropping an override file never pollutes it or races parallel tests.
+    /// </summary>
+    internal static void PopulatePluginCopy(string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+        File.Copy(TranslatePath, Path.Combine(destinationDir, "translate.ps1"), overwrite: true);
+        File.Copy(Path.Combine(PluginRoot, "map.json"), Path.Combine(destinationDir, "map.json"), overwrite: true);
+    }
+
+    internal static List<StubInvocation> RunTranslatorAt(
+        string pluginDir,
+        string eventName,
+        string payloadJson,
+        string? projectDir = null,
+        IReadOnlyDictionary<string, string?>? environment = null)
+    {
+        var arguments = new List<string> { "-Event", eventName };
+        if (projectDir is not null)
+        {
+            arguments.Add("-ProjectDir");
+            arguments.Add(projectDir);
+        }
+
+        string scriptPath = Path.Combine(pluginDir, "translate.ps1");
+        return
+        [
+            .. IntegrationTranslatorProcess.Run(scriptPath, arguments, payloadJson, environment)
                 .Select(call => new StubInvocation(call.Argv, call.Stdin)),
         ];
     }

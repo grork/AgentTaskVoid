@@ -31,7 +31,6 @@ $ErrorActionPreference = "Stop"
 $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 $script:AtvStubExe = $env:ATV_TRANSLATOR_STUB_EXE
-$script:AtvIsOverridden = -not [string]::IsNullOrEmpty($script:AtvStubExe)
 $script:StateSchemaVersion = 1
 $script:PendingTtl = [TimeSpan]::FromMinutes(10)
 $script:ActiveTtl = [TimeSpan]::FromHours(24)
@@ -94,6 +93,41 @@ function Write-Diagnostic {
         # Diagnostics are best-effort; hook behavior must remain non-disruptive.
     }
 }
+
+# ---- atv command resolution -------------------------------------------------
+# Production: the bare alias "atv" resolved via PATH. Two overrides sit above
+# that, in priority order (DIST-12 SS4):
+#   1. $env:ATV_TRANSLATOR_STUB_EXE -- the test seam, absolute priority. See
+#      tests/Atv.LogicTests/Integrations/CopilotCliTranslatorTests.cs.
+#   2. atv-command.txt in the state root Get-StateRoot resolves (beside
+#      correlation-state.json/translator.log) -- a hand-written, single-line,
+#      verbatim command override (typically the atv-dev shim's full path), for
+#      pointing a working-tree dogfood at the dev pool instead of the
+#      operator's daily retail atv install. No state root (Get-StateRoot
+#      returns $null) means nowhere to read an override from, same as
+#      correlation state already degrades. A present-but-broken target no-ops
+#      (caught by Invoke-Atv's try/catch below) rather than falling back to
+#      bare atv -- that fallback would leak a dev session's cards onto the
+#      daily install. An empty/whitespace-only file counts as absent (falls
+#      through to the guard below it).
+$script:AtvCommand = $null
+if (-not [string]::IsNullOrEmpty($script:AtvStubExe)) {
+    $script:AtvCommand = $script:AtvStubExe
+}
+else {
+    $atvCommandStateRoot = Get-StateRoot
+    if (-not [string]::IsNullOrEmpty($atvCommandStateRoot)) {
+        $atvCommandOverridePath = Join-Path $atvCommandStateRoot "atv-command.txt"
+        if (Test-Path -LiteralPath $atvCommandOverridePath) {
+            $atvCommandOverrideText = (Get-Content -Raw -LiteralPath $atvCommandOverridePath).Trim()
+            if (-not [string]::IsNullOrEmpty($atvCommandOverrideText)) {
+                $script:AtvCommand = $atvCommandOverrideText
+                Write-Diagnostic ("atv-command.txt override in use: " + $script:AtvCommand)
+            }
+        }
+    }
+}
+$script:AtvIsOverridden = ($null -ne $script:AtvCommand)
 
 function New-CorrelationState {
     return [pscustomobject]@{
@@ -393,10 +427,10 @@ function Invoke-Atv {
     try {
         if ($script:AtvIsOverridden) {
             if ($null -ne $StdinText) {
-                $StdinText | & $script:AtvStubExe @AtvArgs *> $null
+                $StdinText | & $script:AtvCommand @AtvArgs *> $null
             }
             else {
-                & $script:AtvStubExe @AtvArgs *> $null
+                & $script:AtvCommand @AtvArgs *> $null
             }
         }
         else {

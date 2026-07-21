@@ -81,6 +81,33 @@ next prompt.
   `claude plugin uninstall atv-integration@agent-task-void --scope <scope>`),
   then optionally `/plugin marketplace remove agent-task-void`.
 
+## Dev dogfood: the `atv-command.txt` override
+
+`translate.ps1` resolves the `atv` command it invokes in this order: the
+`ATV_TRANSLATOR_STUB_EXE` test seam, then `atv-command.txt` next to this
+script, then the bare `atv` alias. `atv-command.txt` is a hand-written,
+single-line file holding the verbatim command to run — typically the
+`atv-dev` shim's full path (`%LOCALAPPDATA%\Microsoft\WindowsApps\atv-dev.exe`)
+— so a working-tree dogfood routes cards onto the dev pool instead of the
+operator's daily retail install. A broken or missing target no-ops rather
+than falling back to bare `atv`, so a stale override can never leak a dev
+session onto the daily cards. Nothing writes this file automatically: drop
+it in `plugins/atv-integration/` for a dogfood session, and remove it for
+daily use.
+
+Before dogfooding against a real session, disable the daily install first
+(Option A: `claude plugin disable atv-integration@skills-dir`; Option B:
+`/plugin uninstall atv-integration@agent-task-void` for the session) — the
+same discipline as any capture-harness run, so the working-tree plugin under
+test is the only one wired to this session's hooks.
+
+Install the daily plugin from a separate, clean checkout of this repository
+(a fresh `git clone`, not this working tree), never a raw copy of the local
+plugin folder — a folder copy would carry along a gitignored
+`atv-command.txt` sitting in the working tree, silently routing daily
+sessions to `atv-dev`. After installing, confirm the installed plugin
+directory has no `atv-command.txt`.
+
 ## Event → verb mapping
 
 | Claude Code event | Matcher | `atv` call | Notes |

@@ -77,12 +77,15 @@
           `dotnet run`/F5 until a plain rebuild restamps it back. The correct smoke
           command is `dotnet build src\Atv\Atv.csproj -t:AtvRelease -p:AtvVerifyIdentity=true`.
         - Neither set (the default - plain `dotnet build`/`dotnet run`/F5/`winapp run`)
-          - UNCHANGED from the original mechanism: Name = brand + a stable hash of
-          the project directory, alias "atv". This is deliberate and load-bearing:
-          the dev-interactive package this hash produces
+          - Name = brand + a stable hash of the project directory, UNCHANGED from
+          the original mechanism: the dev-interactive package this hash produces
           (`Codevoid.AgentTaskVoid-bbbb1168` in the primary worktree) is the identity that has
           already been driving real dogfooding (Checkpoint C1's taskbar render); it
-          must keep resolving to the exact same Name after this change.
+          must keep resolving to the exact same Name after this change. The alias
+          DID move (DIST-12, 2026-07-18, amending this DIST-3 amendment): dev now
+          claims "atv-dev" instead of "atv", so the operator's daily card use can
+          move onto the retail identity's "atv" without alias contention. See
+          CLAUDE.md's "Package identity" section.
 
       Different Names -> different PFNs -> STRUCTURAL isolation between all three
       pools (release / dev-interactive / the reltest smoke), independent of Publisher
@@ -104,7 +107,8 @@
       <_AtvIdentityName Condition="'$(_AtvBuildKind)' == 'dev'">$(AtvBrandName)-$(_AtvPathHash)</_AtvIdentityName>
 
       <_AtvExecutionAlias Condition="'$(_AtvBuildKind)' == 'verify'">$(AtvCommandName)-reltest.exe</_AtvExecutionAlias>
-      <_AtvExecutionAlias Condition="'$(_AtvBuildKind)' != 'verify'">$(AtvCommandName).exe</_AtvExecutionAlias>
+      <_AtvExecutionAlias Condition="'$(_AtvBuildKind)' == 'dev'">$(AtvCommandName)-dev.exe</_AtvExecutionAlias>
+      <_AtvExecutionAlias Condition="'$(_AtvBuildKind)' == 'release'">$(AtvCommandName).exe</_AtvExecutionAlias>
 
       <!--
         Execution-time only (DIST-7 implementation rule): $(BuildVersion) is an OUTPUT

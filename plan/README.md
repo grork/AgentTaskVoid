@@ -29,10 +29,10 @@ its file alone, consulting the cited question records only for deeper rationale.
    identity `Codevoid.AgentTaskVoid`, display name "Agent Task Void". The three
    `Branding` constants feed identity, command name, display strings, env/config
    names, mutex names, paths, artifact names. Never bake a string in twice.
-3. **Never hardcode a PFN** (DIST-3, "Dev vs release identity (PFN) divergence"):
-   everything PFN-keyed (mutexes, app-data paths) derives at runtime from the current
-   package. Three identity pools (release / dev-interactive / per-worktree test) are
-   deliberately isolated.
+3. **Never hardcode a PFN** (DIST-3, "Dev vs release identity (PFN) divergence", amended
+   by DIST-12): everything PFN-keyed (mutexes, app-data paths) derives at runtime from the
+   current package. Four identity pools (release/daily `atv` / dev-interactive `atv-dev` /
+   `-reltest` / per-worktree test) are deliberately isolated.
 4. **Non-disruptive by default** (FAIL-1, "Failure posture toward the host caller"):
    on any failure the CLI no-ops and exits 0, always writing the durable failure log.
    `--strict` opts into real exit codes.

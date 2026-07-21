@@ -13,13 +13,15 @@
   build-time-parameterizing every field is unneeded complexity.
 
   DIST-3's 2026-07-10 amendment made Name/alias stamping BUILD-KIND-AWARE (see
-  build/Atv.Package.targets' AtvStampAppxManifest for the branching): dev
-  (default) keeps `<brand>-<pathhash>` + alias `atv`, UNCHANGED; release stamps a
-  clean pathhash-free `<brand>` + alias `atv`; a throwaway "-reltest" smoke variant
-  (`AtvVerifyIdentity=true`) stamps `<brand>-reltest` + alias `atv-reltest`, so a
-  release-on-dev-box smoke install can coexist with the dev pool without clobbering
-  its `atv` alias. This is what makes DIST-3's three-pool isolation structural,
-  independent of the still-static Publisher.
+  build/Atv.Package.targets' AtvStampAppxManifest for the branching); DIST-12
+  (2026-07-18) amends it again, moving the dev alias off `atv`: dev (default)
+  keeps `<brand>-<pathhash>` + alias `atv-dev`; release stamps a clean
+  pathhash-free `<brand>` + alias `atv` (the operator's daily card use); a
+  throwaway "-reltest" smoke variant (`AtvVerifyIdentity=true`) stamps
+  `<brand>-reltest` + alias `atv-reltest`, so a release-on-dev-box smoke
+  install can coexist with the dev and retail pools without clobbering either
+  alias. This is what makes the four-pool isolation structural, independent
+  of the still-static Publisher.
 
   This one template serves BOTH the dev loose-layout (`winapp run`, via the
   RID-unqualified obj/ copy) and the release pack (`winapp package`, via the
@@ -77,9 +79,10 @@
             Id="Codevoid.AgentTaskVoid.AppTaskProvider"
             DisplayName="AppTaskProvider for Agent Task Void" />
         </uap3:Extension>
-        <!-- Puts the build-kind-aware alias on PATH (ERGO-18, DIST-7; DIST-3's
-             2026-07-10 amendment - `atv` for dev/release, `atv-reltest` for the
-             phase-12 smoke variant; see build/Atv.Package.targets). -->
+        <!-- Puts the build-kind-aware alias on PATH (ERGO-18, DIST-7; DIST-12
+             amends DIST-3 - `atv-dev` for dev, `atv` for release (the daily
+             driver), `atv-reltest` for the phase-12 smoke variant; see
+             build/Atv.Package.targets). -->
         <uap5:Extension Category="windows.appExecutionAlias">
           <uap5:AppExecutionAlias>
             <uap5:ExecutionAlias Alias="{ExecutionAlias}" />

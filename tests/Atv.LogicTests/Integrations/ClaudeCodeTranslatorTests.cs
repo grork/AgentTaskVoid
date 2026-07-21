@@ -1,3 +1,4 @@
+using Codevoid.AgentTaskVoid.LogicTests.Persistence;
 using static Codevoid.AgentTaskVoid.LogicTests.Integrations.ClaudeCodeTranslatorHarness;
 
 namespace Codevoid.AgentTaskVoid.LogicTests.Integrations;
@@ -567,5 +568,86 @@ public sealed class ClaudeCodeTranslatorTests
     {
         var calls = RunTranslator("Stop", "", projectDir: null);
         Assert.IsEmpty(calls);
+    }
+
+    // ---- DIST-12 SS4: atv-command.txt override precedence ---------------------
+    // Tests run from a per-test temp copy of the plugin dir (translate.ps1 +
+    // map.json, since the script loads map.json from $PSScriptRoot) so dropping
+    // atv-command.txt never writes into the shared working-tree plugin folder.
+
+    private const string UserPromptSubmitPayload =
+        """{"session_id":"sess-1","hook_event_name":"UserPromptSubmit","prompt":"hi"}""";
+
+    [TestMethod]
+    public void AtvCommandTxt_FileUsed_InvokesConfiguredCommand()
+    {
+        using var pluginCopy = new TempDirectory();
+        PopulatePluginCopy(pluginCopy.Path);
+        File.WriteAllText(Path.Combine(pluginCopy.Path, "atv-command.txt"), EnsureStubBuilt());
+
+        var environment = new Dictionary<string, string?> { ["ATV_TRANSLATOR_STUB_EXE"] = null };
+        var calls = RunTranslatorAt(pluginCopy.Path, "UserPromptSubmit", UserPromptSubmitPayload, projectDir: null, environment: environment);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-" }, calls[0].Argv);
+        Assert.AreEqual("hi", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void AtvCommandTxt_StubVarBeatsFile_FileIgnored()
+    {
+        using var pluginCopy = new TempDirectory();
+        PopulatePluginCopy(pluginCopy.Path);
+        File.WriteAllText(Path.Combine(pluginCopy.Path, "atv-command.txt"), @"C:\does\not\exist\bogus-atv.exe");
+
+        // Stub var left set (RunTranslatorAt/IntegrationTranslatorProcess.Run sets
+        // it by default) -- it must win over the present-but-bogus file.
+        var calls = RunTranslatorAt(pluginCopy.Path, "UserPromptSubmit", UserPromptSubmitPayload, projectDir: null);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-" }, calls[0].Argv);
+        Assert.AreEqual("hi", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void AtvCommandTxt_Absent_MatchesExistingBehavior()
+    {
+        using var pluginCopy = new TempDirectory();
+        PopulatePluginCopy(pluginCopy.Path);
+        // No atv-command.txt dropped -- the new tier must be inert.
+
+        var calls = RunTranslatorAt(pluginCopy.Path, "UserPromptSubmit", UserPromptSubmitPayload, projectDir: null);
+
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(new[] { "working", "sess-1", "--goal", "-" }, calls[0].Argv);
+        Assert.AreEqual("hi", calls[0].Stdin?.TrimEnd());
+    }
+
+    [TestMethod]
+    public void AtvCommandTxt_BrokenTarget_NoOp_NeverFallsThroughToPathAtv()
+    {
+        using var pluginCopy = new TempDirectory();
+        PopulatePluginCopy(pluginCopy.Path);
+        File.WriteAllText(Path.Combine(pluginCopy.Path, "atv-command.txt"), @"C:\does\not\exist\bogus-atv.exe");
+
+        // A decoy "atv.exe" is the ONLY atv resolvable from this run's PATH, so a
+        // buggy fall-through to Get-Command atv -> & atv would be caught here --
+        // and physically cannot reach any live install.
+        using var decoyDir = new TempDirectory();
+        IntegrationTranslatorProcess.CreateAtvDecoy(decoyDir.Path);
+        string decoyOutput = Path.Combine(decoyDir.Path, "decoy-out.jsonl");
+
+        var environment = new Dictionary<string, string?>
+        {
+            ["ATV_TRANSLATOR_STUB_EXE"] = null,
+            ["PATH"] = IntegrationTranslatorProcess.PrependToPath(decoyDir.Path),
+            ["ATV_STUB_OUTPUT"] = decoyOutput,
+        };
+
+        RunTranslatorAt(pluginCopy.Path, "UserPromptSubmit", UserPromptSubmitPayload, projectDir: null, environment: environment);
+
+        Assert.IsFalse(
+            File.Exists(decoyOutput),
+            "A broken atv-command.txt override must no-op, never fall through to Get-Command atv -> & atv -- the decoy on PATH must never be invoked.");
     }
 }

@@ -30,9 +30,10 @@ artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_arm64.msix   -- signed
 ```
 
 This stamps the release identity (`Identity/@Name = Codevoid.AgentTaskVoid`,
-`AppExecutionAlias = atv`) into both packages. Section 2 covers why a
-supervised smoke test installs a third, throwaway identity instead of these
-two artifacts directly.
+`AppExecutionAlias = atv`) into both packages. Section 2 installs this msix
+on a dev box as the daily driver; section 3 uses a third, throwaway
+`-reltest` identity instead, so upgrade/uninstall verification churn never
+touches the daily cards.
 
 ### The `-reltest` throwaway smoke variant
 
@@ -91,7 +92,7 @@ cert's subject will very likely differ. This changes the Package Family
 Name (see the isolation note in section 2). DIST-2 evaluates the
 certificate options.
 
-## 2. Why the real release msix isn't installed on this dev box
+## 2. Daily-driver install: the retail msix on this dev box
 
 A Package Family Name is `<Name>_<PublisherId>`, where `PublisherId` is a
 deterministic hash of the manifest's declared `Identity/@Publisher` string,
@@ -101,15 +102,27 @@ and `-reltest` each stamp a distinct `Identity/@Name`
 see [`CLAUDE.md`](../CLAUDE.md)'s "Package identity" section and DIST-3), so all three
 produce structurally different PFNs and can coexist on one machine.
 
-Dev-interactive and the real release build do declare the same
-`AppExecutionAlias` (`atv`): a dev box's primary `atv` is the working copy,
-and a real end-user machine (which never has dev-interactive installed) gets
-`atv` as the release binary. Installing the real release msix on this dev
-box, alongside the dev-interactive registration, would put two packages in
-alias contention over `atv`. The `-reltest` variant's distinct
-`atv-reltest` alias avoids that, so you can run the
-install/alias-launch/`AppTaskInfo` sequence below on a dev box without
-disturbing the live `atv` = dev-interactive binding.
+Dev-interactive claims the `atv-dev` alias; the real release build claims
+`atv` (DIST-12) — the identity behind the operator's own daily taskbar card
+use, installed on this dev box the same way an end user installs it. Install
+the plain release msix (not `-reltest`) as the daily driver:
+
+```
+Add-AppxPackage -Path "artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_<arch>.msix"
+```
+
+Trust the dev cert first if this dev box hasn't already (section 3.1's
+elevation step — the same certificate signs every dev-cert msix, release or
+`-reltest`). From a freshly-spawned shell, `atv doctor` should report the
+Release identity (Name = the bare brand, unmarked — no `(dev)`), coexisting
+with `atv-dev doctor`'s dev-interactive identity, with no alias contention.
+This is the interim retail install until DIST-2 swaps in a real signing
+certificate, which changes the Publisher — and with it the PFN, so state
+starts fresh at that point.
+
+`-reltest` keeps its own `atv-reltest` alias and its throwaway-smoke role;
+section 3 below installs that variant instead, for supervised
+upgrade/uninstall verification rather than daily use.
 
 ## 3. Supervised install / upgrade / uninstall verification
 
@@ -136,7 +149,8 @@ is the equivalent single-command form if preferred — also needs elevation.)
 
 Install the `-reltest` artifact, not the plain release one. Per section 2,
 it has its own non-colliding `atv-reltest` alias, so this install cannot
-disturb a dev-interactive `atv` binding already registered on the box.
+disturb the `atv-dev` binding of a dev package already registered on the box,
+or the retail install holding `atv`.
 
 ```
 Add-AppxPackage -Path "artifacts\release\msix\Codevoid.AgentTaskVoid_<version>_<arch>_reltest.msix"
@@ -205,7 +219,7 @@ Expected: the taskbar card(s) disappear immediately (the Shell drops them on
 uninstall — DIST-9); the package's app-data tree is gone; the watchdog
 process self-exits on its next empty-set poll (give it a few seconds, then
 `Get-Process atv-reltest -ErrorAction SilentlyContinue` should come back
-empty). Confirm the dev-interactive `atv` binding (`cmd.exe /c "atv doctor"`,
+empty). Confirm the dev-interactive binding (`cmd.exe /c "atv-dev doctor"`,
 a fresh terminal) is untouched throughout.
 
 ### 3.6 Cleanup
