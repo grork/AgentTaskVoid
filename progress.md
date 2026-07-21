@@ -22,56 +22,24 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 
 (The orchestration protocol is also in auto-loaded memory. If a phase is mid-flight and uncommitted in the working tree, the new session should review that in-tree work rather than re-run the executor.)
 
-## RESUME HERE (handoff written 2026-07-20, end of session)
+## RESUME HERE
 
-Phase 20 is live-verification work only. No subagent can finish it — every remaining item needs a
-real package registration and a human looking at the taskbar.
+Phase 20 is ✅ complete (live half closed 2026-07-21). **Next: phase 21** ("Dev-run safety rules in
+the docs", doc-only) via the normal executor → reviewer loop.
 
-**How to run it: the orchestrator drives, the operator executes.** The operator is the hands and
-eyes (elevation, registration, eyeballing the taskbar), not the one deciding what to do next. Issue
-one concrete step at a time, wait for the result, interpret it, then issue the next — do not hand
-over a checklist and go quiet. Read the machine state yourself between steps (`Get-AppxPackage`,
-the `atv.log` under each pool's `LocalState`, `tasks.json`, the stamped manifest); those reads are
-safe and are usually more informative than asking. Practical notes from the last session: give
-ABSOLUTE paths (the operator's shell sits at `C:\Users\dhopt`, not the repo root), and verify a
-cmdlet's flags before prescribing them (`Add-AppxPackage -Register` takes `-DisableDevelopmentMode`,
-not `-DevelopmentMode`). Package registration is blocked for the agent by the permission classifier,
-so those commands go to the operator — prefix them with `! ` so the output lands in the session.
+**Live-phase protocol that worked, for the next one:** the orchestrator drives, the operator
+executes. The operator is the hands and eyes (elevation, registration, eyeballing the taskbar), not
+the one deciding what to do next. Issue ONE concrete step at a time, wait, interpret, then issue the
+next — never hand over a checklist and go quiet. Read the machine state yourself between steps
+(`Get-AppxPackage`, each pool's `atv.log` / `tasks.json` / sidecar, the stamped manifest); those
+reads are safe and usually more informative than asking. Give ABSOLUTE paths (the operator's shell
+sits at `C:\Users\dhopt`, not the repo root). Verify a cmdlet's flags before prescribing them.
+Package registration AND any state-changing verb against bare `atv` are blocked for the agent by the
+permission classifier — those go to the operator, prefixed with `! ` so output lands in the session.
 
-**Machine state as left:**
-- **No atv packages registered.** The operator cleared them all. `Get-AppxPackage -Name "Codevoid*"`
-  is empty. No `atv*.exe` shims on PATH.
-- **Dev cert trusted, no elevation needed.** `CN=AppTaskInfoCli` thumbprint `02228A9E…` is in
-  `LocalMachine\TrustedPeople`, valid to 2027-07-10. The older `EE72026D…` in the same store is
-  dead weight from an earlier cert generation — `artifacts/` is gitignored, so a clean regenerates
-  the key with the same subject. **Subject is not identity; compare thumbprints** if an install is
-  refused as untrusted.
-- **`artifacts/release/msix/` holds a PRE-FIX build** (`0.1.84.14087`, made before [[DIST-14]]).
-  It still carries the old shared extension Id. Delete that folder before rebuilding — NBGV may not
-  bump the version if the commit height has not moved, and the repack would then no-op and hand you
-  a stale msix.
-- **`integrations/claude-code/plugins/atv-integration/atv-command.txt` exists** (gitignored),
-  containing the `atv-dev` shim path. That is the intended dev-dogfood override; leave it.
-- **`C:\Users\dhopt\Source\atv-e2e-sample\.claude\skills\atv-integration` is a JUNCTION** to the
-  working-tree plugin dir, so it always tracks the working copy and sees that override. No hand-sync
-  needed (unlike the 19E incident).
-
-**Remaining work, both operator-run:**
-1. **AC9's rendering half.** Register both pools from a build carrying the DIST-14 fix — `dotnet run
-   --project src/Atv -- -- doctor` for dev, then a fresh `-t:AtvRelease` build + `Add-AppxPackage`
-   for retail — and confirm **both render taskbar cards at the same time**. This was impossible
-   before the fix and is the real proof of it. AC9's routing half is already proven (session events
-   went to `atv-dev`; retail's `atv.log` showed only read-only calls).
-2. **AC10's tail.** Install the daily Claude Code plugin from the git repo, never a folder copy (a
-   copy would drag the gitignored `atv-command.txt` along and route daily sessions to `atv-dev` —
-   the leak DIST-12 §4 forbids). Verify the installed copy has no `atv-command.txt`.
-
-Then mark phase 20 ✅ and move to phase 21 ("Dev-run safety rules in the docs", doc-only).
-
-**Standing rule that got broken this session and must not be again:** never `git stash`/revert to
-re-run a red test on a box whose PATH carries a live install — a reverted translator's fallback
-resolved bare `atv` and drove the operator's real install for real. Judge red-first discipline from
-test structure instead.
+**Standing rule, broken once and not to be again:** never `git stash`/revert to re-run a red test on
+a box whose PATH carries a live install — a reverted translator's fallback resolved bare `atv` and
+drove the operator's real install for real. Judge red-first discipline from test structure instead.
 
 **Status legend:** ⬜ pending · 🔄 executing · 🔍 in review · ✅ signed off · ❌ halted (2 failures)
 
@@ -98,7 +66,7 @@ test structure instead.
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
 | 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
-| 20 | Daily-driver retail identity + plugin command override | 🔄 | 1 | AC1–AC8 + AC11 done. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`). **Remaining: AC9's rendering half, AC10's tail** — see "RESUME HERE" below. |
+| 20 | Daily-driver retail identity + plugin command override | ✅ | 1 | All ACs met. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`); AC9's rendering half and AC10's tail closed live 2026-07-21. |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -766,8 +734,59 @@ rather than anchoring to the element, so a future template attribute reorder cou
 extension-Id check read the wrong value. Verified correct against both templates today. Worth
 anchoring to element boundaries whenever those targets are next touched.
 
-**Remaining: AC9's rendering half (re-register both pools from a build carrying the fix and confirm
-both render at once) and the tail of AC10 (install the daily Claude Code plugin from the git repo,
-verify the installed copy carries no `atv-command.txt`).**
+#### AC9 rendering half + AC10 tail — closed live 2026-07-21 ✅
+
+Build under test: **`0.1.91.10209`**, both arches, rebuilt after deleting the stale pre-fix
+`artifacts/release/msix/` (verified pre-fix first: its manifest still carried the shared
+`Id="Codevoid.AgentTaskVoid.AppTaskProvider"`). Signing cert `02228A9E…` was already trusted, so no
+elevation was needed — the pfx survived because only the `msix/` subfolder was deleted.
+
+- **Both pools registered from the fixed build.** Dev via `dotnet run -- -- doctor`
+  (`Codevoid.AgentTaskVoid-bbbb1168`, `(dev)`), retail via operator `Add-AppxPackage`
+  (`Codevoid.AgentTaskVoid`, unmarked). Both at `0.1.91.10209` — no version skew (INFRA-33).
+  Stamped provider Ids confirmed **distinct**: `Codevoid.AgentTaskVoid-bbbb1168` vs
+  `Codevoid.AgentTaskVoid`. AC7/AC8 re-confirmed on the fixed build.
+- **AC9 rendering, platform level.** One card driven onto each pool; operator saw **two taskbar
+  icons at once with correct labels**, each pool's `tasks.json` holding only its own card. This is
+  the arrangement DIST-14 made impossible.
+- **AC9 plugin-driven, both halves.** A real Claude Code session in `atv-e2e-sample` (junction →
+  working tree → sees `atv-command.txt`) put an `atv-e2e-sample` card on the **dev** pool with
+  retail's `tasks.json` empty and its log showing no session traffic. Then the override was
+  repointed at a nonexistent path and another prompt sent: **no writes anywhere**. The dev sidecar's
+  file mtime moved, but its `LastUpdate` stayed at the pre-break value — the watchdog re-sampling
+  `ReadyDecay.LastSampledAt`, not a translator call. Live broken-target no-op confirmed.
+- **AC10.** Migration steps 1–2 were satisfied last session (all packages cleared); 3–4 done above;
+  step 5 closed by installing the daily plugin from a **clean clone** at
+  `C:\Users\dhopt\Source\atv-plugin-clone` (`marketplace add <clone>\integrations\claude-code` +
+  `plugin install --scope user`), then verifying the installed copy contains **no**
+  `atv-command.txt` (contents: `map.json`, `translate.ps1`, `.claude-plugin/plugin.json`,
+  `hooks/hooks.json`) and that its translator falls through to the bare-`atv` guard.
+
+**Two findings worth carrying forward:**
+
+1. **`marketplace add <github-repo>` cannot install this plugin.** It clones and requires
+   `.claude-plugin/marketplace.json` at the **clone root**; ours is nested at
+   `integrations/claude-code/`. And `marketplace add <local-path>` does **not** copy — it records the
+   path as `installLocation` and reads it in place, so the source directory must be durable. Hence
+   the separate clean clone. Adding a root-level `marketplace.json` would make
+   `claude plugin marketplace add grork/AppTaskInfoCli` work directly, with Claude Code owning and
+   updating the clone — the only arrangement where "is my daily plugin stale?" has a command that
+   answers it. **Filed as distribution work for phase 23 (DIST-13), not taken here** — phase 20's
+   step 5 explicitly sanctions a "path install off a clean checkout", so the clone route meets the
+   criterion as written.
+2. **New footgun: user-scope daily plugin + the `atv-e2e-sample` junction double-drive.** With the
+   daily plugin enabled at user scope it loads in *every* session, including the dogfood repo, where
+   the junctioned skills-dir copy also loads — one routing to `atv`, one to `atv-dev`.
+   `claude plugin disable` is **not** sufficient: the name stays claimed
+   ("the name `atv-integration` is already taken by an installed plugin"), and the skills-dir copy
+   silently does not load at all. The dogfood run required a full
+   `claude plugin uninstall atv-integration@agent-task-void`. **The daily plugin was left
+   uninstalled** at operator instruction (the marketplace entry remains, so reinstall is one
+   command). Both integration READMEs currently say "disable" — that advice is wrong and should be
+   corrected to "uninstall"; natural home is phase 21's doc work.
+
+**Also observed, unrelated:** `README.md`'s Manual usage examples still show the v1 lifecycle verbs
+(`step`/`attention`/`state`/`done`), retired by ERGO-31 in phase 15 — the same staleness already
+logged against `docs/maintenance/new-build-checklist.md`. Separate doc job.
 
 _(Further per-phase notes appended below as phases execute.)_
