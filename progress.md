@@ -621,7 +621,7 @@ so they aren't lost:**
    session's captures going back to the very first `atv-dogfood-p19` log excerpt read at the
    start of this investigation.
 
-### Phase 20 — Daily-driver retail identity + plugin command override 🔄 (automated half signed off on 2nd review, `269a164`; AC7–AC10 LIVE and unrun)
+### Phase 20 — Daily-driver retail identity + plugin command override ✅ (automated half signed off on 2nd review, `269a164`; live half closed 2026-07-21, `5646e3a`; neutral end-of-phase review COMPLETE, all 11 ACs)
 
 - **Scope split, same pattern as phases 18/19:** subagents ran AC1–AC6 + AC11 only. AC7–AC10 are
   live and operator-supervised — DIST-12 §3 grounds that identity attaches only through packaged
