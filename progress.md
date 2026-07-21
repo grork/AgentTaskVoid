@@ -22,6 +22,46 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 
 (The orchestration protocol is also in auto-loaded memory. If a phase is mid-flight and uncommitted in the working tree, the new session should review that in-tree work rather than re-run the executor.)
 
+## RESUME HERE (handoff written 2026-07-20, end of session)
+
+Phase 20 is live-verification work only. No subagent can finish it — every remaining item needs a
+real package registration and a human looking at the taskbar.
+
+**Machine state as left:**
+- **No atv packages registered.** The operator cleared them all. `Get-AppxPackage -Name "Codevoid*"`
+  is empty. No `atv*.exe` shims on PATH.
+- **Dev cert trusted, no elevation needed.** `CN=AppTaskInfoCli` thumbprint `02228A9E…` is in
+  `LocalMachine\TrustedPeople`, valid to 2027-07-10. The older `EE72026D…` in the same store is
+  dead weight from an earlier cert generation — `artifacts/` is gitignored, so a clean regenerates
+  the key with the same subject. **Subject is not identity; compare thumbprints** if an install is
+  refused as untrusted.
+- **`artifacts/release/msix/` holds a PRE-FIX build** (`0.1.84.14087`, made before [[DIST-14]]).
+  It still carries the old shared extension Id. Delete that folder before rebuilding — NBGV may not
+  bump the version if the commit height has not moved, and the repack would then no-op and hand you
+  a stale msix.
+- **`integrations/claude-code/plugins/atv-integration/atv-command.txt` exists** (gitignored),
+  containing the `atv-dev` shim path. That is the intended dev-dogfood override; leave it.
+- **`C:\Users\dhopt\Source\atv-e2e-sample\.claude\skills\atv-integration` is a JUNCTION** to the
+  working-tree plugin dir, so it always tracks the working copy and sees that override. No hand-sync
+  needed (unlike the 19E incident).
+
+**Remaining work, both operator-run:**
+1. **AC9's rendering half.** Register both pools from a build carrying the DIST-14 fix — `dotnet run
+   --project src/Atv -- -- doctor` for dev, then a fresh `-t:AtvRelease` build + `Add-AppxPackage`
+   for retail — and confirm **both render taskbar cards at the same time**. This was impossible
+   before the fix and is the real proof of it. AC9's routing half is already proven (session events
+   went to `atv-dev`; retail's `atv.log` showed only read-only calls).
+2. **AC10's tail.** Install the daily Claude Code plugin from the git repo, never a folder copy (a
+   copy would drag the gitignored `atv-command.txt` along and route daily sessions to `atv-dev` —
+   the leak DIST-12 §4 forbids). Verify the installed copy has no `atv-command.txt`.
+
+Then mark phase 20 ✅ and move to phase 21 ("Dev-run safety rules in the docs", doc-only).
+
+**Standing rule that got broken this session and must not be again:** never `git stash`/revert to
+re-run a red test on a box whose PATH carries a live install — a reverted translator's fallback
+resolved bare `atv` and drove the operator's real install for real. Judge red-first discipline from
+test structure instead.
+
 **Status legend:** ⬜ pending · 🔄 executing · 🔍 in review · ✅ signed off · ❌ halted (2 failures)
 
 ## Phase status
@@ -47,7 +87,7 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 | 17 | Repo-scoped presentation defaults + `--cwd` anchor | ✅ | 1 | PASS (1st) |
 | 18 | Claude Code v2 integration: translator + plugin | ✅ | 1 | build/offline scope (AC1,2,3,4,7) PASS (1st); AC5/AC6 live-dogfooded and confirmed 2026-07-14/15 (operator-supervised) |
 | 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
-| 20 | Daily-driver retail identity + plugin command override | 🔄 | 1 | Automated half (AC1–AC6, AC11) PASS on 2nd review, committed `269a164`. **AC7–AC10 are LIVE and unrun** — operator-supervised migration/install/dogfood. |
+| 20 | Daily-driver retail identity + plugin command override | 🔄 | 1 | AC1–AC8 + AC11 done. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`). **Remaining: AC9's rendering half, AC10's tail** — see "RESUME HERE" below. |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
