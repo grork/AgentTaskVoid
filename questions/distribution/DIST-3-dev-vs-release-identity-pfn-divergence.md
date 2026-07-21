@@ -2,7 +2,9 @@
 **Status:** DECIDED (mechanism corrected + isolation made structural, 2026-07-10, phase 12;
 amended by DIST-12, 2026-07-18: dev-interactive no longer owns bare `atv` — it stamps
 `atv-dev`, and the retail identity is the operator's daily driver. The "no `atv-dev`"
-rejection below is superseded.)
+rejection below is superseded. Further amended by DIST-14, 2026-07-20: the structural PFN
+isolation below covers package *state* only — the `AppTaskInfo` provider extension
+registration needed its own, separate per-pool fix.)
 **Plan:** all-phases
 
 **Amendment 2026-07-10 (ratified, phase 12) — the original mechanism claim below is WRONG; the three-pool GOAL stands and is now structurally enforced.**

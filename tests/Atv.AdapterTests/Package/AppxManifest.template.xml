@@ -13,7 +13,8 @@
   launch mechanism this alias makes possible).
 
   Stamped tokens: {IdentityName}, {Version}, {Alias}. Everything else below is static,
-  hand-authored, same philosophy as the src template.
+  hand-authored, same philosophy as the src template. {IdentityName} is reused for the
+  AppTaskProvider extension's Id too (DIST-14) - see the comment on that element.
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -58,12 +59,20 @@
         <!--
           Required for Windows.UI.Shell.Tasks.AppTaskInfo to function at all - same
           requirement as the src manifest; see its copy of this comment.
+
+          DIST-14: the AppTaskInfo host keys its provider registration on this Id
+          alone, machine-wide - a shared static Id here collided a live-registered
+          package with another atv package (see docs/windows-ui-shell-tasks/README.md
+          for how this was established); distinct Ids fixed it. Stamped with the SAME
+          {IdentityName} token as Identity/@Name above rather than a static literal -
+          every worktree's test pool needs its own Id, exactly like it already needs
+          its own Name and alias.
         -->
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension
             Name="com.microsoft.apptaskprovider"
             PublicFolder="Public"
-            Id="Codevoid.AgentTaskVoid.TestProvider"
+            Id="{IdentityName}"
             DisplayName="AppTaskProvider for Agent Task Void Adapter Tests" />
         </uap3:Extension>
         <!--

@@ -54,6 +54,41 @@ Undocumented Shell behavior for this build — not a contract, and it may change
 
 Independent of update order — e.g. a group with both `Completed` and `Paused` shows `Completed`; a group with both `Error` and `Completed` shows `Error`, regardless of which was updated last. `NeedsAttention` slots at #2, verified 2026-07-13 (LIFE-24 empirical item 1) by staging shared-icon glommed pairs on the live taskbar (Windows 11 26200): a `NeedsAttention`+`Completed` group badges as the exclamation; a `NeedsAttention`+`Error` group badges as the red X. Note the **flyout list order differs from badge priority** — the `NeedsAttention` card sorted first in the hover list even in the `Error`-badged group. (`NeedsAttention` requires content with `SetQuestion` — see [state-content-compatibility.md](state-content-compatibility.md).)
 
+## The AppExtension Id is the provider's real registration key, machine-wide
+
+The `AppTaskInfo` host resolves which package provides tasks by the
+`com.microsoft.apptaskprovider` `uap3:AppExtension`'s `Id` alone. Two packages
+registered at once with the **same** `Id` collide, and only one of them actually
+provides tasks to the Shell — the other's `AppTaskInfo.Create`/`Update` calls keep
+succeeding, its own `SystemAppData\AppTasks\tasks.json` keeps filling in, `FindAll()`
+keeps returning its entries, but the taskbar never draws them. Give the two packages
+**distinct** Ids and both provide tasks and render concurrently.
+
+Established live, 2026-07-20, in this order:
+1. Only a dev-interactive package registered, static extension Id: its cards render.
+2. A second (retail) package registered alongside it, sharing that same static Id: the
+   dev package's cards stop rendering immediately, while it keeps writing its own
+   `tasks.json` and `FindAll()` keeps returning the entries.
+3. Both packages re-registered with **distinct** extension Ids: both render their
+   taskbar icons at the same time — two icons, simultaneously.
+4. The execution alias used to launch a package (`atv.exe` / `atv-dev.exe` /
+   `atv-test.exe`) is not the variable — whichever package is the only one registered
+   renders fine regardless of which alias launched it, ruling the alias out and
+   isolating the extension Id as the mechanism.
+
+This diverges from the documented contract. Per Microsoft Learn,
+[uap3:AppExtension's `Id`](https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap3-appextension-manual)
+is "the entry point by which the host app accesses the extension category instance, if
+there are multiple entry points" — a discriminator between multiple extensions inside
+one app, not a cross-package key — and `AppExtensionCatalog` exposes each extension
+alongside its owning `Package`, i.e. the documented identity model is (package, id), not
+id alone. Microsoft Learn states package-wide uniqueness explicitly where it means it:
+`uap11:Id`, a different attribute used on other extension categories, is documented as
+"must be unique for all extensions in a package." Nothing documented requires
+machine-global uniqueness for `uap3:AppExtension`'s `Id`. This experimental
+`Windows.UI.Shell.Tasks` provider host resolves it that way regardless — this is the
+platform's behavior, not a bug in the calling app, at least on the build tested.
+
 ## Namespace essentials
 
 - Experimental namespace (`[Experimental]` on every type/member), requires `Windows.UI.Shell.Tasks.AppTaskContract`. Present in the SDK's `UnionMetadata\<version>\Windows.winmd`, not in system WinMetadata — see [`CLAUDE.md`](../../CLAUDE.md) for how the csproj resolves this via `CsWinRTInputs`.
@@ -79,7 +114,10 @@ Requires a packaged app (this project uses the full-package identity model — s
 </uap3:Extension>
 ```
 
-Already present in `src/Atv/Package/AppxManifest.template.xml`.
+Already present in `src/Atv/Package/AppxManifest.template.xml`, which stamps `Id` per
+build kind (same value as `Identity/@Name`) rather than a static literal — see
+[The AppExtension Id is the provider's real registration key, machine-wide](#the-appextension-id-is-the-providers-real-registration-key-machine-wide)
+above.
 
 ### URI formats accepted by icon/asset parameters
 

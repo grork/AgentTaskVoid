@@ -1,5 +1,7 @@
 # DIST-7: The release full-package manifest
-**Status:** DECIDED (Name/alias stamping made build-kind-aware, 2026-07-10 — see DIST-3)
+**Status:** DECIDED (Name/alias stamping made build-kind-aware, 2026-07-10 — see DIST-3;
+amended by DIST-14, 2026-07-20: the STRUCTURAL claim below covers package state, not the
+`AppTaskInfo` provider extension's Id, which needed its own per-pool stamp)
 **Plan:** phase-01
 **Parent:** DIST-5
 

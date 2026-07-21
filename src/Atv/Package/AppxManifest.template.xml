@@ -20,8 +20,20 @@
   throwaway "-reltest" smoke variant (`AtvVerifyIdentity=true`) stamps
   `<brand>-reltest` + alias `atv-reltest`, so a release-on-dev-box smoke
   install can coexist with the dev and retail pools without clobbering either
-  alias. This is what makes the four-pool isolation structural, independent
-  of the still-static Publisher.
+  alias. Different Names give each pool a structurally separate PFN and
+  package state (app-data, tasks.json, mutex), independent of the still-static
+  Publisher.
+
+  DIST-14 (2026-07-20) stamps the AppTaskProvider extension's Id (below, in
+  Applications/Application/Extensions) with the SAME per-build-kind value as
+  Identity/@Name. The AppTaskInfo host resolves its provider registration by this
+  Id ALONE, machine-wide, not per-package: two atv packages sharing the same
+  static Id collided (one stopped rendering taskbar cards while still writing
+  its own tasks.json - FindAll() kept returning its entries), and giving them
+  distinct Ids fixed it - both rendered concurrently. Microsoft's own docs
+  describe this Id as scoped per-package, not machine-global; this experimental
+  provider's host diverges from that. See docs/windows-ui-shell-tasks/README.md
+  for the full writeup and how this was established.
 
   This one template serves BOTH the dev loose-layout (`winapp run`, via the
   RID-unqualified obj/ copy) and the release pack (`winapp package`, via the
@@ -71,12 +83,27 @@
           Required for Windows.UI.Shell.Tasks.AppTaskInfo to function at all (not an
           identity-model detail; orthogonal to sparse vs full-package). PublicFolder
           must exist in the package layout; see Package/Public/.gitkeep.
+
+          DIST-14: the AppTaskInfo host resolves its provider registration by this Id
+          ALONE, machine-wide - established live with two atv packages registered at
+          once: sharing a static, identical Id (as this element had before), one
+          package stopped rendering tasks on the taskbar while it kept writing its own
+          tasks.json and FindAll() kept returning its entries; giving the two packages
+          distinct Ids fixed it, both rendering concurrently. Microsoft's docs
+          describe this Id as scoped per-package (an entry-point discriminator within
+          one app), not machine-global - this experimental provider's host diverges
+          from that. Fix: reuse the SAME {IdentityName} token as Identity/@Name above
+          (the blunt whole-file substitution already rewrites every occurrence), so
+          the Id is build-kind-aware for free with no second computation (standing
+          invariant #2). See docs/windows-ui-shell-tasks/README.md for the full
+          writeup. The uap3:AppExtension Id has a hard 39-character platform limit;
+          build/Atv.Package.targets guards it.
         -->
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension
             Name="com.microsoft.apptaskprovider"
             PublicFolder="Public"
-            Id="Codevoid.AgentTaskVoid.AppTaskProvider"
+            Id="{IdentityName}"
             DisplayName="AppTaskProvider for Agent Task Void" />
         </uap3:Extension>
         <!-- Puts the build-kind-aware alias on PATH (ERGO-18, DIST-7; DIST-12

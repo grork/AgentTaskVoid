@@ -179,6 +179,18 @@
       <_AtvTestStampedContent>$(_AtvTestTemplateContent.Replace('{IdentityName}', '$(_AtvTestIdentityName)').Replace('{Version}', '$(BuildVersion)').Replace('{Alias}', '$(_AtvTestAlias)'))</_AtvTestStampedContent>
     </PropertyGroup>
 
+    <!--
+      DIST-14: this template's AppExtension Id is the SAME {IdentityName} token as
+      Identity/@Name (see the sibling comment in
+      tests/Atv.AdapterTests/Package/AppxManifest.template.xml), so the Replace above
+      already stamps it per-worktree - no separate token, no separate property. Same
+      39-character AppExtension Id platform limit as the src template; guarded here
+      too since $(_AtvTestIdentityName) has its own suffix shape
+      ("<brand>.Test.<hash>").
+    -->
+    <Error Condition="'$(_AtvTestIdentityName.Length)' &gt; '39'"
+           Text="[Atv.TestIdentity] Stamped Identity Name '$(_AtvTestIdentityName)' is $(_AtvTestIdentityName.Length) characters - over the AppExtension Id's 39-character platform limit (it is stamped as both Identity/@Name and the AppTaskProvider extension's Id). Shorten AtvBrandName." />
+
     <MakeDir Directories="$(TargetDir)" Condition="!Exists('$(TargetDir)')" />
 
     <WriteLinesToFile

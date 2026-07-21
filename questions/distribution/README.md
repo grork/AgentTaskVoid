@@ -27,3 +27,4 @@ now.
 - [`DIST-11`: How the per-host integration artifact is delivered, placed on disk, and wired into the host's config](./DIST-11-integration-artifact-delivery-placement-and-host-config-wiring.md) -- DECIDED
 - [`DIST-12`: Daily driver on the retail identity; dev vacates `atv`; plugin command override](./DIST-12-daily-driver-retail-identity-and-plugin-command-override.md) -- DECIDED
 - [`DIST-13`: Easy-to-use scripts that produce package and plugins for sharing & dogfooding](./DIST-13-easy-to-use-scripts-to-produce-package-and-plugins.md) -- DECIDED
+- [`DIST-14`: AppTaskProvider extension Id must be build-kind-aware too](./DIST-14-apptaskprovider-extension-id-collision-across-packages.md) -- DECIDED

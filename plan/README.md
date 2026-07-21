@@ -32,7 +32,9 @@ its file alone, consulting the cited question records only for deeper rationale.
 3. **Never hardcode a PFN** (DIST-3, "Dev vs release identity (PFN) divergence", amended
    by DIST-12): everything PFN-keyed (mutexes, app-data paths) derives at runtime from the
    current package. Four identity pools (release/daily `atv` / dev-interactive `atv-dev` /
-   `-reltest` / per-worktree test) are deliberately isolated.
+   `-reltest` / per-worktree test) get structurally separate PFNs and package state. PFN
+   divergence alone does not isolate the `AppTaskInfo` provider extension registration,
+   which needed its own per-pool fix, separately (DIST-14).
 4. **Non-disruptive by default** (FAIL-1, "Failure posture toward the host caller"):
    on any failure the CLI no-ops and exits 0, always writing the durable failure log.
    `--strict` opts into real exit codes.

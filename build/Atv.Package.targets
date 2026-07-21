@@ -9,6 +9,10 @@
     - Identity/@Version = NBGV's $(BuildVersion) (4-part numeric). $(Version) carries a
       semver+githash suffix that makeappx rejects against Identity/@Version: do not
       substitute it here.
+    - The AppTaskProvider extension's Id - DIST-14 (2026-07-20): stamped with the SAME
+      value as Identity/@Name (the template reuses the {IdentityName} token), because
+      that extension Id turned out to be machine-global, not PFN-scoped (see the
+      DIST-14 amendment on AtvStampAppxManifest below).
   Every other manifest field is static, hand-authored in the template itself.
 
   Consumption is out-of-process winapp, never an MSBuild import of the manifest:
@@ -87,13 +91,41 @@
           move onto the retail identity's "atv" without alias contention. See
           CLAUDE.md's "Package identity" section.
 
-      Different Names -> different PFNs -> STRUCTURAL isolation between all three
-      pools (release / dev-interactive / the reltest smoke), independent of Publisher
-      (still static, "CN=AppTaskInfoCli", until the deferred DIST-2 real cert). The
-      per-worktree TEST pool (build/Atv.TestIdentity.targets) is untouched by any of
-      this - it stamps its own sibling template with its own "<brand>.Test.<hash>"
-      Name + per-worktree alias, a rule DIST-7 already settled and this amendment
-      does not relitigate.
+      Different Names -> different PFNs -> STRUCTURAL isolation of package STATE
+      (app-data, tasks.json, the write mutex) between all three pools (release /
+      dev-interactive / the reltest smoke), independent of Publisher (still static,
+      "CN=AppTaskInfoCli", until the deferred DIST-2 real cert). The per-worktree
+      TEST pool (build/Atv.TestIdentity.targets) is untouched by any of this - it
+      stamps its own sibling template with its own "<brand>.Test.<hash>" Name +
+      per-worktree alias, a rule DIST-7 already settled and this amendment does not
+      relitigate.
+
+      ===============================================================================
+      DIST-14 amendment (2026-07-20): the AppTaskProvider extension Id needed the
+      SAME treatment, separately - confirmed live.
+      ===============================================================================
+      PFN divergence isolates package STATE. It does NOT isolate Windows.UI.Shell.Tasks'
+      AppTaskInfo provider registration: the host resolves that registration by the
+      uap3:AppExtension Id ("com.microsoft.apptaskprovider") ALONE, machine-wide, not
+      per-package. Established live, 2026-07-20, in this order: (1) a dev-interactive
+      package alone, static extension Id - its cards render; (2) a second (retail)
+      package registered alongside it, sharing that same static Id - the dev package's
+      cards stopped rendering immediately, while it kept writing its own tasks.json and
+      FindAll() kept returning its entries; (3) both packages re-registered with
+      DISTINCT extension Ids - both rendered concurrently, two icons at once; (4) the
+      execution alias used to launch a package was ruled out as the variable (atv.exe /
+      atv-dev.exe / atv-test.exe each render fine when that package is the only one
+      registered, regardless of alias). Microsoft's own docs describe this Id as
+      scoped per-package (an entry-point discriminator within one app, not a
+      cross-package key), not machine-global - this experimental provider's host
+      diverges from that documented contract. See docs/windows-ui-shell-tasks/README.md
+      for the full writeup.
+
+      Fix: AppxManifest.template.xml's AppExtension Id is now the SAME {IdentityName}
+      token as Identity/@Name, so the existing whole-file substitution stamps it
+      build-kind-aware for free - $(_AtvIdentityName) below already IS the value; no
+      second property, no second computation (standing invariant #2). The
+      uap3:AppExtension Id has a hard 39-character platform limit, checked below.
     -->
     <PropertyGroup>
       <_AtvPathHash>$([MSBuild]::StableStringHash('$(MSBuildProjectDirectory)').ToString("x8"))</_AtvPathHash>
@@ -123,6 +155,16 @@
       <_AtvTemplateContent>$([System.IO.File]::ReadAllText('$(AtvManifestTemplate)'))</_AtvTemplateContent>
       <_AtvStampedContent>$(_AtvTemplateContent.Replace('{IdentityName}', '$(_AtvIdentityName)').Replace('{Version}', '$(BuildVersion)').Replace('{ExecutionAlias}', '$(_AtvExecutionAlias)'))</_AtvStampedContent>
     </PropertyGroup>
+
+    <!--
+      DIST-14: $(_AtvIdentityName) is stamped into the AppExtension Id (the
+      AppTaskProvider) as well as Identity/@Name, and the AppExtension Id has a hard
+      39-character platform limit that Identity/@Name itself does not. All four
+      build-kind values are comfortably under it today; this guard is here so a
+      future brand change can't blow past it silently.
+    -->
+    <Error Condition="'$(_AtvIdentityName.Length)' &gt; '39'"
+           Text="[Atv.Package] Stamped Identity Name '$(_AtvIdentityName)' is $(_AtvIdentityName.Length) characters - over the AppExtension Id's 39-character platform limit (it is stamped as both Identity/@Name and the AppTaskProvider extension's Id). Shorten AtvBrandName or the build-kind suffix." />
 
     <MakeDir Directories="$(IntermediateOutputPath)" Condition="!Exists('$(IntermediateOutputPath)')" />
 
