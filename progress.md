@@ -27,6 +27,17 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 Phase 20 is live-verification work only. No subagent can finish it — every remaining item needs a
 real package registration and a human looking at the taskbar.
 
+**How to run it: the orchestrator drives, the operator executes.** The operator is the hands and
+eyes (elevation, registration, eyeballing the taskbar), not the one deciding what to do next. Issue
+one concrete step at a time, wait for the result, interpret it, then issue the next — do not hand
+over a checklist and go quiet. Read the machine state yourself between steps (`Get-AppxPackage`,
+the `atv.log` under each pool's `LocalState`, `tasks.json`, the stamped manifest); those reads are
+safe and are usually more informative than asking. Practical notes from the last session: give
+ABSOLUTE paths (the operator's shell sits at `C:\Users\dhopt`, not the repo root), and verify a
+cmdlet's flags before prescribing them (`Add-AppxPackage -Register` takes `-DisableDevelopmentMode`,
+not `-DevelopmentMode`). Package registration is blocked for the agent by the permission classifier,
+so those commands go to the operator — prefix them with `! ` so the output lands in the session.
+
 **Machine state as left:**
 - **No atv packages registered.** The operator cleared them all. `Get-AppxPackage -Name "Codevoid*"`
   is empty. No `atv*.exe` shims on PATH.
