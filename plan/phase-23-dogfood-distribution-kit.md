@@ -16,9 +16,10 @@ scope note under Decisions). Opens the pre-publication feedback loop: handing an
 ## Goal
 
 One command produces a shareable folder (`artifacts/dogfood/`, gitignored) containing a
-dev-signed dual-arch `.msixbundle`, the dev cert's public `.cer`, one plugin zip per
-implemented integration, minimal factual READMEs, and install/uninstall scripts that do
-the whole recipient-side flow — cert trust (one explained elevation), bundle install,
+dev-signed dual-arch `.msixbundle`, one plugin zip per implemented integration, minimal
+factual READMEs, and install/uninstall scripts that do
+the whole recipient-side flow — cert trust (extracted from the bundle's own signature; one
+explained elevation), bundle install,
 prompted per-host plugin wiring — and undo it symmetrically. This is the interim sibling
 to DIST-10/11's published channels (both gated on DIST-2's real cert); when the real cert
 lands, those become the adoption story and this stays the pre-publication tool.
@@ -79,7 +80,11 @@ what `-t:AtvRelease` already produces. It emits `artifacts/dogfood/` (gitignored
    manifest form, or bundling the two already-built release `.msix`es, which embed
    them). Never let the bundle pick up a dev-stamped manifest; prove the identity by
    offline inspection (AC2) before any live step.
-2. **`devcert.cer`** — the public cert only. The `.pfx` must never enter the kit.
+2. **No certificate file** (DIST-13 amendment, 2026-07-20). The installer extracts the
+   signer from the bundle's own signature at run time, so no `.cer` — and emphatically
+   no `.pfx` — enters the kit. The producer instead **prints the signing thumbprint** at
+   build time, so the operator can quote it out-of-band in the hand-off and the recipient
+   can compare it against what the installer displays.
 3. **One `atv-plugin-<host>.zip` per `integrations/<host>/` directory**, enumerated
    automatically (no per-host special-casing; future legs join by existing). Contents =
    the working tree's **git-tracked** files for that subtree (e.g. via `git ls-files`) —
@@ -107,11 +112,20 @@ the release targets).
 
 Sequenced, with plain-language output at each step:
 
-1. **Explain, then trust the dev cert.** Before any elevation prompt, print *why*: the
-   build is signed with a temporary development certificate, trusting it needs one admin
-   action, and it is removable later (the uninstaller offers it). Then
-   `Import-Certificate` the `.cer` into `LocalMachine\TrustedPeople` (per
-   `docs/release.md` §3.1) — the one elevation, once per cert.
+1. **Extract the signer, explain, then trust it.** All unelevated: read the certificate
+   from the bundle's signature (`(Get-AuthenticodeSignature -FilePath
+   $BundlePath).SignerCertificate`); abort if `Status` is `NotSigned` or the certificate
+   is `null`; assert it is self-signed (`Subject -eq $Issuer`) and refuse otherwise;
+   display subject, thumbprint and expiry; print *why* elevation is coming — the build is
+   signed with a temporary development certificate, trusting it needs one admin action,
+   and it is removable later (the uninstaller offers it) — and take consent. **Only then**
+   `Import-Certificate` into `LocalMachine\TrustedPeople` (per `docs/release.md` §3.1) —
+   the one elevation, once per cert.
+
+   **Do not gate on `Status -eq 'Valid'`.** Before trust is established the status is
+   `UnknownError` ("chain terminated in a root certificate which is not trusted") while
+   `SignerCertificate` is still fully populated. A `Valid` gate passes on any machine that
+   already trusts the cert — including the author's — and fails on every recipient.
 2. **Install the bundle** — `Add-AppxPackage` on the `.msixbundle`; per-user, no admin
    once the cert is trusted. Verify with a fresh `atv doctor` read-back (registered
    retail identity), not just the cmdlet succeeding.
@@ -135,7 +149,14 @@ Sequenced, with plain-language output at each step:
    on a developer's box; `docs/release.md` §3.5 precedent). Removal drops the taskbar
    cards and app-data (DIST-9).
 3. **Prompt** whether to also remove the trusted dev cert (elevation again if yes);
-   default is leave it.
+   default is leave it. The thumbprint is re-derived from the bundle sitting in the kit
+   folder, the same way the installer obtained it, with a `-Thumbprint` parameter as the
+   fallback for a recipient who no longer has the bundle. **Collect the matching
+   certificates before deleting any** — `Remove-Item` against a certificate store cuts its
+   own enumeration short when it deletes mid-iteration, so a naive
+   `Get-ChildItem | Remove-Item` pipeline silently leaves copies behind (observed
+   2026-07-20; it took three passes to reach zero). Enumerate to a list first, then delete,
+   then verify the count is zero.
 
 The kit README states the standing consequence: the future real-cert release (DIST-2)
 changes the Publisher → PFN, so dogfooders must run this uninstall before installing the
@@ -160,16 +181,20 @@ Exact template layout/naming under `build/dogfood/` and zip naming are build det
 Automated unless marked **LIVE**. Live conduct follows phase 21's INFRA-33 rules.
 
 1. **One command, complete kit.** `-t:AtvDogfood` from a clean tree yields
-   `artifacts/dogfood/` containing exactly: the signed dual-arch `.msixbundle`, the
-   `.cer`, one zip per `integrations/*` directory, the README(s), and both scripts.
-   Re-run with no changes = no-op.
+   `artifacts/dogfood/` containing exactly: the signed dual-arch `.msixbundle`, one zip
+   per `integrations/*` directory, the README(s), and both scripts. **No certificate file
+   of any kind** (`.cer`, `.pfx`, `.p7b`) is present. Re-run with no changes = no-op.
 2. **Bundle correctness — proven offline, before any live step.** Unpack/inspect the
    bundle: it contains both architecture packages, and **each** package's manifest
    carries the retail Name with alias `atv` (never a dev/pathhash or `-reltest` stamp —
    this is the check that catches the manifest-plumbing hazard in Part 1 item 1);
-   `Get-AuthenticodeSignature` shows it signed by the dev cert. The LIVE `doctor`
-   read-back later corroborates but never substitutes. **No `.pfx` anywhere under
-   `artifacts/dogfood/`.**
+   `Get-AuthenticodeSignature` shows it signed by the dev cert — the same call the
+   installer itself makes, so this check and the install path share one mechanism. The
+   thumbprint it reports matches the one the producer printed. The LIVE `doctor` read-back
+   later corroborates but never substitutes. **No private-key material anywhere under
+   `artifacts/dogfood/`** — with extraction this is structural rather than policed: the
+   kit ships no certificate file, and an extracted `SignerCertificate` always has
+   `HasPrivateKey = False`.
 3. **Leak-proof zips.** Each zip's file list equals the git-tracked file list for its
    subtree. Regression proof: with a decoy gitignored
    `integrations/claude-code/plugins/atv-integration/atv-command.txt` present in the
@@ -177,11 +202,24 @@ Automated unless marked **LIVE**. Live conduct follows phase 21's INFRA-33 rules
 4. **Brand derivation.** The checked-in script/README templates contain no literal brand,
    identity, or alias strings (grep-proof against the `Branding.cs` constants); the
    stamped outputs in the kit do. Uninstall's package filter is the exact-Name form.
-5. **Script safety review.** Installer prompts before any plugin wiring and prints the
-   elevation rationale before the cert step; uninstaller prompts before cert removal;
-   neither script contains a bare-wildcard package operation. (Script logic beyond what
-   AC3/AC4 automate is verified by review + AC6 — the repo has no PowerShell test
-   harness, and building one is out of scope.)
+5. **Script safety review.** Installer prompts before any plugin wiring, and displays the
+   extracted signer (subject + thumbprint + expiry) plus the elevation rationale before the
+   cert step; uninstaller prompts before cert removal; neither script contains a
+   bare-wildcard package operation. The installer gates on `SignerCertificate -ne $null`,
+   **never** on `Status -eq 'Valid'`, and rejects a non-self-signed signer. The uninstaller
+   enumerates matching certificates to a list before deleting (Part 3 item 3).
+
+   **Verification precondition — a false pass is easy here.** Any check of the extraction
+   mechanism must first assert the signer is absent from *every* certificate store
+   (`Get-ChildItem Cert:\ -Recurse | Where-Object Subject -eq …` returns zero). Otherwise
+   the test cannot distinguish "read from the signature blob" from "read from a store", and
+   it passes for the wrong reason on precisely the machine most likely to run it — the
+   author's box, where building the kit has already installed the cert. (This trap was hit
+   during the 2026-07-20 investigation; the conclusion held, but the first run did not
+   establish it.)
+
+   (Script logic beyond what AC3/AC4 automate is verified by review + AC6 — the repo has no
+   PowerShell test harness, and building one is out of scope.)
 6. **LIVE — supervised end-to-end smoke** (operator-supervised; preferably a VM or
    secondary machine — on the operator's own box the bundle upgrades the daily driver in
    place, same PFN, which is explicitly not the kit's target scenario): run `install.ps1`

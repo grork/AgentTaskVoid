@@ -22,8 +22,11 @@ Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) c
    **not** `-reltest`: the plugins invoke bare `atv` (DIST-12, "Daily driver on the retail
    identity…"), so the alias must be `atv`, and dogfooders should exercise the literal release
    artifact.
-2. **The dev cert's public `.cer`** (never the `.pfx` — trusting the signer needs only the public
-   cert).
+2. **No certificate file.** The installer extracts the signer certificate from the
+   `.msixbundle`'s own signature at run time, so the trust input and the artifact being installed
+   are the same object by construction. (A bundled public `.cer` was the original design; dropped
+   2026-07-20 — see the amendment below.) The producer prints the signing thumbprint so it can be
+   quoted out-of-band.
 3. **One plugin zip per implemented integration** — today `claude-code` and `copilot-cli` (each
    the `integrations/<host>/` tree). More integrations join this set automatically as their legs
    land; no per-host special-casing.
@@ -32,9 +35,11 @@ Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) c
 5. **The install/uninstall scripts** themselves (PowerShell — repo convention).
 
 ### Installer — ships in the bundle, run by the recipient
-- **Trust the dev cert**, preceded by a clear plain-language explanation of *why* elevation is
-  requested (the operator's emphasis) — this is the one elevation, once per cert
-  (`Import-Certificate` into `LocalMachine\TrustedPeople`, per `docs/release.md` §3.1).
+- **Extract the signer, show it, then trust it.** Read the certificate out of the bundle's
+  signature; display subject, thumbprint and expiry; give a clear plain-language explanation of
+  *why* elevation is requested (the operator's emphasis); take consent — all unelevated — then
+  `Import-Certificate` into `LocalMachine\TrustedPeople` (per `docs/release.md` §3.1). This is the
+  one elevation, once per cert.
 - **Install the `.msixbundle`** (`Add-AppxPackage`) — per-user, no admin once the cert is trusted.
 - **For each implemented integration in the bundle whose host is detected present, prompt then
   wire its plugin** via that host's own local install mechanism (Claude Code: local-marketplace
@@ -49,7 +54,8 @@ Emits a single shareable output folder (e.g. `artifacts/dogfood/`, gitignored) c
 - Removes the wired plugins (each host's own uninstall) and the `atv` package
   (`Remove-AppxPackage`, filtered to the retail Name — never a bare `*Codevoid.AgentTaskVoid*` wildcard,
   per `docs/release.md` §3.5).
-- **Prompts** whether to also remove the trusted dev cert.
+- **Prompts** whether to also remove the trusted dev cert, re-deriving its thumbprint from the
+  bundle exactly as the installer did.
 
 ### Consequences / notes
 - **Uninstall before the real release.** Because the eventual real cert (DIST-2) changes the
@@ -103,6 +109,38 @@ bundled local plugin dir):**
 
 The two ERGO BLOCKERs the same review raised (icon/deep-link reverted on update) were **confirmed
 in code and stand** — see ERGO-34/ERGO-35's own post-review corrections; they don't touch DIST-13.
+
+## Amendment (2026-07-20) — the installer extracts the signer from the bundle; no `.cer` ships
+Kit item 2 (a bundled public `.cer`) is **dropped**. The installer reads the signer certificate
+out of the `.msixbundle`'s own signature instead: `(Get-AuthenticodeSignature -FilePath
+$BundlePath).SignerCertificate`.
+
+Verified empirically (2026-07-20) against a purpose-built self-signed dual-arch bundle, with the
+signer confirmed absent from **every** certificate store first:
+
+- Works on `.msixbundle` as well as `.msix`.
+- **`Status` is `UnknownError`, never `Valid`, before trust is established** ("chain terminated in
+  a root certificate which is not trusted"), yet `SignerCertificate` is still fully populated. A
+  script gating on `Status -eq 'Valid'` therefore passes on the author's box and fails on every
+  recipient. Gate on `SignerCertificate -ne $null`. Unsigned input yields `Status` `NotSigned`
+  with a `null` certificate, which is the clean failure signal.
+- `HasPrivateKey` is `False` — the extracted object is public-only by construction, so the
+  `.pfx`-leak hazard becomes structurally impossible rather than a rule to police.
+- The dev cert is self-signed (`Subject -eq $Issuer`), so the leaf **is** the root and importing it
+  alone into `TrustedPeople` suffices. The installer asserts this and refuses otherwise.
+
+**Trust is unchanged; correctness improves.** A bundled `.cer` and an extracted one travel the same
+channel from the same sender with the same tamper surface, so neither offers out-of-band
+verification — extraction gives up nothing. What a shipped `.cer` adds is a failure mode: it can go
+stale against a rebuilt cert, and the recipient then permanently imports a non-signer into
+`LocalMachine\TrustedPeople` while the install still fails. Extraction makes cert↔bundle
+correspondence structural.
+
+**What adds real verification** (cheap, adopted): the producer prints the signing thumbprint at
+build time and the installer displays it before elevating, so the operator can state it
+out-of-band in the hand-off. Because extraction is unelevated, consent is taken *before* the UAC
+prompt — serving this decision's "explain why elevation is requested" requirement better than
+importing a bundled file did.
 
 ## Question
 While seeking feedback on our current feature set, sharing with people is somewhat difficult due to
