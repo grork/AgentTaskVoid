@@ -635,9 +635,9 @@ so they aren't lost:**
 - **⚠️ Safety incident during execution.** The executor `git stash`-reverted both `translate.ps1`
   files to observe a red test; the reverted script's fallback resolved bare `atv` on PATH — the
   operator's live dev-interactive install — and really ran `atv working sess-1 --goal -`. It then
-  hung ~8 minutes (that is [[INFRA-34]], filed this session) and was terminated by exact PID. A stray
-  `sess-1` card may have been minted on the operator's taskbar; flagged to the operator, not touched
-  by any agent. **Rule reinforced for future phases: never stash/revert to re-run a red test on a box
+  hung ~8 minutes (that is [[INFRA-34]], filed this session) and was terminated by exact PID.
+  Operator checked the taskbar afterward: **no stray `sess-1` card** — either the watchdog expired it
+  or the kill landed before the write. **Rule reinforced for future phases: never stash/revert to re-run a red test on a box
   whose PATH carries a live install** — judge red-first discipline from test structure instead. The
   reviewer was explicitly forbidden from repeating it.
 
