@@ -25,6 +25,25 @@ namespace Codevoid.AgentTaskVoid.IconRendering;
 /// art; see <see cref="TileCompositor"/>'s remarks for the full "tile vs bare"
 /// reasoning.
 ///
+/// Phase 25 (glyph ink-box centering): <c>DWRITE_PARAGRAPH_ALIGNMENT_CENTER</c>/
+/// <c>DWRITE_TEXT_ALIGNMENT_CENTER</c> center the drawn LAYOUT box (font
+/// ascent+descent vertically, measured/advance width horizontally) within the
+/// draw rect -- not the glyph's actual INK. Segoe Fluent Icons glyphs reserve
+/// layout space their ink doesn't fill (most visibly vertically, but some
+/// glyphs drift horizontally too), so the on-tile glyph rides off the tile's
+/// visual center. <see cref="RenderSegoeGlyph"/> corrects this with an
+/// alpha-scan recenter: draw once to a throwaway transparent canvas at the
+/// untranslated rect, scan the result for the ink's pixel bounding box (any
+/// non-transparent pixel), then draw a SECOND time -- onto the real,
+/// tile-filled canvas -- with the draw rect translated so that bounding box's
+/// center lands on the tile's center. This costs one extra (cheap, zero-GPU)
+/// raster per Segoe render but needs no new interop surface (no
+/// <c>IDWriteTextLayout</c>/<c>DWRITE_OVERHANG_METRICS</c>), and the
+/// translation is a pure rect-origin shift, so it reuses the exact same
+/// <c>CreateTextFormat</c>/<c>DrawText</c> call for both passes. The bare
+/// emoji path (<see cref="RenderEmoji"/>, <c>onTile: false</c>) is untouched --
+/// its code path below is unchanged from pre-phase-25.
+///
 /// Pure mechanism only (ERGO-22): no filesystem, no caching, no fallback
 /// policy -- those are the main project's job (<c>Codevoid.AgentTaskVoid.Icons.IconService</c>).
 /// </summary>
@@ -57,22 +76,19 @@ public static unsafe class GlyphRenderer
         if (!GlyphProbe.IsPresent(fontFamily, probeCodepoint))
             return RenderResult.NotFound(sizePx);
 
-        byte[] rgba = SoftwareCanvas.Render(sizePx, (renderTarget, defaultBrush) =>
-        {
-            if (onTile)
-                TileCompositor.FillTile(renderTarget, sizePx);
+        if (onTile)
+            return RenderOnTile(text, fontFamily, sizePx);
 
-            ID2D1SolidColorBrush* textBrush = defaultBrush;
-            ID2D1SolidColorBrush* tileGlyphBrush = null;
+        // Bare path (emoji, onTile: false) -- unchanged from pre-phase-25:
+        // draw once, straight onto a transparent canvas, no tile, no
+        // ink-centering pass. Phase 25's fix is scoped to the onTile branch
+        // only (see RenderOnTile below); this path's output must stay
+        // byte-for-byte identical to before that phase.
+        byte[] bareRgba = SoftwareCanvas.Render(sizePx, (renderTarget, defaultBrush) =>
+        {
             IDWriteTextFormat* format = null;
             try
             {
-                if (onTile)
-                {
-                    renderTarget->CreateSolidColorBrush(TileCompositor.GlyphColor, null, &tileGlyphBrush);
-                    textBrush = tileGlyphBrush;
-                }
-
                 Interop.DWriteFactory->CreateTextFormat(
                     fontFamily,
                     null,
@@ -92,17 +108,121 @@ public static unsafe class GlyphRenderer
                     (uint)text.Length,
                     format,
                     in layoutRect,
-                    (ID2D1Brush*)textBrush,
+                    (ID2D1Brush*)defaultBrush,
                     D2D1_DRAW_TEXT_OPTIONS.D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT | D2D1_DRAW_TEXT_OPTIONS.D2D1_DRAW_TEXT_OPTIONS_NO_SNAP,
                     DWRITE_MEASURING_MODE.DWRITE_MEASURING_MODE_NATURAL);
             }
             finally
             {
                 if (format != null) format->Release();
+            }
+        });
+
+        return RenderResult.Ok(PngEncoder.Encode(bareRgba, sizePx, sizePx), sizePx);
+    }
+
+    /// <summary>
+    /// Phase 25's on-tile (Segoe) path: measure the glyph's ink bounding box
+    /// via a throwaway transparent-canvas raster (<see cref="MeasureInkCenteringOffset"/>),
+    /// then draw for real onto the tile-filled canvas with the draw rect
+    /// translated so that ink box lands centered on the tile.
+    /// </summary>
+    private static RenderResult RenderOnTile(string text, string fontFamily, int sizePx)
+    {
+        (float offsetX, float offsetY) = MeasureInkCenteringOffset(text, fontFamily, sizePx);
+
+        byte[] rgba = SoftwareCanvas.Render(sizePx, (renderTarget, defaultBrush) =>
+        {
+            TileCompositor.FillTile(renderTarget, sizePx);
+
+            ID2D1SolidColorBrush* tileGlyphBrush = null;
+            try
+            {
+                renderTarget->CreateSolidColorBrush(TileCompositor.GlyphColor, null, &tileGlyphBrush);
+                DrawGlyphIntoRect(renderTarget, (ID2D1Brush*)tileGlyphBrush, text, fontFamily, sizePx, offsetX, offsetY);
+            }
+            finally
+            {
                 if (tileGlyphBrush != null) tileGlyphBrush->Release();
             }
         });
 
         return RenderResult.Ok(PngEncoder.Encode(rgba, sizePx, sizePx), sizePx);
+    }
+
+    /// <summary>
+    /// Draws <paramref name="text"/> to a throwaway transparent <paramref name="sizePx"/>
+    /// x <paramref name="sizePx"/> canvas at the untranslated rect (matching
+    /// <see cref="RenderOnTile"/>'s eventual real draw exactly, offset (0,0)),
+    /// scans the result for the ink's pixel bounding box (any non-transparent
+    /// pixel -- alpha is unaffected by brush color, so the measurement brush's
+    /// exact color doesn't matter), and returns the (x, y) translation that
+    /// would move that bounding box's center onto the tile's center. Returns
+    /// (0, 0) -- i.e. falls back to the untranslated line-box center -- if no
+    /// ink pixel is found (should not happen given the caller already
+    /// confirmed <see cref="GlyphProbe.IsPresent"/>, but a real-but-blank
+    /// glyph must not throw or divide by zero).
+    /// </summary>
+    private static (float OffsetX, float OffsetY) MeasureInkCenteringOffset(string text, string fontFamily, int sizePx)
+    {
+        byte[] rgba = SoftwareCanvas.Render(sizePx, (renderTarget, defaultBrush) =>
+            DrawGlyphIntoRect(renderTarget, (ID2D1Brush*)defaultBrush, text, fontFamily, sizePx, offsetX: 0f, offsetY: 0f));
+
+        int minX = sizePx, minY = sizePx, maxX = -1, maxY = -1;
+        for (int y = 0; y < sizePx; y++)
+        {
+            int rowBase = y * sizePx * 4;
+            for (int x = 0; x < sizePx; x++)
+            {
+                if (rgba[rowBase + x * 4 + 3] == 0) continue; // alpha == 0: not ink.
+
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+
+        if (maxX < 0) return (0f, 0f); // no ink found -- fall back to the untranslated line-box center.
+
+        float inkCenterX = (minX + maxX + 1) / 2f;
+        float inkCenterY = (minY + maxY + 1) / 2f;
+        float tileCenter = sizePx / 2f;
+        return (tileCenter - inkCenterX, tileCenter - inkCenterY);
+    }
+
+    /// <summary>Shared draw call for both <see cref="MeasureInkCenteringOffset"/>'s measurement pass and <see cref="RenderOnTile"/>'s real pass: the same format/alignment/DrawText call as the pre-phase-25 implementation, just with the draw rect translated by (<paramref name="offsetX"/>, <paramref name="offsetY"/>) instead of fixed at the canvas origin.</summary>
+    private static void DrawGlyphIntoRect(ID2D1RenderTarget* renderTarget, ID2D1Brush* brush, string text, string fontFamily, int sizePx, float offsetX, float offsetY)
+    {
+        IDWriteTextFormat* format = null;
+        try
+        {
+            Interop.DWriteFactory->CreateTextFormat(
+                fontFamily,
+                null,
+                DWRITE_FONT_WEIGHT.DWRITE_FONT_WEIGHT_NORMAL,
+                DWRITE_FONT_STYLE.DWRITE_FONT_STYLE_NORMAL,
+                DWRITE_FONT_STRETCH.DWRITE_FONT_STRETCH_NORMAL,
+                sizePx * FontSizeFraction,
+                "en-US",
+                &format);
+
+            format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT.DWRITE_TEXT_ALIGNMENT_CENTER);
+            format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT.DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+
+            var layoutRect = new D2D_RECT_F { left = offsetX, top = offsetY, right = sizePx + offsetX, bottom = sizePx + offsetY };
+            renderTarget->DrawText(
+                text,
+                (uint)text.Length,
+                format,
+                in layoutRect,
+                brush,
+                D2D1_DRAW_TEXT_OPTIONS.D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT | D2D1_DRAW_TEXT_OPTIONS.D2D1_DRAW_TEXT_OPTIONS_NO_SNAP,
+                DWRITE_MEASURING_MODE.DWRITE_MEASURING_MODE_NATURAL);
+        }
+        finally
+        {
+            if (format != null) format->Release();
+        }
     }
 }

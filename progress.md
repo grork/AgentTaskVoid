@@ -27,12 +27,12 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 Phase 22 is ✅ **fully complete** — code half (AC1–AC11) signed off + committed `31f1cbe`, and
 **AC12 (live dogfood) PASSED 2026-07-21** (all four checks confirmed; details in the phase-22 log).
 
-**Execution order now: phase 25 NEXT, THEN phase 23.** The AC12 dogfood surfaced an off-center
-Segoe-glyph-tile defect; the operator chose (2026-07-21) to **fix it before phase 23** so the
-dogfood kit ships centered glyphs. That fix is filed as **[phase 25](plan/phase-25-glyph-ink-box-centering.md)**
-(numbered 25 to avoid renumbering 23/24, but it executes next — before 23). Run phase 25 through the
-normal executor → reviewer loop + a live re-eyeball (AC5), commit it, THEN proceed to phase 23
-(Dogfood distribution kit, DIST-13) and phase 24 (Copilot leg, gated).
+**Execution order now: finish phase 25 (one live step left), THEN phase 23.** Phase 25's **code half
+(AC1–AC4) is ✅ signed off and committed**; the only remaining item is **AC5 — a LIVE re-eyeball**
+(recreate a card whose repo-hash pick lands on a `Segoe:*` glyph via `atv-dev`, confirm the glyph is
+now centered on the accent plate). Orchestrator drives that one look with the operator, then commits
+the AC5 record, then proceeds to **phase 23** (Dogfood distribution kit, DIST-13) and phase 24
+(Copilot leg, gated).
 
 **Phase 25 in one line:** `GlyphRenderer.Render` centers Segoe glyphs by the DWrite line box
 (`SetParagraphAlignment(CENTER)`) instead of the glyph ink box, so they ride high on the accent
@@ -81,7 +81,7 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 20 | Daily-driver retail identity + plugin command override | ✅ | 1 | All ACs met. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`); AC9's rendering half and AC10's tail closed live 2026-07-21. |
 | 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
 | 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding → phase 25. |
-| 25 | Glyph ink-box centering on the accent tile (phase-22 AC12 fallout; **executes before 23**) | ⬜ | 0 | Pending — operator chose fix-before-23 (2026-07-21). |
+| 25 | Glyph ink-box centering on the accent tile (phase-22 AC12 fallout; **executes before 23**) | 🔄 | 1 | Code half AC1–AC4 PASS (1st), committed; AC5 live re-eyeball pending (operator-supervised). |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -823,5 +823,14 @@ logged against `docs/maintenance/new-build-checklist.md`. Separate doc job.
   3. **clear+recreate → same icon** — operator watched the card vanish on `clear` and return; recreated `ac12-a.png` was **byte-identical** to the E783 cache tile (deterministic pick reproduced).
   4. **Two repos → different icons** — a 2nd card anchored at `C:\Users\dhopt` (its own distinct deep-link, empty subtitle) rendered the **same** E783 glyph. Investigated on disk (not assumed): both handle PNGs byte-identical, no new cache tile. **Independently recomputed the SHA-256 pick** (out-of-band PowerShell replicating the exact recipe, pool N=168 = 30 Segoe + 138 emoji): `…\APPTASKINFOCLI` → index **13** AND `C:\USERS\DHOPT` → index **13** — a **genuine collision**, not a bug (8 sample paths spread across indices 9/13/36/45/115/156/164). This is exactly ERGO-34's documented ~1/168 degradation; the cards stay distinguishable by title/subtitle. Then a 3rd card anchored at `C:\Users\dhopt\Source` (index 45 → emoji `1F618` 😘) rendered a **visibly distinct** tile (operator: "lovely emoji") — proving the pick varies and the emoji render path works live on this 26100 box. Cleaned up via `clear` (operator eyeballed all three vanish; store/handles/sidecar verified empty on disk).
 - **⚠️ Finding surfaced during AC12 (NOT an AC12 failure — filed separately for triage):** the Segoe-glyph tiles render the glyph **off-center**, riding high on the accent plate (operator caught it; orchestrator confirmed by opening `segoe-tile-E783-64.png` — the "!" ink sits high, more padding below). Root cause: `GlyphRenderer.Render` (`src/Atv.IconRendering/GlyphRenderer.cs:87`) vertically centers with DWrite `SetParagraphAlignment(PARAGRAPH_ALIGNMENT_CENTER)`, which centers the **line box** (ascent+descent), not the glyph **ink box**; Segoe Fluent Icons glyphs reserve descent space their ink doesn't fill, so they sit high. Emoji unaffected (`onTile:false`, full-bleed). Phase-16 tile-compositor defect, pre-existing, made more visible by phase 22's pool. Candidate fix: measure ink via `IDWriteTextLayout` overhang/metrics and offset. See RESUME-HERE finding; awaiting operator triage (fix before/within phase 23, since dogfooders would see it, vs. file as its own numbered question).
+
+### Phase 25 — Glyph ink-box centering ✅ CODE HALF (AC1–AC4) signed off 1st attempt; ⏳ AC5 live pending (lean mode)
+- **Files:** `src/Atv.IconRendering/GlyphRenderer.cs` (the fix) + new `tests/Atv.IconRendering.Tests/GlyphInkCenteringTests.cs`. `TileCompositor.cs` untouched.
+- **Fix:** the on-tile Segoe path centered by the DWrite line box (`SetParagraphAlignment(CENTER)`), so glyphs rode high. Executor chose the **alpha-scan recenter** mechanism (phase file option 2, over IDWriteTextLayout/OVERHANG_METRICS): draw once to a transparent scratch canvas, scan the non-transparent ink bbox, redraw for real translated by `(tileCenter − inkCenter)`. No new interop; the same ink-bbox predicate the test verifies with is what production computes the correction with. Emoji path (`onTile:false`) untouched.
+- **Result:** build 0/0; `Atv.IconRendering.Tests` **38/38**; `Atv.LogicTests` **875/875**; NativeAOT win-arm64 publish clean, **4.94 MB**.
+- **Review:** PASS (independent, 1st). Reviewer **directly confirmed red-before/green-after** by reverting only `GlyphRenderer.cs` to HEAD and re-running: `StatusWarning` (EA84) horizontal center off by **11px** pre-fix (32 expected, 43 actual), **≤0.5px** post-fix (own probe: Error −0.5/−0.5, Robot 0/0, StatusWarning 0/0.5, Link 0/0 — genuinely centered, not squeaking under ±2px). Verified the ink predicate against real colors: `TileCompositor.AccentColor`=`#0078D4` (R=0), `GlyphColor`=white (R=255), so the test's `R≥128` classifier is max-contrast-correct. AC2 emoji byte-pin confirmed a genuine pre-fix reference (passed against reverted HEAD too). Only the two files changed; no pre-existing test assertions altered. Executor's glyph substitution (StatusWarning/Link, chosen via a full 30-glyph sweep for a real measured violation rather than tolerance-gaming the phase file's illustrative examples) judged legitimate.
+- **⏳ AC5 (LIVE, operator-supervised) still open:** recreate a card whose repo-hash pick lands on a `Segoe:*` glyph (e.g. the AC12 repo-root → `Segoe:Error`) via `atv-dev`, eyeball that the glyph is now centered on the plate. Then phase 25 flips to fully ✅ and phase 23 begins.
+
+**Minor observed inaccuracy (non-blocking, later tidy — do NOT bundle into an unrelated commit):** `doctor`'s app-data line says the platform's `tasks.json` lives "under [LocalState]", but the real AppTaskInfo store is at `…\Packages\<PFN>\SystemAppData\AppTasks\tasks.json` — a *sibling* of `LocalState`, not under it (observed directly during AC12). The durable log + sidecar index DO live under LocalState; only the tasks.json clause is off. Candidate one-line `DoctorChecks`/`DoctorVerb` wording fix.
 
 _(Further per-phase notes appended below as phases execute.)_
