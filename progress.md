@@ -24,13 +24,19 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 
 ## RESUME HERE
 
-Phase 22's **code half (AC1–AC11) is ✅ signed off and committed** (2026-07-21). **The one
-remaining item is AC12 — a LIVE, operator-supervised dogfood eyeball** (throwaway identity or
-`atv-dev`, never bare `atv`; INFRA-33 conduct): in a repo with no icon config, confirm the new card
-shows a non-Robot pool icon, clicking it opens Explorer at the anchor folder, `clear`+recreate
-returns the same icon, and two different repos show different icons (or a confirmed documented
-collision). The orchestrator drives this with the operator (same live-leg pattern as phases
-18/19/20) — ONE concrete step at a time. **After AC12: phase 23** (Dogfood distribution kit, DIST-13).
+Phase 22 is ✅ **fully complete** — code half (AC1–AC11) signed off + committed `31f1cbe`, and
+**AC12 (live dogfood) PASSED 2026-07-21** (all four checks confirmed; details in the phase-22 log).
+**Next: phase 23** (Dogfood distribution kit, DIST-13) — but see the open finding below first.
+
+**⚠️ OPEN FINDING surfaced during AC12 (needs operator triage before/within phase 23):** the
+**Segoe-glyph tiles render the glyph off-center** (rides high on the accent plate). Root cause:
+`GlyphRenderer.Render` centers with DWrite `SetParagraphAlignment(CENTER)` (line-box centering)
+instead of the glyph's ink box — Segoe Fluent Icons glyphs reserve descent space the ink doesn't
+use, so they sit high. Emoji are unaffected (full-bleed, `onTile:false`). This is a phase-16
+tile-compositor defect, NOT a phase-22 regression (phase 22 only added the pool/pick, which made the
+tiles appear more). Dogfooders would see the same off-center glyphs, so it wants a decision relative
+to phase 23. Candidate fix: ink-box centering via `IDWriteTextLayout` overhang/metrics offset. Not
+yet filed as a numbered question — awaiting operator triage.
 
 **Live-phase protocol that worked, for the next one:** the orchestrator drives, the operator
 executes. The operator is the hands and eyes (elevation, registration, eyeballing the taskbar), not
@@ -73,7 +79,7 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
 | 20 | Daily-driver retail identity + plugin command override | ✅ | 1 | All ACs met. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`); AC9's rendering half and AC10's tail closed live 2026-07-21. |
 | 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
-| 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | 🔄 | 1 | Code half AC1–AC11 PASS (1st), committed; AC12 live dogfood pending (operator-supervised). |
+| 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding (phase-16 compositor, pending triage). |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -809,6 +815,11 @@ logged against `docs/maintenance/new-build-checklist.md`. Separate doc job.
 - **Structural fix (Part 1):** the two defects (icon PNG stomped to Robot on every update; deep-link reverted to app-data on every `activity`) shared one cause — dispatcher resolved+placed on every verb, engine wrote deep-link unconditionally. Fixed by mirroring the `iconExplicit` pattern: `deepLinkExplicit` flag threaded through all upserting verbs (optional, defaults `true` so ~38 call sites keep semantics); plain (non-explicit) update skips `UpdateDeepLink` entirely and does NOT `Place`/force-recreate (compares against `live.IconUri`, step history preserved); child mint + redirected activity now read `parentLive.IconUri`/`DeepLink` (not passed-through args) so the shared-`IconUri` glomming invariant holds and children inherit the parent's anchor deep-link, not the floor; `run` adopted the engine placement path.
 - **Review:** PASS (independent, 1st). Reviewer re-ran build/tests/AOT and **independently recomputed the SHA-256 pick in out-of-repo PowerShell** for the 3 pinned paths (agrees with production). Both deliberately-flipped pre-existing tests judged legitimate (coverage rerouted, not weakened): `IconTokenChanged...ForcesRemoveCreate` (`withIcons:true→false` — forced-recreate branch is unreachable with a real `IconService` since `Place` returns a content-independent per-handle path; now exercised via the null-icons degradation) and `NoDiscoverRepoWired...→ButIconStillPlaces` (create now always places). Invariants #2/#4 re-verified.
 - **Orchestrator tidy at sign-off:** fixed the one cosmetic doc-style nit the reviewer flagged — a negation-contrast clause ("…is a one-look diagnosis, not a guessing game") in `docs/configuration.md`'s repo-config diagnosis section, reworded to plain phrasing. (Same [[avoid-negation-contrast-phrasing]] rule.)
-- **⏳ AC12 (LIVE, operator-supervised) still open:** dogfood eyeball — non-Robot pool icon on a config-less repo's card, click opens Explorer at the anchor folder, `clear`+recreate returns the same icon, two repos differ (or a confirmed documented collision). Throwaway identity or `atv-dev`, never bare `atv` (INFRA-33). Orchestrator drives with the operator, ONE step at a time; phase 22 flips to fully ✅ only after this is run and recorded.
+- **✅ AC12 (LIVE, operator-supervised) — PASSED 2026-07-21.** Driven with the operator on the `atv-dev` dev-interactive pool (`Codevoid.AgentTaskVoid-bbbb1168_016qghrny08mj`, `api: IsSupported()->true`), INFRA-33-compliant (never bare `atv`); orchestrator read the platform store (`SystemAppData/AppTasks/tasks.json`), sidecars, and rendered PNGs directly between steps. All four checks confirmed:
+  1. **Non-Robot pool icon** — `working ac12-a … --cwd <repo root>` (no `--icon`, no repo config) placed a Segoe tile (`Segoe:Error`/E783, `ac12-a.png` = the `segoe-tile-E783-64.png` render), operator eyeballed a non-Robot glyph. The new AC11 `doctor` line showed `default icon: Segoe:Error -- repo-hash default for 'C:\Users\dhopt\Source\AppTaskInfoCli'` and correctly diverged icon-key (repo root, `.git`) from deep-link-anchor (`src\Atv`, process cwd).
+  2. **Click opens the anchor folder** — card's `deepLink` = `file:///C:/Users/dhopt/Source/AppTaskInfoCli`; operator clicked → File Explorer opened at the repo root.
+  3. **clear+recreate → same icon** — operator watched the card vanish on `clear` and return; recreated `ac12-a.png` was **byte-identical** to the E783 cache tile (deterministic pick reproduced).
+  4. **Two repos → different icons** — a 2nd card anchored at `C:\Users\dhopt` (its own distinct deep-link, empty subtitle) rendered the **same** E783 glyph. Investigated on disk (not assumed): both handle PNGs byte-identical, no new cache tile. **Independently recomputed the SHA-256 pick** (out-of-band PowerShell replicating the exact recipe, pool N=168 = 30 Segoe + 138 emoji): `…\APPTASKINFOCLI` → index **13** AND `C:\USERS\DHOPT` → index **13** — a **genuine collision**, not a bug (8 sample paths spread across indices 9/13/36/45/115/156/164). This is exactly ERGO-34's documented ~1/168 degradation; the cards stay distinguishable by title/subtitle. Then a 3rd card anchored at `C:\Users\dhopt\Source` (index 45 → emoji `1F618` 😘) rendered a **visibly distinct** tile (operator: "lovely emoji") — proving the pick varies and the emoji render path works live on this 26100 box. Cleaned up via `clear` (operator eyeballed all three vanish; store/handles/sidecar verified empty on disk).
+- **⚠️ Finding surfaced during AC12 (NOT an AC12 failure — filed separately for triage):** the Segoe-glyph tiles render the glyph **off-center**, riding high on the accent plate (operator caught it; orchestrator confirmed by opening `segoe-tile-E783-64.png` — the "!" ink sits high, more padding below). Root cause: `GlyphRenderer.Render` (`src/Atv.IconRendering/GlyphRenderer.cs:87`) vertically centers with DWrite `SetParagraphAlignment(PARAGRAPH_ALIGNMENT_CENTER)`, which centers the **line box** (ascent+descent), not the glyph **ink box**; Segoe Fluent Icons glyphs reserve descent space their ink doesn't fill, so they sit high. Emoji unaffected (`onTile:false`, full-bleed). Phase-16 tile-compositor defect, pre-existing, made more visible by phase 22's pool. Candidate fix: measure ink via `IDWriteTextLayout` overhang/metrics and offset. See RESUME-HERE finding; awaiting operator triage (fix before/within phase 23, since dogfooders would see it, vs. file as its own numbered question).
 
 _(Further per-phase notes appended below as phases execute.)_
