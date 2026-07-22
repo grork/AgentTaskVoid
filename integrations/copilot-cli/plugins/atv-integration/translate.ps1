@@ -474,13 +474,24 @@ function Add-AgentArgs {
 }
 
 function Complete-Agent {
-    param([string]$ParentSession, [string]$TaskName, [string]$Cwd)
+    param([string]$ParentSession, [string]$TaskName, [string]$Cwd, [switch]$EmitReady)
     $stateChanged = Complete-CorrelationByTask $ParentSession $TaskName
     if ($stateChanged -is [bool] -and -not $stateChanged) {
         return
     }
     Invoke-Atv -AtvArgs (@("agent-stopped", $ParentSession, "--agent", $TaskName) + (Get-CwdArgs $Cwd)) -StdinText $null
-    Invoke-Atv -AtvArgs (@("ready", $ParentSession) + (Get-CwdArgs $Cwd)) -StdinText $null
+    # ready is a PARENT turn-end signal, and atv refuses it only while other
+    # active agent loci remain -- so with a single subagent it always lands.
+    # Emit it only when the parent genuinely has nothing left to do: a
+    # background worker finishing after the parent turn already ended
+    # (notification path). A synchronous subagent's completion instead RESUMES
+    # the parent turn -- the parent posts the agent's results and keeps
+    # working -- so emitting ready here flips the card to Completed mid-turn and
+    # it only recovers on the next parent event. The parent's own agentStop
+    # supplies ready at the true turn end.
+    if ($EmitReady) {
+        Invoke-Atv -AtvArgs (@("ready", $ParentSession) + (Get-CwdArgs $Cwd)) -StdinText $null
+    }
 }
 
 function Get-NotificationAgentName {
@@ -592,7 +603,7 @@ try {
             if ($notificationType -in @("agent_idle", "agent_completed")) {
                 $taskName = Get-NotificationAgentName $payload
                 if (-not [string]::IsNullOrEmpty($taskName)) {
-                    Complete-Agent $sessionId $taskName $cwd
+                    Complete-Agent $sessionId $taskName $cwd -EmitReady
                 }
                 break
             }
@@ -617,7 +628,15 @@ try {
                 $correlation = Complete-CorrelationByChild $sessionId
                 if ($null -ne $correlation) {
                     Invoke-Atv -AtvArgs (@("agent-stopped", $correlation.parentSession, "--agent", $correlation.taskName) + (Get-CwdArgs $cwd)) -StdinText $null
-                    Invoke-Atv -AtvArgs (@("ready", $correlation.parentSession) + (Get-CwdArgs $cwd)) -StdinText $null
+                    # Only a background worker's stop is a parent turn-end signal
+                    # (the parent turn already ended when it launched the
+                    # worker). A synchronous subagent's stop resumes the parent
+                    # turn, so ready is left to the parent's own agentStop --
+                    # otherwise a single sync subagent flips the parent card to
+                    # Completed while it is still posting the agent's results.
+                    if ($correlation.mode -eq "background") {
+                        Invoke-Atv -AtvArgs (@("ready", $correlation.parentSession) + (Get-CwdArgs $cwd)) -StdinText $null
+                    }
                 }
             }
             else {

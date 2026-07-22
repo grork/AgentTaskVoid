@@ -63,8 +63,8 @@ before any card can render.
 | `preToolUse:task` | `agent-started <parent> --agent <task-name> --name <agent-type>` plus a pending correlation record |
 | Child `userPromptSubmitted` | atomically claims the matching pending prompt hash into `call_* -> parent/task` |
 | Child `preToolUse` | `activity <parent> --agent <task-name> ...`, which the engine redirects to the child card |
-| Child `agentStop` | `agent-stopped <parent> --agent <task-name>`, then `ready <parent>` |
-| Sync `postToolUse:task` | idempotent lifecycle-completion fallback |
+| Child `agentStop` | `agent-stopped <parent> --agent <task-name>`; `ready <parent>` only when the subagent was a background worker |
+| Sync `postToolUse:task` | `agent-stopped` completion fallback, no `ready` |
 | Background `notification:agent_idle`/`agent_completed` | `agent-stopped`, then `ready` |
 | `notification:permission_prompt` | `blocked`; bare `permissionRequest` is not hooked because it fires on auto-approved paths too |
 | `notification:shell_completed` | `activity --kind shell` |
@@ -78,6 +78,16 @@ before any card can render.
 Only `postToolUse` for `ask_user|task` is registered. Ordinary tool activity is
 published from `preToolUse` alone, avoiding duplicate step entries and one
 unnecessary synchronous hook process per tool.
+
+`ready` is a parent turn-end signal, and `atv` refuses it only while other
+active agent loci remain — so with a single subagent it always lands. A
+**synchronous** subagent's completion resumes the parent turn (it posts the
+agent's results and keeps working), so the translator emits only `agent-stopped`
+there and lets the parent's own `agentStop` supply `ready` at the true turn end.
+A **background** worker finishes after the parent turn has already ended, so its
+completion (child `agentStop` or `notification:agent_idle`/`agent_completed`)
+does retry `ready`, which the engine gates against any still-running workers.
+The subagent's `mode` is read from the correlation record.
 
 ## Child correlation
 

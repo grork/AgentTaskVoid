@@ -130,7 +130,7 @@ public sealed class CopilotCliTranslatorTests
     }
 
     [TestMethod]
-    public void ChildAgentStop_RetiresAgent_RetriesReady_AndDeletesActiveMapping()
+    public void ChildAgentStop_Sync_RetiresAgentWithoutReady_AndDeletesActiveMapping()
     {
         using var state = new TempDirectory();
         StartAndClaim(state);
@@ -138,9 +138,12 @@ public sealed class CopilotCliTranslatorTests
 
         var calls = RunTranslator("agentStop", payload, state.Path);
 
-        Assert.HasCount(2, calls);
+        // A synchronous subagent's stop must NOT flip the parent to Completed:
+        // the parent turn resumes to post the agent's results. Only
+        // agent-stopped is emitted; the parent's own agentStop supplies ready at
+        // the true turn end.
+        Assert.HasCount(1, calls);
         CollectionAssert.AreEqual(new[] { "agent-stopped", Parent, "--agent", "readme-inspector", "--cwd", Cwd }, calls[0].Argv);
-        CollectionAssert.AreEqual(new[] { "ready", Parent, "--cwd", Cwd }, calls[1].Argv);
         using JsonDocument doc = ReadState(state);
         Assert.HasCount(0, doc.RootElement.GetProperty("active").EnumerateArray().ToArray());
 
@@ -150,16 +153,38 @@ public sealed class CopilotCliTranslatorTests
     }
 
     [TestMethod]
-    public void SyncTaskPost_IsIdempotentCompletionFallback()
+    public void ChildAgentStop_Background_RetiresAgent_AndRetriesReady()
+    {
+        using var state = new TempDirectory();
+        RunTranslator("preToolUse", ParentTask("background-agent", Prompt, mode: "background"), state.Path);
+        RunTranslator("userPromptSubmitted", ChildPrompt(Child, Prompt), state.Path);
+        string payload = $$"""{"sessionId":"{{Child}}","timestamp":5,"cwd":"{{Json(Cwd)}}","transcriptPath":"","stopReason":"end_turn"}""";
+
+        var calls = RunTranslator("agentStop", payload, state.Path);
+
+        // A background worker's stop IS a parent turn-end signal (the parent turn
+        // already ended when it launched the worker), so ready is retried; atv
+        // refuses it while any other worker locus remains.
+        Assert.HasCount(2, calls);
+        CollectionAssert.AreEqual(new[] { "agent-stopped", Parent, "--agent", "background-agent", "--cwd", Cwd }, calls[0].Argv);
+        CollectionAssert.AreEqual(new[] { "ready", Parent, "--cwd", Cwd }, calls[1].Argv);
+        using JsonDocument doc = ReadState(state);
+        Assert.HasCount(0, doc.RootElement.GetProperty("active").EnumerateArray().ToArray());
+    }
+
+    [TestMethod]
+    public void SyncTaskPost_IsCompletionFallback_WithoutReady()
     {
         using var state = new TempDirectory();
         RunTranslator("preToolUse", ParentTask("readme-inspector", Prompt), state.Path);
 
         var calls = RunTranslator("postToolUse", ParentTask("readme-inspector", Prompt), state.Path);
 
-        Assert.HasCount(2, calls);
+        // Sync completion retires the agent locus but leaves the parent
+        // In-Progress; the parent's own agentStop marks it ready at the true
+        // turn end.
+        Assert.HasCount(1, calls);
         Assert.AreEqual("agent-stopped", calls[0].Argv[0]);
-        Assert.AreEqual("ready", calls[1].Argv[0]);
         using JsonDocument doc = ReadState(state);
         Assert.HasCount(0, doc.RootElement.GetProperty("pending").EnumerateArray().ToArray());
     }
