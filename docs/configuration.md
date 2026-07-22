@@ -165,6 +165,40 @@ covers how the Claude Code plugin feeds the chain's `--flag` layer with the
 host's own session name, conditional on the user having explicitly named the
 session.
 
+### The built-in default: per-repo icon (ERGO-34)
+
+When no `--icon`/`--icon-file` and no env/repo-file/user-file icon override
+resolves, a new card gets an icon picked from the repo it's created in,
+instead of the fixed Robot glyph. The key is the discovered `.git` root,
+falling back to the anchor when no `.git` boundary is found — every card in
+a repo, including monorepo subdirectories, shares one icon (title/subtitle
+tell them apart). The pool combines the curated Segoe glyph set with a
+curated single-character emoji set, over 100 icons total, and the pick is a
+SHA-256 hash of the normalized key path: the same repo on the same machine
+always picks the same icon, so clearing and recreating a card never loses
+its icon.
+
+The pick is stable per machine only — the same repo cloned to a different
+path picks a different icon. Collisions are possible at realistic repo
+counts; the card's title, not its icon, carries the durable identity.
+Editing the icon pool, or the set of repos on a machine, can reassign
+existing repos to different icons. With no path to key off at all, the
+plain Robot glyph is the floor.
+
+### The built-in default: anchor deep-link (ERGO-35)
+
+When no `--deep-link` is given, a new card's deep-link opens the resolved
+anchor directory — the folder the session works in — instead of `atv`'s own
+app-data folder (still the floor for the cases below: ERGO-24). In a
+monorepo, the deep-link tracks the anchor (where the session runs), which
+can differ from the repo root the icon above keys on — a subproject session
+lands you at the subproject, not the repo root.
+
+The anchor deep-link floors back to the app-data folder whenever it can't
+be used cleanly: the anchor directory doesn't exist on disk, or its path
+can't be represented as a `file:` URI. `.atv.json` still can't set
+`deep-link` — the allowlist above is unaffected.
+
 ### Example
 
 ```json
@@ -185,7 +219,9 @@ one taskbar icon with every other card from the same repo.
 `atv doctor` (no flags needed) prints the resolved anchor and its source
 (`--cwd` vs. process cwd), which `.atv.json` was found — or
 `none, searched up to '<root>'` — and its parse status (`ok` / `not-found` /
-`malformed` / `too-large`).
+`malformed` / `too-large`), plus the icon the per-repo default above would
+pick for that anchor and the key path it picked it for, so an unexpected
+icon points straight at its cause.
 
 ## Diagnosing configuration problems
 

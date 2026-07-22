@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Icons;
 
 namespace Codevoid.AgentTaskVoid.Diagnostics;
 
@@ -86,7 +87,11 @@ public sealed record DoctorReport(
     /// <summary><c>"not-found"</c> / <c>"ok"</c> / <c>"malformed"</c> / <c>"too-large"</c> -- a deliberately malformed repo file is a one-look diagnosis here (AC7).</summary>
     string? RepoConfigParseStatus = null,
     /// <summary>The last directory the discovery walk actually checked (a <c>.git</c> boundary or the filesystem root) -- what "none, searched up to &lt;root&gt;" refers to.</summary>
-    string? RepoSearchedUpTo = null);
+    string? RepoSearchedUpTo = null,
+    /// <summary>ERGO-34 (phase 22) Part 4: the icon the repo-hash default WOULD pick for <see cref="RepoDefaultIconKeyPath"/>, described via <see cref="IconTokens.Describe"/> -- <see langword="null"/> only when <see cref="DoctorContext.DiscoverRepo"/> was never wired, or (defensively) no key path resolved at all. Unconditional, same precedent as the anchor/repo-config lines above (no <c>--verbose</c> gate) -- a surprising icon is a one-look diagnosis.</summary>
+    string? RepoDefaultIconToken = null,
+    /// <summary>The key path (<see cref="RepoDiscoveryResult.RepoRootDir"/>, falling back to <see cref="RepoDiscoveryResult.AnchorPath"/>) <see cref="RepoDefaultIconToken"/> was picked for.</summary>
+    string? RepoDefaultIconKeyPath = null);
 
 /// <summary>
 /// The individual, injected-probe-driven checks behind `doctor`
@@ -137,11 +142,28 @@ public static class DoctorChecks
             _ => "unknown",
         };
 
+        // ERGO-34 (phase 22) Part 4: the SAME discovery/pick code
+        // SemanticEngine's create branch uses (RepoRootDir falling back to
+        // AnchorPath, IconTokens.TryPickRepoIcon) -- surfaced unconditionally,
+        // following phase-17's anchor/repo-config precedent.
+        string? repoDefaultIconToken = null;
+        string? repoDefaultIconKeyPath = null;
+        if (repo is not null)
+        {
+            string? key = repo.RepoRootDir ?? repo.AnchorPath;
+            if (key is { Length: > 0 } && IconTokens.TryPickRepoIcon(key, out IconToken picked))
+            {
+                repoDefaultIconToken = IconTokens.Describe(picked);
+                repoDefaultIconKeyPath = key;
+            }
+        }
+
         return new DoctorReport(
             identityPresent, pfn, apiSupported, devModeEnabled, watchdogRunning,
             context.ConfigPath, context.AppDataFolder, context.SidecarDir, context.LogPath,
             remedy, buildKindMarker,
-            repoAnchorPath, repoAnchorSource, repo?.ConfigPath, repoConfigParseStatus, repo?.SearchedUpTo);
+            repoAnchorPath, repoAnchorSource, repo?.ConfigPath, repoConfigParseStatus, repo?.SearchedUpTo,
+            repoDefaultIconToken, repoDefaultIconKeyPath);
     }
 
     /// <summary>

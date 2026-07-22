@@ -1,4 +1,5 @@
 using Codevoid.AgentTaskVoid.Config;
+using Codevoid.AgentTaskVoid.Icons;
 
 namespace Codevoid.AgentTaskVoid.LogicTests.Cli;
 
@@ -85,5 +86,37 @@ public sealed class DispatcherRepoDefaultsTests
         StringAssert.Contains(output, "repo config anchor:");
         StringAssert.Contains(output, "--cwd");
         StringAssert.Contains(output, "none, searched up to");
+    }
+
+    // ---- ERGO-34 (phase 22) Part 4: AC11's would-pick default icon line -----------
+
+    [TestMethod]
+    public void Doctor_UnderATempDirAnchor_ShowsTheWouldPickDefaultIconLine_WithTheKeyPath()
+    {
+        string anchor = Path.Combine(Path.GetTempPath(), "atv-tests", "doctor-icon-default-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(anchor);
+        try
+        {
+            using var h = new DispatcherHarness
+            {
+                DiscoverRepo = () => new RepoDiscoveryResult(
+                    anchor, AnchorSource.CwdFlag, null, anchor, RepoConfigParseStatus.NotFound,
+                    new Dictionary<string, string>(), [], anchor, "myrepo", "main"),
+            };
+            var dispatcher = h.BuildDispatcher();
+
+            int exit = h.Run(dispatcher, "doctor");
+
+            Assert.AreEqual(0, exit);
+            Assert.IsTrue(IconTokens.TryPickRepoIcon(anchor, out IconToken expected));
+            string output = h.Stdout.ToString();
+            StringAssert.Contains(output, "default icon:");
+            StringAssert.Contains(output, IconTokens.Describe(expected));
+            StringAssert.Contains(output, anchor);
+        }
+        finally
+        {
+            Directory.Delete(anchor, recursive: true);
+        }
     }
 }

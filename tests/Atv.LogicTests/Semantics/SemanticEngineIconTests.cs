@@ -53,7 +53,18 @@ public sealed class SemanticEngineIconTests
         // The icon-immutable-forces-recreate branch guards a DIFFERENT raw Uri being
         // supplied directly to the engine (this codebase's own IconUri/OtherIconUri
         // constants stand in for that -- the same shape the v1 predecessor test used).
-        using var h = new SemanticEngineHarness(withIcons: true);
+        //
+        // Phase 22 deliberate adjustment (withIcons: true -> false): now that
+        // an EXPLICIT-icon update calls IconService.Place itself (Part 1 item
+        // 3), a REAL IconService makes this branch structurally unreachable --
+        // Place's returned Uri is content-independent per handle, so it can
+        // never differ from `live.IconUri` for the SAME handle. This mechanism
+        // is only still reachable via the documented null-icons degradation
+        // (a caller-supplied raw Uri wins verbatim, compat pin, Part 1 item 7)
+        // -- exactly what withIcons: false now exercises. Same assertions,
+        // same coverage; just routed through the branch that can actually
+        // reach it.
+        using var h = new SemanticEngineHarness(withIcons: false);
         h.Engine.Working("h1", "T", "S", SemanticEngineHarness.IconUri, DeepLink, "goal", Now);
         h.Engine.Activity("h1", "T", "S", SemanticEngineHarness.IconUri, DeepLink, Codevoid.AgentTaskVoid.Semantics.ActivityKind.Read, "a.txt", null, null, Now.AddMinutes(1));
 

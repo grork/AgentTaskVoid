@@ -102,6 +102,13 @@ atv remove build-123
 - **`doctor [--json] [--verbose]`** — self-check; start here if a card isn't
   showing.
 
+Omit `--icon` and a new card gets an icon keyed to the repo it's created in
+(same repo, same icon, every time — not the fixed Robot glyph); omit
+`--deep-link` and it opens the folder the session works in, instead of
+`atv`'s own app-data folder. See
+[`docs/configuration.md`](docs/configuration.md) for the exact pick rule and
+its floors.
+
 Global flags: `--json`, `--strict` (real nonzero exit codes), `--verbose`,
 `--watchdog-mode spawn|inproc|off`, `--unsafe`, `--wait-for-debugger`. Run
 `atv --help` for the full current syntax.

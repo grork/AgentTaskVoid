@@ -63,6 +63,9 @@ public static class RunVerb
     /// <summary>How long a Ctrl+C-triggered cancellation waits for the child to exit on its own before <see cref="IChildProcess.RequestCancel"/>'s own escalation force-kills it. Not a phase-06 config tunable (the phase file lists only debounce/keepalive/max-length) -- a fixed, generous-enough-for-a-well-behaved-child constant.</summary>
     public static readonly TimeSpan CancelGracePeriod = TimeSpan.FromSeconds(3);
 
+    /// <summary>Part 1 item 6: a harmless stand-in for the `iconUri` parameter <see cref="RunOrchestrator.Execute"/> still takes (SemanticEngine now owns placement) -- only ever consulted by the engine's own null-icons degradation, which never applies to a real <c>run</c> invocation.</summary>
+    private static readonly Uri InertIconUriPlaceholder = new("about:blank");
+
     public static int Run(RunDeps deps, ParseResult parsed, DateTimeOffset now)
     {
         if (parsed.Positionals.Count > 0)
@@ -101,7 +104,13 @@ public static class RunVerb
         string title = parsed.Flags.TryGetValue("title", out string? t) && !string.IsNullOrWhiteSpace(t)
             ? t
             : string.Join(' ', parsed.ChildArgs);
-        Uri iconUri = deps.Icons.Place(handle, token);
+        // Part 1 item 6: run ADOPTS the engine path -- delete run's own
+        // pre-place, thread the real token/flag through instead. iconUri is a
+        // harmless placeholder (SemanticEngine now owns placement; only its
+        // own null-icons degradation would ever consult this value, and
+        // deps.Icons is unconditionally real here).
+        Uri iconUri = InertIconUriPlaceholder;
+        bool iconExplicit = parsed.Flags.ContainsKey("icon");
 
         int cancelled = 0;
         ConsoleCancelEventHandler handler = (_, e) =>
@@ -120,7 +129,8 @@ public static class RunVerb
         {
             Console.CancelKeyPress += handler;
             return RunOrchestrator.Execute(deps.Ops, deps.Engine, deps.Settings, deps.Clock, deps.Sleep,
-                handle, title, iconUri, deps.DefaultDeepLink, child, deps.StdoutMirror, deps.StderrMirror, now);
+                handle, title, iconUri, deps.DefaultDeepLink, child, deps.StdoutMirror, deps.StderrMirror, now,
+                iconToken: token, iconExplicit: iconExplicit);
         }
         finally
         {
@@ -193,9 +203,16 @@ public static class RunOrchestrator
         IChildProcess child,
         Stream stdoutMirror,
         Stream stderrMirror,
-        DateTimeOffset startNow)
+        DateTimeOffset startNow,
+        IconToken iconToken = default,
+        bool iconExplicit = true)
     {
-        engine.Working(handle, title, subtitle: "", iconUri, deepLink, goal: null, startNow);
+        // Part 1 item 6: the creating `working` call threads run's real
+        // token with iconExplicit = (--icon was passed); `run` has no
+        // --deep-link flag at all, so deepLinkExplicit is always false --
+        // its create resolves the anchor default (process cwd) like any
+        // other card, for free.
+        engine.Working(handle, title, subtitle: "", iconUri, deepLink, goal: null, startNow, iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: false);
 
         var publisher = new StepPublisher(ops, handle, settings.RunKeepAliveInterval, startNow);
 
@@ -233,10 +250,13 @@ public static class RunOrchestrator
         DateTimeOffset endNow = clock();
         publisher.FlushFinal(endNow); // Never lose the last lines to an in-flight debounce window.
 
+        // Part 1 item 6: the terminal ready/broken calls pass iconExplicit:
+        // false and deepLinkExplicit: false -- run's icon/deep-link (set at
+        // create above) survive the terminal transition unchanged.
         if (exitCode == 0)
-            engine.Ready(handle, title, subtitle: "", iconUri, deepLink, summary: null, endNow);
+            engine.Ready(handle, title, subtitle: "", iconUri, deepLink, summary: null, endNow, iconToken: iconToken, iconExplicit: false, deepLinkExplicit: false);
         else
-            engine.Broken(handle, title, subtitle: "", iconUri, deepLink, BrokenReasonToken.Fatal, detail: null, endNow);
+            engine.Broken(handle, title, subtitle: "", iconUri, deepLink, BrokenReasonToken.Fatal, detail: null, endNow, iconToken: iconToken, iconExplicit: false, deepLinkExplicit: false);
 
         return exitCode;
     }

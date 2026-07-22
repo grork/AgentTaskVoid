@@ -20,6 +20,9 @@ internal sealed class SemanticEngineHarness : IDisposable
     public static readonly Uri DeepLink = new("https://example.invalid/deep-link");
     public static readonly Uri IconUri = new("ms-appx:///Assets/Square44x44Logo.png");
     public static readonly Uri OtherIconUri = new("ms-appx:///Assets/OtherLogo.png");
+
+    /// <summary>ERGO-24's app-data deep-link floor stand-in (Part 1 item 7's dedicated engine-level wiring) -- distinct from <see cref="DeepLink"/> (the ordinary caller-supplied value) so a floor test can assert the two are NOT the same value.</summary>
+    public static readonly Uri AppDataDeepLinkFloor = new("https://example.invalid/app-data-floor");
     public static readonly TimeSpan Ttl = TimeSpan.FromDays(1);
     public static readonly DateTimeOffset Now = new(2026, 7, 13, 12, 0, 0, TimeSpan.Zero);
 
@@ -54,7 +57,8 @@ internal sealed class SemanticEngineHarness : IDisposable
         bool withIcons = false, TimeSpan? ttl = null,
         Func<RepoDiscoveryResult>? discoverRepo = null,
         IReadOnlyDictionary<string, string>? presentationEnv = null,
-        IReadOnlyDictionary<string, string>? presentationUserFile = null)
+        IReadOnlyDictionary<string, string>? presentationUserFile = null,
+        Uri? deepLinkFloor = null)
     {
         Sidecar = new SidecarStore(_sidecarDir.Path);
         RecycleBin = new RecycleBin(_recycleDir.Path);
@@ -70,7 +74,7 @@ internal sealed class SemanticEngineHarness : IDisposable
         Engine = new SemanticEngine(
             Store, Sidecar, RecycleBin, Gate, ttl ?? Ttl, Ops, Icons, Logs.Add,
             discoverRepo: discoverRepo, presentationEnv: presentationEnv, presentationUserFile: presentationUserFile,
-            groupRegistry: GroupRegistry);
+            groupRegistry: GroupRegistry, deepLinkFloor: deepLinkFloor);
     }
 
     /// <summary>A second <see cref="SemanticEngine"/> sharing this harness's store/sidecar/recycle-bin but wrapping a NEW <see cref="WriteGate"/> around the SAME underlying mutex -- mirrors AC7's cross-verb concurrency test.</summary>

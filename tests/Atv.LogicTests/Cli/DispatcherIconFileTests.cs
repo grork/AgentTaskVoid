@@ -138,4 +138,65 @@ public sealed class DispatcherIconFileTests
         var view = h.Store.FindAll().Single();
         Assert.IsTrue(File.Exists(view.IconUri.LocalPath));
     }
+
+    // ==== AC1/AC9 at the full CLI-dispatch level: the dispatcher no longer places,
+    // so a burst of plain (no --icon) updates must leave the create-time icon file
+    // byte-for-byte untouched, and an explicit --icon on an update must rewrite it. ==
+
+    [TestMethod]
+    public void ExplicitIconFile_SurvivesABurstOfPlainUpdates_ByteIdentical()
+    {
+        using var h = new DispatcherHarness();
+        var dispatcher = h.BuildDispatcher();
+        byte[] source = ShapeRenderer.RenderDefaultShape(64).PngBytes!;
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"atv-dispatcher-icon-survive-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(sourcePath, source);
+        try
+        {
+            h.Run(dispatcher, "working", "h1", "--icon-file", sourcePath, "--goal", "g");
+            var afterCreate = h.Store.FindAll().Single();
+            Uri createTimeIconUri = afterCreate.IconUri;
+            byte[] createTimeBytes = File.ReadAllBytes(createTimeIconUri.LocalPath);
+
+            h.Run(dispatcher, "activity", "h1", "--kind", "read", "--label", "a.txt");
+            h.Run(dispatcher, "activity", "h1", "--kind", "edit", "--label", "b.txt");
+            h.Run(dispatcher, "working", "h1", "--goal", "g2");
+
+            var afterBurst = h.Store.FindAll().Single();
+            Assert.AreEqual(createTimeIconUri, afterBurst.IconUri, "IconUri must be unchanged across a burst of plain updates.");
+            CollectionAssert.AreEqual(createTimeBytes, File.ReadAllBytes(afterBurst.IconUri.LocalPath), "the on-disk PNG must be byte-identical to the create-time bytes.");
+            Assert.IsNotEmpty(afterBurst.CompletedSteps, "no forced recreate must have fired -- step history survives.");
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [TestMethod]
+    public void ExplicitIconFile_OnAnUpdate_DoesRewriteTheFile()
+    {
+        using var h = new DispatcherHarness();
+        var dispatcher = h.BuildDispatcher();
+        byte[] firstSource = ShapeRenderer.RenderDefaultShape(64).PngBytes!;
+        byte[] secondSource = ShapeRenderer.RenderDefaultShape(96).PngBytes!;
+        string firstPath = Path.Combine(Path.GetTempPath(), $"atv-first-{Guid.NewGuid():N}.png");
+        string secondPath = Path.Combine(Path.GetTempPath(), $"atv-second-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(firstPath, firstSource);
+        File.WriteAllBytes(secondPath, secondSource);
+        try
+        {
+            h.Run(dispatcher, "working", "h1", "--icon-file", firstPath, "--goal", "g");
+            h.Run(dispatcher, "working", "h1", "--icon-file", secondPath, "--goal", "g2");
+
+            var view = h.Store.FindAll().Single();
+            byte[] expected = RasterNormalizer.Normalize(secondSource, Codevoid.AgentTaskVoid.Icons.IconService.DefaultSizePx).PngBytes!;
+            CollectionAssert.AreEqual(expected, File.ReadAllBytes(view.IconUri.LocalPath), "an explicit --icon-file on an update must actually rewrite the file.");
+        }
+        finally
+        {
+            File.Delete(firstPath);
+            File.Delete(secondPath);
+        }
+    }
 }

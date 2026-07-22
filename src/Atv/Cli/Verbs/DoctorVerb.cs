@@ -63,6 +63,9 @@ public static class DoctorVerb
             yield return r.RepoConfigPath is not null
                 ? $"repo config: {r.RepoConfigPath} ({r.RepoConfigParseStatus})"
                 : $"repo config: none, searched up to '{r.RepoSearchedUpTo}'";
+
+            if (r.RepoDefaultIconToken is not null)
+                yield return $"default icon: {r.RepoDefaultIconToken} -- repo-hash default for '{r.RepoDefaultIconKeyPath}'";
         }
 
         if (r.Remedy is not null)

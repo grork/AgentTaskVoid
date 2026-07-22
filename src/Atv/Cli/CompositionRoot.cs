@@ -72,13 +72,20 @@ public static class CompositionRoot
         var presentationUserFile = SettingsLoader.ReadFileFor(b.Paths.ConfigPath, presentationKeys);
         var groupRegistry = new IconGroupRegistry(Path.Combine(b.Paths.IconsDir, "groups"));
 
+        // Part 1 item 7: the app-data deep-link URI is ADDED to the engine as
+        // ERGO-35's floor (the dispatcher below keeps its own copy -- "re-
+        // plumbed" means added, not moved; run's deps still consume the
+        // dispatcher's copy via defaultDeepLink).
+        Uri appDataDeepLinkFloor = new(b.Paths.Root);
+
         var engine = new SemanticEngine(
             b.Store, b.Sidecar, b.RecycleBin, b.Gate, b.Settings.RecycleBinTtl, ops, b.Icons,
             msg => b.Log.Append("engine", null, msg, DateTimeOffset.Now),
             discoverRepo: discoverRepo,
             presentationEnv: presentationEnv,
             presentationUserFile: presentationUserFile,
-            groupRegistry: groupRegistry);
+            groupRegistry: groupRegistry,
+            deepLinkFloor: appDataDeepLinkFloor);
 
         string watchdogMutexName = ResolveWatchdogMutexName();
         Action<string> watchdogLog = msg => b.Log.Append("watchdog", null, msg, DateTimeOffset.Now);
@@ -100,7 +107,7 @@ public static class CompositionRoot
             posture,
             output,
             b.Icons,
-            defaultDeepLink: new Uri(b.Paths.Root),
+            defaultDeepLink: appDataDeepLinkFloor,
             hasIdentity: HasPackageIdentity,
             isSupported: b.Store.IsSupported,
             ensureWatchdog: ensureWatchdog,

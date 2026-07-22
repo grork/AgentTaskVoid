@@ -33,6 +33,9 @@ internal sealed class CountingAppTaskStore(IAppTaskStore inner) : IAppTaskStore
     /// </summary>
     public int CreateCallCount { get; private set; }
 
+    /// <summary>Counts <see cref="UpdateDeepLink"/> calls -- phase 22 (ERGO-35's shared fix, Part 1 item 2) uses this as the structural proof that a plain (non-<c>deepLinkExplicit</c>) update never calls it at all: a live card keeps its existing deep-link with ZERO store writes, not merely "writes the same value back".</summary>
+    public int UpdateDeepLinkCallCount { get; private set; }
+
     public bool IsSupported() => inner.IsSupported();
 
     public IReadOnlyList<AppTaskView> FindAll()
@@ -63,7 +66,11 @@ internal sealed class CountingAppTaskStore(IAppTaskStore inner) : IAppTaskStore
 
     public bool UpdateTitles(string id, string title, string subtitle) => inner.UpdateTitles(id, title, subtitle);
 
-    public bool UpdateDeepLink(string id, Uri deepLink) => inner.UpdateDeepLink(id, deepLink);
+    public bool UpdateDeepLink(string id, Uri deepLink)
+    {
+        UpdateDeepLinkCallCount++;
+        return inner.UpdateDeepLink(id, deepLink);
+    }
 
     public bool Remove(string id)
     {

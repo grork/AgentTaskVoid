@@ -356,9 +356,20 @@ public sealed class SemanticEngineRepoDefaultsTests
     }
 
     [TestMethod]
-    public void NoDiscoverRepoWired_DegradesToPrePhase17Behavior()
+    public void NoDiscoverRepoWired_DegradesToPrePhase17Behavior_ButIconStillPlaces()
     {
         // No discoverRepo at all -- e.g. every other pre-phase-17 test's harness.
+        // Title/subtitle still degrade to "" (unaffected -- unreachable in the
+        // shipped CLI, CompositionRoot always wires discoverRepo).
+        //
+        // Phase 22 deliberate flip: the ICON assertion changes. Part 1 item 3
+        // ("create always produces the file") is unconditional -- independent
+        // of whether repo-file discovery is wired -- because the dispatcher no
+        // longer places at all; if the engine didn't place here either, NO
+        // icon file would ever be written for this call. So `view.IconUri` is
+        // now a REAL placed file (byte-identical to a direct
+        // Icons.Place(handle, IconTokens.Default) render), not the raw
+        // fallback Uri constant passed in.
         using var h = new SemanticEngineHarness(withIcons: true);
 
         h.Engine.Working("session", null, null, DefaultIconUri, Link, "goal", Now, iconToken: IconTokens.Default, iconExplicit: false);
@@ -366,7 +377,10 @@ public sealed class SemanticEngineRepoDefaultsTests
         var view = h.Store.FindAll().Single();
         Assert.AreEqual("", view.Title);
         Assert.AreEqual("", view.Subtitle);
-        Assert.AreEqual(DefaultIconUri, view.IconUri);
+        Assert.AreNotEqual(DefaultIconUri, view.IconUri, "the raw fallback constant must no longer pass through untouched -- the engine now places a real file even with no discoverRepo wired.");
+        byte[] actual = File.ReadAllBytes(view.IconUri.LocalPath);
+        byte[] expected = File.ReadAllBytes(h.Icons!.Place("reference-default", IconTokens.Default).LocalPath);
+        CollectionAssert.AreEqual(expected, actual);
     }
 
     // ==== ERGO-33 (phase 19B): the never-blank title/subtitle default terminus =

@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Linq;
+
 namespace Codevoid.AgentTaskVoid.Icons;
 
 /// <summary>
@@ -107,6 +111,99 @@ public static class IconTokens
     public static readonly IconToken Default = IconToken.Segoe(CuratedSegoe["Robot"]);
 
     /// <summary>
+    /// ERGO-34's curated emoji pool, by Unicode scalar codepoint (not a
+    /// literal glyph character in source -- storing the codepoint, exactly
+    /// like <see cref="CuratedSegoe"/>'s hex values, sidesteps any risk of an
+    /// invisible trailing variation selector or an accidental multi-codepoint
+    /// paste sneaking into the pool; <see cref="IconToken.Emoji(string)"/>
+    /// reconstructs the single-scalar string via
+    /// <see cref="char.ConvertFromUtf32(int)"/>, which is single-scalar BY
+    /// CONSTRUCTION). Curation bar (standing invariant #8's "empirical
+    /// platform data lives in one place", extended here): visually distinct
+    /// at taskbar size, common, long-established Unicode emoji believed
+    /// present in Windows 11 26100's Segoe UI Emoji font -- a review
+    /// obligation (not machine-checkable) noted on
+    /// <see cref="Semantics.SemanticEngine"/>'s repo-hash pick. Every entry is
+    /// independently guaranteed a single Unicode scalar (no ZWJ sequences, no
+    /// regional-indicator flag pairs, no keycaps, no skin-tone/variation-selector
+    /// forms) -- <c>IconTokensTests</c> proves this mechanically via
+    /// <see cref="TryParse"/>/<c>GlyphProbe</c>, not just by this comment.
+    /// </summary>
+    public static readonly IReadOnlyList<int> CuratedEmojiCodepoints =
+    [
+        // Faces/emotions
+        0x1F600, 0x1F601, 0x1F602, 0x1F603, 0x1F604, 0x1F605, 0x1F606, 0x1F609,
+        0x1F60A, 0x1F60B, 0x1F60D, 0x1F60E, 0x1F60F, 0x1F610, 0x1F612, 0x1F618,
+        0x1F636, 0x1F642, 0x1F643, 0x1F644, 0x1F914, 0x1F917, 0x1F973, 0x1F60C,
+        0x1F62D, 0x1F630, 0x1F631, 0x1F62C, 0x1F634, 0x1F637, 0x1F912, 0x1F92A,
+        0x1F638, 0x1F639, 0x1F63B, 0x1F63D, 0x1F47B, 0x1F47D, 0x1F916, 0x1F383,
+        // Gestures/body
+        0x1F44D, 0x1F44E, 0x1F44F, 0x1F44C, 0x1F44A, 0x1F64C, 0x1F64F, 0x1F91D,
+        0x1F44B, 0x270C, 0x1F91E, 0x1F918, 0x1F64B,
+        // Animals/nature
+        0x1F436, 0x1F431, 0x1F42D, 0x1F439, 0x1F430, 0x1F98A, 0x1F43B, 0x1F43C,
+        0x1F428, 0x1F42F, 0x1F42E, 0x1F437, 0x1F438, 0x1F435, 0x1F414, 0x1F427,
+        0x1F426, 0x1F41D, 0x1F98B, 0x1F41F, 0x1F433, 0x1F42C, 0x1F419, 0x1F420,
+        0x1F994, 0x1F984, 0x1F40D, 0x1F996, 0x1F41E, 0x2600, 0x2601, 0x26C5,
+        0x2614, 0x2744, 0x26A1, 0x2B50, 0x2764,
+        // Food
+        0x1F34E, 0x1F34C, 0x1F34A, 0x1F34B, 0x1F349, 0x1F347, 0x1F353, 0x1F351,
+        0x1F352, 0x1F34D, 0x1F345, 0x1F955, 0x1F33D, 0x1F35E, 0x1F369, 0x1F36A,
+        0x1F36B, 0x1F36C, 0x1F36D, 0x1F382,
+        // Objects/activities/symbols
+        0x26BD, 0x1F3C0, 0x1F3C8, 0x26BE, 0x1F3BE, 0x1F3B1, 0x1F3AF, 0x1F3AE,
+        0x1F3B2, 0x1F3A8, 0x1F3AC, 0x1F3A4, 0x1F3A7, 0x1F3B8, 0x1F3B9, 0x1F3BA,
+        0x1F680, 0x2708, 0x26F5, 0x1F681, 0x1F697, 0x1F695, 0x1F6F5, 0x1F3AA,
+        0x26F2, 0x1F3D4, 0x1F30B, 0x1F3D6,
+    ];
+
+    /// <summary>ERGO-34's combined default-icon pool: <see cref="CuratedSegoe"/>'s glyphs ∪ <see cref="CuratedEmojiCodepoints"/>'s emoji, as plain data (order matters -- it is part of the pinned SHA-256 pick recipe, see <see cref="TryPickRepoIcon"/>). Target ≥100 combined entries so collisions stay rare at realistic repo counts; collisions are still possible and accepted (the card's title carries the durable identity).</summary>
+    public static readonly IReadOnlyList<IconToken> CombinedDefaultPool =
+    [
+        .. CuratedSegoe.Values.Select(IconToken.Segoe),
+        .. CuratedEmojiCodepoints.Select(cp => IconToken.Emoji(char.ConvertFromUtf32(cp))),
+    ];
+
+    /// <summary>
+    /// ERGO-34's deterministic per-repo pick: normalizes <paramref name="keyPath"/>
+    /// (<see cref="Path.GetFullPath(string)"/>, trim trailing directory
+    /// separators, <see cref="string.ToUpperInvariant"/>), SHA-256s the UTF-8
+    /// bytes, takes the first 8 bytes as a big-endian unsigned integer, and
+    /// mods by <see cref="CombinedDefaultPool"/>'s count -- pinned exactly so
+    /// callers can precompute the expected pick. Deliberately NEVER
+    /// <see cref="object.GetHashCode"/> (per-process randomized, would break
+    /// the "same repo -&gt; same icon" determinism guarantee across process
+    /// restarts). Any change to this recipe or to the pool's membership/order
+    /// can reassign icons on upgrade -- accepted, documented. Never throws
+    /// (FAIL-1): a malformed <paramref name="keyPath"/> that fails to
+    /// normalize returns <see langword="false"/>, letting the caller floor to
+    /// the plain Robot default instead.
+    /// </summary>
+    public static bool TryPickRepoIcon(string keyPath, out IconToken token)
+    {
+        try
+        {
+            string normalized = Path.GetFullPath(keyPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToUpperInvariant();
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+
+            ulong firstEightBytes = 0;
+            for (int i = 0; i < 8; i++)
+                firstEightBytes = (firstEightBytes << 8) | hash[i];
+
+            int index = (int)(firstEightBytes % (ulong)CombinedDefaultPool.Count);
+            token = CombinedDefaultPool[index];
+            return true;
+        }
+        catch (Exception)
+        {
+            token = default;
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Parses a raw <c>--icon</c> value into an <see cref="IconToken"/>.
     /// Three tiers, tried in order, matching ERGO-20's two built-in
     /// vocabularies plus the escape hatch:
@@ -163,4 +260,15 @@ public static class IconTokens
 
     private static bool IsSingleUnicodeScalar(string s)
         => s.Length == 1 || (s.Length == 2 && char.IsSurrogatePair(s[0], s[1]));
+
+    /// <summary>A short, human-readable description of <paramref name="token"/> -- used by <c>doctor</c>'s Part 4 "would-pick" diagnostic line (a curated Segoe name when one matches, else the raw codepoint/emoji/path).</summary>
+    public static string Describe(IconToken token) => token.Kind switch
+    {
+        IconTokenKind.SegoeGlyph => (CuratedSegoe.Where(kv => kv.Value == token.Codepoint).Select(kv => kv.Key).FirstOrDefault()) is { Length: > 0 } name
+            ? $"Segoe:{name}"
+            : $"Segoe:U+{token.Codepoint:X4}",
+        IconTokenKind.Emoji => $"Emoji:{token.Value}",
+        IconTokenKind.RawPath => $"Path:{token.Value}",
+        _ => token.Value,
+    };
 }

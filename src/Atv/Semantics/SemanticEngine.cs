@@ -58,6 +58,7 @@ public sealed class SemanticEngine
     private readonly IReadOnlyDictionary<string, string> _presentationEnv;
     private readonly IReadOnlyDictionary<string, string> _presentationUserFile;
     private readonly IconGroupRegistry? _groupRegistry;
+    private readonly Uri? _deepLinkFloor;
 
     public SemanticEngine(
         IAppTaskStore store,
@@ -71,7 +72,8 @@ public sealed class SemanticEngine
         Func<RepoDiscoveryResult>? discoverRepo = null,
         IReadOnlyDictionary<string, string>? presentationEnv = null,
         IReadOnlyDictionary<string, string>? presentationUserFile = null,
-        IconGroupRegistry? groupRegistry = null)
+        IconGroupRegistry? groupRegistry = null,
+        Uri? deepLinkFloor = null)
     {
         _store = store;
         _sidecar = sidecar;
@@ -85,6 +87,7 @@ public sealed class SemanticEngine
         _presentationEnv = presentationEnv ?? EmptyStringMap;
         _presentationUserFile = presentationUserFile ?? EmptyStringMap;
         _groupRegistry = groupRegistry;
+        _deepLinkFloor = deepLinkFloor;
     }
 
     private static readonly Dictionary<string, string> EmptyStringMap = new(StringComparer.OrdinalIgnoreCase);
@@ -126,8 +129,8 @@ public sealed class SemanticEngine
     // ==== working ============================================================
 
     /// <summary>ERGO-31 §1's <c>working</c> row: sets the turn's goal (altitude 2). Absent <paramref name="goal"/> makes no content claim (idempotent) but still lands the card in Working, clearing any pending Blocked -- "a new prompt... means the block resolved" (LIFE-24).</summary>
-    public OperationOutcome Working(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? goal, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimWorking(ctx, goal), iconToken: iconToken, iconExplicit: iconExplicit);
+    public OperationOutcome Working(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? goal, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimWorking(ctx, goal), iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
 
     private static ClaimResult ClaimWorking(ClaimContext ctx, string? goal)
     {
@@ -157,12 +160,12 @@ public sealed class SemanticEngine
     /// (<see cref="EngineMemory.CardedAgentLoci"/>), the whole claim is
     /// redirected -- see <see cref="ActivityCore"/>.
     /// </summary>
-    public OperationOutcome Activity(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+    public OperationOutcome Activity(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
     {
         ValidateHandle(handle);
         OperationOutcome? outcome = null;
         bool ran = _writeGate.TryRun(() =>
-            outcome = ActivityCore(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass, iconToken, iconExplicit));
+            outcome = ActivityCore(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass, iconToken, iconExplicit, deepLinkExplicit));
         return ran ? outcome! : GateUnavailable(handle);
     }
 
@@ -180,18 +183,23 @@ public sealed class SemanticEngine
     /// </summary>
     private OperationOutcome ActivityCore(
         string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string? agentId, string? name,
-        DateTimeOffset now, bool unsafeBypass, IconToken iconToken, bool iconExplicit)
+        DateTimeOffset now, bool unsafeBypass, IconToken iconToken, bool iconExplicit, bool deepLinkExplicit)
     {
         if (agentId is { Length: > 0 })
         {
             var (parentEntry, parentLive) = ResolveLive(handle);
             EngineMemory parentMemory = parentEntry?.EngineMemory ?? EngineMemory.Empty;
             if (parentLive is not null && parentMemory.CardedAgentLoci.Contains(agentId))
-                return ApplyRedirectedActivity(handle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass, iconToken, iconExplicit);
+                // Part 1 item 5: source the PARENT'S LIVE icon/deep-link, not
+                // the caller's passed-through args -- once the dispatcher
+                // stops re-resolving/re-placing an icon on every call, the
+                // passed args are no longer guaranteed to equal the parent's
+                // real current values.
+                return ApplyRedirectedActivity(handle, parentLive.IconUri, parentLive.DeepLink, kind, label, agentId, name, now, unsafeBypass);
         }
 
         return ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
-            ctx => ClaimActivity(ctx, kind, label, agentId, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit);
+            ctx => ClaimActivity(ctx, kind, label, agentId, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit, deepLinkExplicit);
     }
 
     /// <summary>
@@ -226,14 +234,26 @@ public sealed class SemanticEngine
     /// </summary>
     private OperationOutcome ApplyRedirectedActivity(
         string parentHandle, Uri iconUri, Uri deepLink, ActivityKind kind, string? label, string agentId, string? name,
-        DateTimeOffset now, bool unsafeBypass, IconToken iconToken, bool iconExplicit)
+        DateTimeOffset now, bool unsafeBypass)
     {
+        // Part 1 item 5: a redirected activity claim never carries an identity
+        // change (title/subtitle are ALREADY hardcoded null below, matching
+        // ERGO-31 §5's "a translator never sends --title/--subtitle alongside
+        // --agent" rule) -- iconExplicit/deepLinkExplicit are pinned false the
+        // same way, for the SAME reason: neither the child (ERGO-13's
+        // shared-icon glomming invariant -- "no Place call for a child") nor
+        // the parent (re-placing/re-linking on every redirected activity call
+        // would reintroduce the exact ERGO-34/ERGO-35 stomping bugs this phase
+        // fixes) may have their icon/deep-link touched by this path, no matter
+        // what the ORIGINAL caller's flags were.
         string childHandle = ChildHandle(parentHandle, agentId);
         var childOutcome = ApplyClaimCore(childHandle, null, null, iconUri, deepLink, now, unsafeBypass,
-            ctx => ClaimActivity(ctx, kind, label, agentId: null, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit);
+            ctx => ClaimActivity(ctx, kind, label, agentId: null, name), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false,
+            iconToken: default, iconExplicit: false, deepLinkExplicit: false);
 
         ApplyClaimCore(parentHandle, null, null, iconUri, deepLink, now, unsafeBypass,
-            ctx => ClaimActivityParentLocusOnly(ctx, agentId), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false, iconToken, iconExplicit);
+            ctx => ClaimActivityParentLocusOnly(ctx, agentId), afterWrite: null, refuseIfChild: false, refusedVerbPhrase: null, refuseIfActiveChildren: false,
+            iconToken: default, iconExplicit: false, deepLinkExplicit: false);
 
         return childOutcome;
     }
@@ -276,8 +296,8 @@ public sealed class SemanticEngine
     // ==== blocked ============================================================
 
     /// <summary>ERGO-31 §1's <c>blocked</c> row: platform-enforced literal question (ERGO-10: <c>NeedsAttention</c> requires <c>SetQuestion</c>). Records/refreshes <paramref name="agentId"/>'s locus (or the parent locus if absent) and always DISPLAYS the latest raised question -- LIFE-24's concurrent-block rule. ERGO-31 §5: structurally refused against a fan-out CHILD handle -- "a question always belongs to the session card" -- see <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check.</summary>
-    public OperationOutcome Blocked(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string question, string? agentId, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBlocked(ctx, question, agentId, now), refuseIfChild: true, refusedVerbPhrase: "blocked", iconToken: iconToken, iconExplicit: iconExplicit);
+    public OperationOutcome Blocked(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string question, string? agentId, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBlocked(ctx, question, agentId, now), refuseIfChild: true, refusedVerbPhrase: "blocked", iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
 
     private static ClaimResult ClaimBlocked(ClaimContext ctx, string question, string? agentId, DateTimeOffset now)
     {
@@ -295,8 +315,8 @@ public sealed class SemanticEngine
     // ==== ready ==============================================================
 
     /// <summary>ERGO-31 §1's <c>ready</c> row: bare preserves the current step content; <paramref name="summary"/> swaps to a <c>TextSummaryResult</c>. A turn-end event -- clears EVERY pending blocked locus (LIFE-24: turn-end events are never <c>--agent</c>-scoped). 15B: also the ONLY claim that ever (re)starts the LIFE-24 §6 Ready decay clock -- ONLY on a genuine transition INTO Ready (the card's prior live state was not already Completed); re-asserting an already-held Ready never restarts it (ERGO-31's idempotency rule, extended to the clock). Phase 19 Part C: the ONLY verb structurally refused while the addressed handle still has active agent loci (<see cref="ApplyClaimCore"/>'s <c>refuseIfActiveChildren</c>) -- a translator's turn-end `Stop -> ready` mapping can arrive mid-fan-out, before its subagents actually finish; see the phase-19 write-up for why <c>Broken</c> deliberately does not get the same treatment.</summary>
-    public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now), refuseIfActiveChildren: true, refusedVerbPhrase: "ready", iconToken: iconToken, iconExplicit: iconExplicit);
+    public OperationOutcome Ready(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? summary, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimReady(ctx, summary, now), refuseIfActiveChildren: true, refusedVerbPhrase: "ready", iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
 
     /// <summary>
     /// Bug fix (2026-07-15 live dogfood): a bare re-affirmation used to fall
@@ -341,8 +361,8 @@ public sealed class SemanticEngine
     // ==== broken =============================================================
 
     /// <summary>ERGO-31 §1/§3's <c>broken</c> row: ALWAYS a <c>TextSummaryResult</c> of the rendered reason (+ optional <paramref name="detail"/>) -- "CreateTextSummaryResult under Error renders fully with no question attached" (ERGO-31). A turn-end event -- clears every pending blocked locus. ERGO-31 §5: structurally refused against a fan-out CHILD handle, same as <see cref="Blocked"/> -- "children are scaffolding: Working/Completed only" is EXHAUSTIVE, not merely "never Blocked"; a child must never reach Error either -- see <see cref="ApplyClaimCore"/>'s <c>refuseIfChild</c> check.</summary>
-    public OperationOutcome Broken(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, BrokenReasonToken reason, string? detail, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
-        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBroken(ctx, reason, detail), refuseIfChild: true, refusedVerbPhrase: "broken", iconToken: iconToken, iconExplicit: iconExplicit);
+    public OperationOutcome Broken(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, BrokenReasonToken reason, string? detail, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
+        => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, ctx => ClaimBroken(ctx, reason, detail), refuseIfChild: true, refusedVerbPhrase: "broken", iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
 
     private static ClaimResult ClaimBroken(ClaimContext ctx, BrokenReasonToken reason, string? detail)
     {
@@ -390,15 +410,22 @@ public sealed class SemanticEngine
     /// refused the way <c>blocked</c>/<c>broken</c>/<c>session-ended --reason
     /// error</c> are. Left as-is; not exercised by any known translator.
     /// </summary>
-    public OperationOutcome AgentStarted(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+    public OperationOutcome AgentStarted(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, string? name, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
         => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
             ctx => ClaimAgentStarted(ctx, agentId, name),
             afterWrite: result =>
             {
                 foreach (string newlyCardedId in result.NewlyCardedAgentIds ?? [])
+                    // Part 1 item 5: fall back to the caller's args ONLY if the
+                    // parent is somehow not live at mint time (defensive --
+                    // should be unreachable, minting only ever fires from the
+                    // live-branch afterWrite hook below); prefer the parent's
+                    // OWN live values so a fan-out child always carries the
+                    // parent's REAL current icon/deep-link, not whatever the
+                    // caller happened to pass this particular call.
                     MintChildCard(handle, iconUri, deepLink, newlyCardedId, result.Memory.NameHintFor(newlyCardedId), now);
             },
-            iconToken: iconToken, iconExplicit: iconExplicit);
+            iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
 
     private static ClaimResult ClaimAgentStarted(ClaimContext ctx, string? agentId, string? name)
     {
@@ -461,7 +488,7 @@ public sealed class SemanticEngine
     /// because concurrency drops; it only ever retires at its OWN
     /// agent-stopped.
     /// </summary>
-    public OperationOutcome AgentStopped(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true)
+    public OperationOutcome AgentStopped(string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, string? agentId, DateTimeOffset now, bool unsafeBypass = false, IconToken iconToken = default, bool iconExplicit = true, bool deepLinkExplicit = true)
         => ApplyClaim(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass,
             ctx => ClaimAgentStopped(ctx, agentId),
             afterWrite: result =>
@@ -469,7 +496,7 @@ public sealed class SemanticEngine
                 if (result.RetiredChildAgentId is { } retiredId)
                     RetireChildCard(handle, retiredId, now);
             },
-            iconToken: iconToken, iconExplicit: iconExplicit);
+            iconToken: iconToken, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
 
     private static ClaimResult ClaimAgentStopped(ClaimContext ctx, string? agentId)
     {
@@ -512,10 +539,22 @@ public sealed class SemanticEngine
     /// (defensive -- <see cref="EngineMemory.CardedAgentLoci"/> is the source
     /// of truth for "already minted" and should make this unreachable).
     /// </summary>
-    private void MintChildCard(string parentHandle, Uri iconUri, Uri deepLink, string agentId, string? name, DateTimeOffset now)
+    private void MintChildCard(string parentHandle, Uri fallbackIconUri, Uri fallbackDeepLink, string agentId, string? name, DateTimeOffset now)
     {
         string childHandle = ChildHandle(parentHandle, agentId);
         if (_sidecar.Read(childHandle) is not null) return;
+
+        // Part 1 item 5: source the PARENT'S OWN LIVE icon/deep-link, not the
+        // caller-passed args -- now that the dispatcher no longer re-resolves/
+        // re-places an icon on every call, the passed args are no longer
+        // guaranteed to equal the parent's real current values. Falls back to
+        // the passed args only if the parent is somehow not live at mint time
+        // (defensive; should be unreachable -- minting only ever fires from
+        // AgentStarted's live-branch afterWrite hook, immediately after a
+        // successful write to that same parent).
+        var (_, parentLive) = ResolveLive(parentHandle);
+        Uri iconUri = parentLive?.IconUri ?? fallbackIconUri;
+        Uri deepLink = parentLive?.DeepLink ?? fallbackDeepLink;
 
         string title = name is { Length: > 0 } ? name : agentId;
         var content = new AppTaskContentDto.SequenceOfSteps([], AdvanceModel.NoStepsYetPlaceholder);
@@ -625,12 +664,13 @@ public sealed class SemanticEngine
         string? refusedVerbPhrase = null,
         bool refuseIfActiveChildren = false,
         IconToken iconToken = default,
-        bool iconExplicit = true)
+        bool iconExplicit = true,
+        bool deepLinkExplicit = true)
     {
         ValidateHandle(handle);
         OperationOutcome? outcome = null;
         bool ran = _writeGate.TryRun(() =>
-            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase, refuseIfActiveChildren, iconToken, iconExplicit));
+            outcome = ApplyClaimCore(handle, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, afterWrite, refuseIfChild, refusedVerbPhrase, refuseIfActiveChildren, iconToken, iconExplicit, deepLinkExplicit));
         return ran ? outcome! : GateUnavailable(handle);
     }
 
@@ -638,7 +678,7 @@ public sealed class SemanticEngine
         string handle, string? title, string? subtitle, Uri iconUri, Uri deepLink, DateTimeOffset now, bool unsafeBypass,
         Func<ClaimContext, ClaimResult> computeClaim, Action<ClaimResult>? afterWrite, bool refuseIfChild, string? refusedVerbPhrase,
         bool refuseIfActiveChildren,
-        IconToken iconToken, bool iconExplicit)
+        IconToken iconToken, bool iconExplicit, bool deepLinkExplicit)
     {
         var (entry, live) = ResolveLive(handle);
 
@@ -681,8 +721,28 @@ public sealed class SemanticEngine
 
         if (live is not null)
         {
-            if (live.IconUri != iconUri)
-                return ApplyIconForcedRecreate(handle, entry!.Id, title, subtitle, iconUri, deepLink, now, unsafeBypass, computeClaim, entry.EngineMemory ?? EngineMemory.Empty, live, afterWrite);
+            // Part 1 items 1-4 (ERGO-34/ERGO-35's shared fix): unclaimed icon/
+            // deep-link fields stop being re-written on every update.
+            //
+            // Icon: a non-iconExplicit update treats the icon as UNCHANGED --
+            // no IconService.Place call, no forced-recreate comparison at all
+            // (comparing against itself would always be a no-op anyway, but
+            // skipping it entirely also skips a pointless render/cache probe).
+            // Only an EXPLICIT --icon/--icon-file is even ELIGIBLE to place a
+            // new file and (if the resulting Uri genuinely differs from the
+            // live one) force the icon-immutable Remove+Create. When `_icons`
+            // is null (the documented null-icons degradation, ERGO-13
+            // compat), the passed `iconUri` wins verbatim exactly as before --
+            // there is no IconService to place through.
+            if (iconExplicit)
+            {
+                Uri placedIconUri = _icons is not null ? _icons.Place(handle, iconToken) : iconUri;
+                if (live.IconUri != placedIconUri)
+                {
+                    Uri deepLinkForRecreate = deepLinkExplicit ? deepLink : live.DeepLink;
+                    return ApplyIconForcedRecreate(handle, entry!.Id, title, subtitle, placedIconUri, deepLinkForRecreate, now, unsafeBypass, computeClaim, entry.EngineMemory ?? EngineMemory.Empty, live, afterWrite);
+                }
+            }
 
             var ctx = new ClaimContext(live, entry!.EngineMemory ?? EngineMemory.Empty);
             var result = computeClaim(ctx);
@@ -697,7 +757,12 @@ public sealed class SemanticEngine
                 }
 
                 ApplyIdentityIfClaimed(entry.Id, title, subtitle, live);
-                _store.UpdateDeepLink(entry.Id, deepLink);
+                // Deep-link: skip UpdateDeepLink ENTIRELY on an unclaimed
+                // update -- the live card keeps whatever deep-link it already
+                // has (AppTaskView.DeepLink is readable off the live view, no
+                // re-discovery needed). Only an explicit --deep-link writes.
+                if (deepLinkExplicit)
+                    _store.UpdateDeepLink(entry.Id, deepLink);
                 _store.Update(entry.Id, result.State!.Value, result.Content!);
                 _sidecar.WriteWithMemory(handle, entry.Id, now, result.Memory);
                 afterWrite?.Invoke(result);
@@ -753,26 +818,31 @@ public sealed class SemanticEngine
             // Every v2 verb always carries its own fully-resolved identity/icon (the
             // stateless translator passes them every call) -- unlike v1's update-class
             // resurrection, there is no need to move the OLD recycled icon back; the
-            // caller's fresh iconUri (already placed by the caller) wins, and the now-
-            // orphaned recycled copy is reaped, mirroring v1 Start's own ERGO-25 path.
+            // freshly-resolved icon below (now placed by THIS method, Part 1 item 3 --
+            // no longer "already placed by the caller") wins, and the now-orphaned
+            // recycled copy is reaped, mirroring v1 Start's own ERGO-25 path.
             _recycleBin.Remove(handle);
             _icons?.ReapRecycledIcon(handle);
         }
 
-        // ERGO-30: repo-scoped presentation defaults apply HERE ONLY -- the
-        // genuine "handle never seen before" creation path -- and NOWHERE else
-        // (never the `live is not null` branch above, never
-        // ApplyIconForcedRecreate's icon-token-changed recreate, which is an
-        // already-established session, not a new one). This is the ONE call
-        // site that ever touches `_discoverRepo` (AC3).
-        (string effectiveTitle, string effectiveSubtitle, Uri effectiveIconUri) =
-            ApplyRepoDefaults(handle, title, subtitle, iconUri, iconToken, iconExplicit);
+        // ERGO-30/ERGO-34/ERGO-35: repo-scoped presentation defaults (title/
+        // subtitle/icon/deep-link) apply HERE ONLY -- the genuine "handle
+        // never seen before" creation path -- and NOWHERE else (never the
+        // `live is not null` branch above, never ApplyIconForcedRecreate's
+        // icon-token-changed recreate, which is an already-established
+        // session, not a new one). This is the ONE call site that ever
+        // touches `_discoverRepo` (AC3). Part 1 item 3: CREATE always
+        // produces the icon file now -- placement moved from the dispatcher
+        // into this call, regardless of whether repo-file discovery itself is
+        // wired (see ApplyRepoDefaults's own remarks).
+        (string effectiveTitle, string effectiveSubtitle, Uri effectiveIconUri, Uri effectiveDeepLink) =
+            ApplyRepoDefaults(handle, title, subtitle, iconUri, iconToken, iconExplicit, deepLink, deepLinkExplicit);
 
         // Create() tolerates an empty title/subtitle fine (unlike UpdateTitles on an
         // already-live card, see ApplyIdentityIfClaimed's remarks) -- an absent
         // --title/--subtitle (and no repo title-template) on a brand-new handle
         // just creates with "".
-        var created = _store.Create(effectiveTitle, effectiveSubtitle, deepLink, effectiveIconUri, finalContent);
+        var created = _store.Create(effectiveTitle, effectiveSubtitle, effectiveDeepLink, effectiveIconUri, finalContent);
         if (finalState != AppTaskState.Running)
             _store.Update(created.Id, finalState, finalContent);
 
@@ -854,11 +924,23 @@ public sealed class SemanticEngine
     /// (ERGO-33 does not touch this branch -- unreachable in the shipped CLI,
     /// see <see cref="BuiltInDefaultTitle"/>'s remarks).
     /// </summary>
-    private (string Title, string Subtitle, Uri IconUri) ApplyRepoDefaults(
-        string handle, string? title, string? subtitle, Uri fallbackIconUri, IconToken iconToken, bool iconExplicit)
+    private (string Title, string Subtitle, Uri IconUri, Uri DeepLink) ApplyRepoDefaults(
+        string handle, string? title, string? subtitle, Uri fallbackIconUri, IconToken iconToken, bool iconExplicit,
+        Uri callerDeepLink, bool deepLinkExplicit)
     {
+        // Part 1 item 3: icon placement is UNCONDITIONAL on create -- "so
+        // create always produces the file" -- independent of whether repo-file
+        // discovery itself is wired. Only title/subtitle/the anchor deep-link
+        // default stay gated behind `_discoverRepo`, matching the PRE-EXISTING
+        // "no discoverRepo -> pre-phase-17 behavior" degradation (unreachable
+        // in the shipped CLI -- CompositionRoot always wires it -- see
+        // BuiltInDefaultTitle's remarks; test-only otherwise).
         if (_discoverRepo is null)
-            return (title ?? "", subtitle ?? "", fallbackIconUri);
+        {
+            Uri iconNoDiscovery = _icons is null ? fallbackIconUri : _icons.Place(handle, iconToken);
+            Uri deepLinkNoDiscovery = deepLinkExplicit ? callerDeepLink : DeepLinkFloor(callerDeepLink);
+            return (title ?? "", subtitle ?? "", iconNoDiscovery, deepLinkNoDiscovery);
+        }
 
         RepoDiscoveryResult discovery = _discoverRepo();
         LogRepoConfigIssues(discovery);
@@ -883,8 +965,46 @@ public sealed class SemanticEngine
         string effectiveSubtitle = subtitleRaw ?? BuiltInDefaultSubtitle(discovery);
 
         Uri effectiveIconUri = ResolveCreateTimeIcon(handle, fallbackIconUri, iconToken, iconExplicit, discovery);
+        Uri effectiveDeepLink = deepLinkExplicit ? callerDeepLink : ResolveCreateTimeDeepLink(discovery, DeepLinkFloor(callerDeepLink));
 
-        return (effectiveTitle, effectiveSubtitle, effectiveIconUri);
+        return (effectiveTitle, effectiveSubtitle, effectiveIconUri, effectiveDeepLink);
+    }
+
+    /// <summary>ERGO-24's app-data floor value (Part 1 item 7): prefers the dedicated <see cref="_deepLinkFloor"/> the engine was constructed with; falls back to whatever the caller passed as its OWN deep-link argument for this call (in production, and in every test harness that hasn't wired the dedicated floor, that value is itself already the app-data URI -- see <c>Dispatcher.TryResolveDeepLink</c>/<c>RunOrchestrator.Execute</c>) so a floor is always available even before every call site adopts the dedicated wiring.</summary>
+    private Uri DeepLinkFloor(Uri callerDeepLink) => _deepLinkFloor ?? callerDeepLink;
+
+    /// <summary>
+    /// ERGO-35's anchor-directory deep-link default (Part 2): a <c>file:</c>
+    /// URI of the resolved ERGO-30 anchor DIRECTORY (<c>--cwd</c>, else
+    /// process cwd) -- deliberately the anchor, NOT the repo root (a
+    /// monorepo subproject lands at the subproject it was invoked from; the
+    /// icon key, by contrast, wants shared repo identity -- the two
+    /// deliberately diverge). Floors to <paramref name="floor"/> (ERGO-24's
+    /// app-data URI) in every degenerate case: the anchor directory does not
+    /// exist on disk at create time, or the path can't be represented cleanly
+    /// as a <see cref="Uri"/> (built under try/catch, round-trip-checked
+    /// against <see cref="Uri.LocalPath"/> -- trailing spaces, <c>#</c>,
+    /// etc. floor rather than producing a mangled target). Never throws
+    /// (FAIL-1) -- a card always gets a valid, benign <c>file:</c> target.
+    /// </summary>
+    private static Uri ResolveCreateTimeDeepLink(RepoDiscoveryResult discovery, Uri floor)
+    {
+        try
+        {
+            string normalized = Path.GetFullPath(discovery.AnchorPath);
+            if (!Directory.Exists(normalized))
+                return floor;
+
+            var uri = new Uri(normalized);
+            if (!string.Equals(uri.LocalPath, normalized, StringComparison.Ordinal))
+                return floor; // round-trip mismatch -- the path can't be represented cleanly.
+
+            return uri;
+        }
+        catch (Exception)
+        {
+            return floor;
+        }
     }
 
     /// <summary>
@@ -954,10 +1074,14 @@ public sealed class SemanticEngine
     /// user-file icon/icon-file override (only consulted when
     /// <paramref name="iconExplicit"/> is <see langword="false"/> -- the
     /// caller's own explicit <c>--icon</c>/<c>--icon-file</c> always wins
-    /// outright, never overridden by repo config), THEN the grouping-intent
-    /// key (ERGO-14/ERGO-13): when active, every card created while the SAME
-    /// repo root is discovered shares one exact <see cref="Uri"/> -- the
-    /// first live card in the repo becomes the "owner" (an ordinary per-handle
+    /// outright, never overridden by repo config); failing that, ERGO-34's
+    /// deterministic per-repo pick (Part 3) -- keyed on the repo root (falling
+    /// back to the anchor), resolved HERE, upstream of the grouping-intent
+    /// branch below, so a grouped repo's owner card gets the repo icon too,
+    /// not the plain Robot default; THEN the grouping-intent key (ERGO-14/
+    /// ERGO-13): when active, every card created while the SAME repo root is
+    /// discovered shares one exact <see cref="Uri"/> -- the first live card in
+    /// the repo becomes the "owner" (an ordinary per-handle
     /// <see cref="IconService.Place"/>, so its own reap-on-remove lifecycle is
     /// completely unaffected); every LATER creation in the same repo, as long
     /// as that owner is still live, reuses its <see cref="AppTaskView.IconUri"/>
@@ -965,14 +1089,16 @@ public sealed class SemanticEngine
     /// uses (never a second <see cref="IconService.Place"/> call for a glommed
     /// card). If the recorded owner is no longer live (its session ended),
     /// ownership silently transfers to THIS call -- self-healing, no orphan
-    /// bookkeeping required.
+    /// bookkeeping required. Part 1 item 3: placement is now UNCONDITIONAL --
+    /// every branch below ends in an actual <see cref="IconService.Place"/>
+    /// call (never a bare pass-through of <paramref name="fallbackIconUri"/>),
+    /// so create always produces the file.
     /// </summary>
     private Uri ResolveCreateTimeIcon(string handle, Uri fallbackIconUri, IconToken iconToken, bool iconExplicit, RepoDiscoveryResult discovery)
     {
         if (_icons is null) return fallbackIconUri;
 
         IconToken effectiveToken = iconToken;
-        bool haveOverride = false;
         if (!iconExplicit)
         {
             // icon-file beats icon when a SINGLE resolved layer supplies both --
@@ -985,17 +1111,24 @@ public sealed class SemanticEngine
             if (iconFileRaw is { Length: > 0 })
             {
                 effectiveToken = IconToken.RawPath(iconFileRaw);
-                haveOverride = true;
             }
             else if (iconRaw is { Length: > 0 } && IconTokens.TryParse(iconRaw, out IconToken parsed, out _))
             {
                 effectiveToken = parsed;
-                haveOverride = true;
+            }
+            else
+            {
+                // ERGO-34 (Part 3): nothing explicit resolved ANYWHERE (flag/
+                // env/repo-file/user-file) -- the deterministic per-repo pick
+                // fires here, upstream of the grouping branch below.
+                string? key = discovery.RepoRootDir ?? discovery.AnchorPath;
+                if (key is { Length: > 0 } && IconTokens.TryPickRepoIcon(key, out IconToken picked))
+                    effectiveToken = picked;
             }
         }
 
         if (!ResolveGroupEnabled(discovery))
-            return haveOverride ? _icons.Place(handle, effectiveToken) : fallbackIconUri;
+            return _icons.Place(handle, effectiveToken);
 
         if (_groupRegistry is null || discovery.RepoRootDir is null)
         {
@@ -1004,7 +1137,7 @@ public sealed class SemanticEngine
             // "missing git info degrades gracefully"): fall back to ordinary
             // per-handle placement, never a throw or a refusal.
             Log($"{handle}: repo grouping requested but no .git boundary was found (searched up to '{discovery.SearchedUpTo}') -- placing a per-handle icon instead.");
-            return haveOverride ? _icons.Place(handle, effectiveToken) : fallbackIconUri;
+            return _icons.Place(handle, effectiveToken);
         }
 
         string groupKey = discovery.RepoRootDir;

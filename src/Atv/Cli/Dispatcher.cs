@@ -60,6 +60,17 @@ public sealed class Dispatcher
     private readonly Action<string> _traceIn;
     private readonly Action<string> _traceOut;
 
+    /// <summary>
+    /// Part 1 item 3: a harmless stand-in for the `iconUri` parameter every
+    /// upserting <see cref="Semantics.SemanticEngine"/> verb still takes (the
+    /// compat pin keeps the signature) -- the seven verb bodies below no
+    /// longer call <see cref="IconService.Place"/> themselves, so they have
+    /// no real placed <see cref="Uri"/> to pass. Only ever consulted by the
+    /// engine's own null-icons degradation (<c>_icons</c> is unconditionally
+    /// real here), so its literal value never matters.
+    /// </summary>
+    private static readonly Uri InertIconUriPlaceholder = new("about:blank");
+
     public Dispatcher(
         TaskOperations ops,
         SemanticEngine engine,
@@ -141,7 +152,7 @@ public sealed class Dispatcher
     private VerbResult WorkingBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
@@ -153,8 +164,12 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Working(handle, title, subtitle, iconUri, deepLink, goal, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // Part 1 item 3: no more per-verb _icons.Place call here -- SemanticEngine
+        // now owns icon file placement (create always places; update only when
+        // iconExplicit). InertIconUriPlaceholder is a harmless stand-in for the
+        // `iconUri` parameter, only ever consulted by the engine's own
+        // null-icons degradation (never true here -- _icons is always real).
+        var outcome = _engine.Working(handle, title, subtitle, InertIconUriPlaceholder, deepLink, goal, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("working", outcome);
     }
 
@@ -163,7 +178,7 @@ public sealed class Dispatcher
     private VerbResult ActivityBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
         if (!TryResolveKind(p, out ActivityKind kind, out var kindErr)) return kindErr!.Value;
 
@@ -178,8 +193,9 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Activity(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // InertIconUriPlaceholder: see WorkingBody's own remarks above.
+        Uri iconUri = InertIconUriPlaceholder;
+        var outcome = _engine.Activity(handle, title, subtitle, iconUri, deepLink, kind, label, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("activity", outcome);
     }
 
@@ -188,7 +204,7 @@ public sealed class Dispatcher
     private VerbResult BlockedBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? question = ResolveFreeText(p, "question");
@@ -204,8 +220,9 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Blocked(handle, title, subtitle, iconUri, deepLink, question, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // InertIconUriPlaceholder: see WorkingBody's own remarks above.
+        Uri iconUri = InertIconUriPlaceholder;
+        var outcome = _engine.Blocked(handle, title, subtitle, iconUri, deepLink, question, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("blocked", outcome);
     }
 
@@ -214,7 +231,7 @@ public sealed class Dispatcher
     private VerbResult ReadyBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
@@ -226,8 +243,9 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Ready(handle, title, subtitle, iconUri, deepLink, summary, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // InertIconUriPlaceholder: see WorkingBody's own remarks above.
+        Uri iconUri = InertIconUriPlaceholder;
+        var outcome = _engine.Ready(handle, title, subtitle, iconUri, deepLink, summary, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("ready", outcome);
     }
 
@@ -236,7 +254,7 @@ public sealed class Dispatcher
     private VerbResult BrokenBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         if (!p.Flags.TryGetValue("reason", out string? reasonRaw) || !BrokenReasons.TryParse(reasonRaw, out BrokenReasonToken reason))
@@ -254,8 +272,9 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.Broken(handle, title, subtitle, iconUri, deepLink, reason, detail, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // InertIconUriPlaceholder: see WorkingBody's own remarks above.
+        Uri iconUri = InertIconUriPlaceholder;
+        var outcome = _engine.Broken(handle, title, subtitle, iconUri, deepLink, reason, detail, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("broken", outcome);
     }
 
@@ -264,7 +283,7 @@ public sealed class Dispatcher
     private VerbResult AgentStartedBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
@@ -277,15 +296,16 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.AgentStarted(handle, title, subtitle, iconUri, deepLink, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // InertIconUriPlaceholder: see WorkingBody's own remarks above.
+        Uri iconUri = InertIconUriPlaceholder;
+        var outcome = _engine.AgentStarted(handle, title, subtitle, iconUri, deepLink, agentId, name, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("agent-started", outcome);
     }
 
     private VerbResult AgentStoppedBody(ParseResult p, DateTimeOffset now)
     {
         if (!TryGetSingleHandle(p, out string handle, out var handleErr)) return handleErr!.Value;
-        if (!TryResolveDeepLink(p, out Uri deepLink, out var deepLinkErr)) return deepLinkErr!.Value;
+        if (!TryResolveDeepLink(p, out Uri deepLink, out bool deepLinkExplicit, out var deepLinkErr)) return deepLinkErr!.Value;
         if (!TryResolveIconToken(p, out IconToken token, out bool iconExplicit, out var iconErr)) return iconErr!.Value;
 
         string? title = p.Flags.GetValueOrDefault("title");
@@ -297,8 +317,9 @@ public sealed class Dispatcher
 
         _ensureWatchdog();
 
-        Uri iconUri = _icons.Place(handle, token);
-        var outcome = _engine.AgentStopped(handle, title, subtitle, iconUri, deepLink, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit);
+        // InertIconUriPlaceholder: see WorkingBody's own remarks above.
+        Uri iconUri = InertIconUriPlaceholder;
+        var outcome = _engine.AgentStopped(handle, title, subtitle, iconUri, deepLink, agentId, now, unsafeBypass: p.Global.Unsafe, iconToken: token, iconExplicit: iconExplicit, deepLinkExplicit: deepLinkExplicit);
         return MapOutcome("agent-stopped", outcome);
     }
 
@@ -388,11 +409,24 @@ public sealed class Dispatcher
         return raw == "-" ? _stdin.ReadToEnd().TrimEnd() : raw;
     }
 
-    private bool TryResolveDeepLink(ParseResult p, out Uri deepLink, out VerbResult? error)
+    /// <summary>
+    /// Resolves <c>--deep-link</c> and, per Part 1 item 1, whether it was
+    /// EXPLICITLY supplied (<paramref name="deepLinkExplicit"/>) -- threaded
+    /// into <see cref="Semantics.SemanticEngine"/> exactly like
+    /// <see cref="TryResolveIconToken"/>'s <c>explicitlyRequested</c>: an
+    /// absent flag substitutes <see cref="_defaultDeepLink"/> (the ERGO-24
+    /// app-data URI, now ERGO-35's FLOOR rather than the default -- the
+    /// engine's own create-time anchor-directory default takes over when
+    /// <paramref name="deepLinkExplicit"/> is <see langword="false"/>) and
+    /// reports <see langword="false"/>; an explicit-but-invalid value still
+    /// errors, unchanged.
+    /// </summary>
+    private bool TryResolveDeepLink(ParseResult p, out Uri deepLink, out bool deepLinkExplicit, out VerbResult? error)
     {
         if (!p.Flags.TryGetValue("deep-link", out string? raw))
         {
             deepLink = _defaultDeepLink;
+            deepLinkExplicit = false;
             error = null;
             return true;
         }
@@ -400,11 +434,13 @@ public sealed class Dispatcher
         if (!Uri.TryCreate(raw, UriKind.Absolute, out var parsed))
         {
             deepLink = _defaultDeepLink;
+            deepLinkExplicit = true;
             error = VerbResult.Failure(FailureKind.InvalidArguments, $"--deep-link '{raw}' is not a valid absolute URI.");
             return false;
         }
 
         deepLink = parsed;
+        deepLinkExplicit = true;
         error = null;
         return true;
     }

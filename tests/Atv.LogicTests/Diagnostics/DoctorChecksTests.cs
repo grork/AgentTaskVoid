@@ -1,5 +1,6 @@
 using Codevoid.AgentTaskVoid.Config;
 using Codevoid.AgentTaskVoid.Diagnostics;
+using Codevoid.AgentTaskVoid.Icons;
 
 namespace Codevoid.AgentTaskVoid.LogicTests.Diagnostics;
 
@@ -202,6 +203,63 @@ public sealed class DoctorChecksTests
         Assert.IsNull(report.RepoAnchorSource);
         Assert.IsNull(report.RepoConfigPath);
         Assert.IsNull(report.RepoConfigParseStatus);
+        Assert.IsNull(report.RepoDefaultIconToken);
+        Assert.IsNull(report.RepoDefaultIconKeyPath);
+    }
+
+    // ---- ERGO-34 (phase 22) Part 4: the would-pick default-icon line --------------
+
+    [TestMethod]
+    public void Run_RepoRootFound_SurfacesTheWouldPickIconLine_KeyedOnRepoRoot()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\repo\packages\web", AnchorSource: AnchorSource.CwdFlag, ConfigPath: null,
+            SearchedUpTo: @"C:\repo", ParseStatus: RepoConfigParseStatus.NotFound,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: @"C:\repo", RepoName: "repo", Branch: "main");
+
+        var report = DoctorChecks.Run(Context(discoverRepo: () => discovery));
+
+        Assert.IsTrue(IconTokens.TryPickRepoIcon(@"C:\repo", out IconToken expected));
+        Assert.AreEqual(IconTokens.Describe(expected), report.RepoDefaultIconToken);
+        Assert.AreEqual(@"C:\repo", report.RepoDefaultIconKeyPath, "the key path must be the REPO ROOT, not the anchor, when a .git boundary was found.");
+    }
+
+    [TestMethod]
+    public void Run_NoGitRoot_SurfacesTheWouldPickIconLine_KeyedOnTheAnchor()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\some\scratch\dir", AnchorSource: AnchorSource.ProcessCwd, ConfigPath: null,
+            SearchedUpTo: @"C:\", ParseStatus: RepoConfigParseStatus.NotFound,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: null, RepoName: null, Branch: null);
+
+        var report = DoctorChecks.Run(Context(discoverRepo: () => discovery));
+
+        Assert.IsTrue(IconTokens.TryPickRepoIcon(@"C:\some\scratch\dir", out IconToken expected));
+        Assert.AreEqual(IconTokens.Describe(expected), report.RepoDefaultIconToken);
+        Assert.AreEqual(@"C:\some\scratch\dir", report.RepoDefaultIconKeyPath, "falls back to the anchor when no .git boundary was found.");
+    }
+
+    [TestMethod]
+    public void FormatHuman_SurfacesTheDefaultIconLine_Unconditionally_NoVerboseGate()
+    {
+        var discovery = new RepoDiscoveryResult(
+            AnchorPath: @"C:\repo", AnchorSource: AnchorSource.CwdFlag, ConfigPath: null,
+            SearchedUpTo: @"C:\repo", ParseStatus: RepoConfigParseStatus.NotFound,
+            AllowedValues: new Dictionary<string, string>(), DisallowedKeys: [], RepoRootDir: @"C:\repo", RepoName: "repo", Branch: "main");
+
+        var stdout = new StringWriter();
+        var output = new Output(stdout, new StringWriter(), json: false);
+        // verbose: false -- DoctorVerb has no --verbose gate (the phase file's
+        // own instruction: follow phase-17's unconditional precedent, don't
+        // build new --verbose plumbing despite the file-list wording).
+        var log = new FailureLog(Path.Combine(Path.GetTempPath(), $"atv-doctor-test-{Guid.NewGuid():N}.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
+        var posture = new Posture(log, output, strict: false, verbose: false);
+
+        Codevoid.AgentTaskVoid.Cli.Verbs.DoctorVerb.Run(output, posture, Context(discoverRepo: () => discovery), DateTimeOffset.Now);
+
+        string text = stdout.ToString();
+        StringAssert.Contains(text, "default icon:");
+        StringAssert.Contains(text, @"C:\repo");
     }
 
     [TestMethod]

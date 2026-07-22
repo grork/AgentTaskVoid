@@ -145,7 +145,10 @@ internal sealed class DispatcherHarness : IDisposable
         Log = new FailureLog(Path.Combine(_appDataDir.Path, "atv.log"), maxBytes: 1_000_000, maxAge: TimeSpan.FromDays(14));
     }
 
-    private SemanticEngine BuildEngine() => new(Store, Sidecar, RecycleBin, _gate, TimeSpan.FromDays(1), Ops, icons: Icons, discoverRepo: DiscoverRepo);
+    // Part 1 item 7: the SAME app-data Uri wired into the Dispatcher's own
+    // `defaultDeepLink` below is ALSO supplied to the engine as ERGO-35's
+    // floor -- "re-plumbed" means added, not moved (mirrors CompositionRoot).
+    private SemanticEngine BuildEngine() => new(Store, Sidecar, RecycleBin, _gate, TimeSpan.FromDays(1), Ops, icons: Icons, discoverRepo: DiscoverRepo, deepLinkFloor: new Uri(_appDataDir.Path));
 
     public Dispatcher BuildDispatcher(bool json = false, bool strict = false, bool verbose = false, WatchdogMode watchdogMode = WatchdogMode.Off)
     {
