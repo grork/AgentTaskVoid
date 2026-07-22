@@ -84,6 +84,7 @@ its file alone, consulting the cited question records only for deeper rationale.
 | 22 | [Create-anchored card defaults: per-repo icon + anchor deep-link](phase-22-create-anchored-card-defaults.md) | 15, 16, 17, 19 |
 | 23 | [Dogfood distribution kit](phase-23-dogfood-distribution-kit.md) | 12, 18, 20 (22 soft) |
 | 24 | [Dogfood kit: Copilot CLI auto-wiring leg](phase-24-dogfood-kit-copilot-leg.md) | 23; **gated on Copilot access** |
+| 25 | [Glyph ink-box centering on the accent tile](phase-25-glyph-ink-box-centering.md) | 16; **executes before 23** (phase-22 AC12 fallout) |
 
 Sequence is topological: 01 → 02 → {03, 04} → 05/06/07 → 08 → {09, 10} → 11 → 12 → 13.
 Phases 03 and 04 are independent of each other; 05/06/07 can interleave; 10 can run
@@ -145,3 +146,11 @@ auto-wiring leg is phase 24, split out 2026-07-19 (operator direction) because t
 operator has no Copilot access to verify the wiring commands with — phase 24 carries an
 explicit external gate (Copilot access) so 23's completion stays legible and the pending
 work is one visible row, not nuance inside a "done" phase.
+
+Phase 25 (added 2026-07-21) is phase-22 AC12 dogfood fallout: the operator's live eyeball
+caught that Segoe-glyph tiles render off-center (line-box vs ink-box centering in phase
+16's `GlyphRenderer`). Its number is higher than 23/24, but it **executes next — before
+phase 23** — so the dogfood kit ships centered glyphs; renumbering 23/24 was rejected to
+keep existing history/references intact, so execution order lives in `progress.md`, not the
+row number. It depends only on phase 16 (the tile compositor it corrects) and touches no
+main-project or manifest code.

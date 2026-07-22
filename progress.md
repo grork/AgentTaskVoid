@@ -26,17 +26,18 @@ To move oversight to a new, cheaper session (this one gets expensive to resume a
 
 Phase 22 is ✅ **fully complete** — code half (AC1–AC11) signed off + committed `31f1cbe`, and
 **AC12 (live dogfood) PASSED 2026-07-21** (all four checks confirmed; details in the phase-22 log).
-**Next: phase 23** (Dogfood distribution kit, DIST-13) — but see the open finding below first.
 
-**⚠️ OPEN FINDING surfaced during AC12 (needs operator triage before/within phase 23):** the
-**Segoe-glyph tiles render the glyph off-center** (rides high on the accent plate). Root cause:
-`GlyphRenderer.Render` centers with DWrite `SetParagraphAlignment(CENTER)` (line-box centering)
-instead of the glyph's ink box — Segoe Fluent Icons glyphs reserve descent space the ink doesn't
-use, so they sit high. Emoji are unaffected (full-bleed, `onTile:false`). This is a phase-16
-tile-compositor defect, NOT a phase-22 regression (phase 22 only added the pool/pick, which made the
-tiles appear more). Dogfooders would see the same off-center glyphs, so it wants a decision relative
-to phase 23. Candidate fix: ink-box centering via `IDWriteTextLayout` overhang/metrics offset. Not
-yet filed as a numbered question — awaiting operator triage.
+**Execution order now: phase 25 NEXT, THEN phase 23.** The AC12 dogfood surfaced an off-center
+Segoe-glyph-tile defect; the operator chose (2026-07-21) to **fix it before phase 23** so the
+dogfood kit ships centered glyphs. That fix is filed as **[phase 25](plan/phase-25-glyph-ink-box-centering.md)**
+(numbered 25 to avoid renumbering 23/24, but it executes next — before 23). Run phase 25 through the
+normal executor → reviewer loop + a live re-eyeball (AC5), commit it, THEN proceed to phase 23
+(Dogfood distribution kit, DIST-13) and phase 24 (Copilot leg, gated).
+
+**Phase 25 in one line:** `GlyphRenderer.Render` centers Segoe glyphs by the DWrite line box
+(`SetParagraphAlignment(CENTER)`) instead of the glyph ink box, so they ride high on the accent
+plate; fix = ink-box centering (IDWriteTextLayout overhang/metrics offset, or alpha-scan recenter).
+Emoji unaffected (bare, full-bleed). Phase-16 compositor defect, made visible by phase 22's pool.
 
 **Live-phase protocol that worked, for the next one:** the orchestrator drives, the operator
 executes. The operator is the hands and eyes (elevation, registration, eyeballing the taskbar), not
@@ -79,7 +80,8 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 19 | Card fidelity: subagent activity routing + the never-blank title chain | ✅ | 19A:1, 19B:1, 19D:1, 19E:1 | 19A/19B/19D/19E all PASS (1st) and live-confirmed; 19C (AC11) signed off 2026-07-15 on accumulated evidence, operator decision — see sub-tracking |
 | 20 | Daily-driver retail identity + plugin command override | ✅ | 1 | All ACs met. [[DIST-14]] found and fixed mid-AC9 (`a9fdfee`) + build-time manifest validation (`954a259`); AC9's rendering half and AC10's tail closed live 2026-07-21. |
 | 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
-| 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding (phase-16 compositor, pending triage). |
+| 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding → phase 25. |
+| 25 | Glyph ink-box centering on the accent tile (phase-22 AC12 fallout; **executes before 23**) | ⬜ | 0 | Pending — operator chose fix-before-23 (2026-07-21). |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
