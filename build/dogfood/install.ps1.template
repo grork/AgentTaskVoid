@@ -120,6 +120,17 @@ $hostRecipes = @(
             & claude plugin install atv-integration@agent-task-void
         }
     }
+    [pscustomobject]@{
+        HostName     = 'GitHub Copilot CLI'
+        DetectCmd    = 'copilot'
+        ZipName      = '{Command}-plugin-copilot-cli.zip'
+        ManualNote   = 'See {Command}-plugin-copilot-cli.zip and this README for the manual path.'
+        Wire         = {
+            param($dir)
+            & copilot plugin marketplace add $dir
+            & copilot plugin install atv-integration@agent-task-void-copilot
+        }
+    }
 )
 
 if ($SkipPluginWiring) {

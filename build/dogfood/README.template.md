@@ -57,12 +57,18 @@ present and the API supported before any card can render.
 
 ### Copilot CLI
 
-Auto-wiring for Copilot CLI isn't part of this kit yet. Expand
-`{Command}-plugin-copilot-cli.zip` and load it directly:
+Expand `{Command}-plugin-copilot-cli.zip`, then from that folder:
 
 ```powershell
-copilot --plugin-dir <path to the expanded folder>\plugins\atv-integration
+copilot plugin marketplace add <path to the expanded folder>
+copilot plugin install atv-integration@agent-task-void-copilot
 ```
+
+Confirm with `copilot plugin list`. `{Command} doctor` must report identity
+present and the API supported before any card can render.
+
+Run these from a plain terminal, not inside a running `copilot` session — a
+live session makes the install fail with "Access is denied".
 
 ## Uninstall
 

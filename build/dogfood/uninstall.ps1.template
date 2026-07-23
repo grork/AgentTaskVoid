@@ -34,6 +34,18 @@ $hostRecipes = @(
             & claude plugin marketplace remove agent-task-void
         }
     }
+    [pscustomobject]@{
+        HostName  = 'GitHub Copilot CLI'
+        DetectCmd = 'copilot'
+        Unwire    = {
+            # One step removes both the plugin and its marketplace: copilot
+            # refuses a plain `marketplace remove` while a plugin from it is
+            # installed, and --force uninstalls the plugin as part of the
+            # removal. (`plugin uninstall` on its own would leave the
+            # marketplace registered.)
+            & copilot plugin marketplace remove agent-task-void-copilot --force
+        }
+    }
 )
 
 foreach ($recipe in $hostRecipes) {

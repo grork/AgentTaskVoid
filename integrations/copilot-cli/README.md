@@ -29,25 +29,37 @@ integrations/copilot-cli/
 
 ## Install
 
-For development/dogfooding, load the working tree directly from any scratch
-repository (Copilot caches installed plugins, but `--plugin-dir` bypasses
-that cache):
+Install persistently from a local checkout of this repository: register the
+integration directory as a marketplace, then install the plugin from it.
 
 ```powershell
-copilot --plugin-dir D:\path\to\AppTaskInfoCli\integrations\copilot-cli\plugins\atv-integration
+copilot plugin marketplace add D:\path\to\AppTaskInfoCli\integrations\copilot-cli
+copilot plugin install atv-integration@agent-task-void-copilot
 ```
 
-For a normal install from this repository:
+Or install straight from GitHub:
 
 ```powershell
 copilot plugin install grork/AppTaskInfoCli:integrations/copilot-cli/plugins/atv-integration
 ```
 
+While iterating on the plugin, load the working tree for a single session
+without installing — `--plugin-dir` bypasses the installed-plugin cache:
+
+```powershell
+copilot --plugin-dir D:\path\to\AppTaskInfoCli\integrations\copilot-cli\plugins\atv-integration
+```
+
 Confirm it with `copilot plugin list` or `/plugin list`. Uninstall with:
 
 ```powershell
-copilot plugin uninstall atv-integration
+copilot plugin uninstall atv-integration@agent-task-void-copilot
+copilot plugin marketplace remove agent-task-void-copilot
 ```
+
+Run the `marketplace add`/`install`/`uninstall` commands from a plain
+terminal, not inside a running `copilot` session — observed with Copilot
+1.0.74, a live session makes them fail with `Access is denied (os error 5)`.
 
 `atv doctor` must report package identity present and `AppTaskInfo` supported
 before any card can render.
