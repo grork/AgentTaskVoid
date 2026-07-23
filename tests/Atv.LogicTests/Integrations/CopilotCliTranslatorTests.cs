@@ -94,6 +94,36 @@ public sealed class CopilotCliTranslatorTests
     }
 
     [TestMethod]
+    public void ChildPrompt_ClaudeFamilyToolUseId_ClaimsInsteadOfCreatingTopLevelCard()
+    {
+        // Regression: Claude-backed subagents address the child locus with a
+        // "toolu_" tool-call id instead of OpenAI's "call_". An earlier
+        // "call_"-only gate mis-classified these as main sessions, so the
+        // child's userPromptSubmitted emitted a spurious top-level `working`
+        // card per subagent. The child must claim its pending correlation and
+        // emit nothing instead.
+        const string toolUseChild = "toolu_01WgjWGCbLPMdSGhKaDQvhf3";
+        using var state = new TempDirectory();
+        RunTranslator("preToolUse", ParentTask("readme-inspector", Prompt), state.Path);
+
+        Assert.IsEmpty(RunTranslator("userPromptSubmitted", ChildPrompt(toolUseChild, Prompt), state.Path));
+
+        using JsonDocument doc = ReadState(state);
+        Assert.HasCount(0, doc.RootElement.GetProperty("pending").EnumerateArray().ToArray());
+        JsonElement active = doc.RootElement.GetProperty("active");
+        Assert.HasCount(1, active.EnumerateArray().ToArray());
+        Assert.AreEqual(toolUseChild, active[0].GetProperty("childSession").GetString());
+        Assert.AreEqual(Parent, active[0].GetProperty("parentSession").GetString());
+
+        // And its tool activity routes to the parent card, not a card of its own.
+        var calls = RunTranslator("preToolUse", ChildTool("view", """{"path":"D:\\temp\\atv-copilot-sandbox\\README.md"}""", toolUseChild), state.Path);
+        Assert.HasCount(1, calls);
+        CollectionAssert.AreEqual(
+            new[] { "activity", Parent, "--kind", "read", "--label", "-", "--agent", "readme-inspector", "--cwd", Cwd },
+            calls[0].Argv);
+    }
+
+    [TestMethod]
     public void ChildToolActivity_RoutesToParentAndAgent()
     {
         using var state = new TempDirectory();

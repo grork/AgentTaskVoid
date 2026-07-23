@@ -13,7 +13,11 @@
     plugin-local correlation state:
 
       pending: SHA256(cwd + NUL + exact child prompt) -> parent + task
-      active:  child call_* session id -> parent + task
+      active:  child tool-call-id session id -> parent + task
+
+    A child (subagent) session id is the parent task's tool-call id, whose
+    prefix is model-family dependent (call_ for OpenAI-family, toolu_ for
+    Claude-family, etc.); it is never a session GUID. See Test-ChildSession.
 
     The pending record is atomically claimed by the child's first
     userPromptSubmitted event, then deleted. The active record is deleted on
@@ -448,9 +452,29 @@ function Invoke-Atv {
     }
 }
 
+function Test-ChildSession {
+    # True when a hook payload's sessionId addresses a subagent (child) locus
+    # rather than a main/parent Copilot session.
+    #
+    # A child locus is addressed by the parent task's tool-call id, and that
+    # id's prefix is model-family dependent: "call_" for OpenAI-family models,
+    # "toolu_" for Anthropic/Claude-family models (observed on Copilot CLI
+    # 1.0.74), and potentially other prefixes for future model families. Main
+    # and parent sessions are always canonical GUIDs, so anything that is not a
+    # GUID is a child locus. Classifying by "not a GUID" instead of a fixed
+    # prefix whitelist keeps child correlation working no matter which model
+    # backs the subagent -- an earlier "call_"-only check dropped Claude-backed
+    # subagents (sessionId "toolu_...") into the main-session path, which
+    # spawned a spurious independent top-level card per subagent.
+    param([string]$SessionId)
+    if ([string]::IsNullOrEmpty($SessionId)) { return $false }
+    $guid = [Guid]::Empty
+    return -not [Guid]::TryParse($SessionId, [ref]$guid)
+}
+
 function Resolve-Target {
     param([string]$SessionId)
-    if (-not $SessionId.StartsWith("call_", [StringComparison]::Ordinal)) {
+    if (-not (Test-ChildSession $SessionId)) {
         return [pscustomobject]@{ handle = $SessionId; agent = $null; correlation = $null }
     }
 
@@ -534,7 +558,7 @@ try {
     switch ($Event) {
         "userPromptSubmitted" {
             $prompt = [string](Get-Prop $payload "prompt")
-            if ($sessionId.StartsWith("call_", [StringComparison]::Ordinal)) {
+            if (Test-ChildSession $sessionId) {
                 $null = Claim-PendingCorrelation $sessionId $cwd $prompt
             }
             elseif (-not $prompt.TrimStart().StartsWith("<system_notification>", [StringComparison]::Ordinal)) {
@@ -624,7 +648,7 @@ try {
         }
 
         "agentStop" {
-            if ($sessionId.StartsWith("call_", [StringComparison]::Ordinal)) {
+            if (Test-ChildSession $sessionId) {
                 $correlation = Complete-CorrelationByChild $sessionId
                 if ($null -ne $correlation) {
                     Invoke-Atv -AtvArgs (@("agent-stopped", $correlation.parentSession, "--agent", $correlation.taskName) + (Get-CwdArgs $cwd)) -StdinText $null
@@ -673,7 +697,7 @@ try {
         }
 
         "sessionEnd" {
-            if ($sessionId.StartsWith("call_", [StringComparison]::Ordinal)) {
+            if (Test-ChildSession $sessionId) {
                 $correlation = Complete-CorrelationByChild $sessionId
                 if ($null -ne $correlation) {
                     Invoke-Atv -AtvArgs (@("agent-stopped", $correlation.parentSession, "--agent", $correlation.taskName) + (Get-CwdArgs $cwd)) -StdinText $null

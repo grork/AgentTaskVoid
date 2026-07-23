@@ -61,7 +61,7 @@ before any card can render.
 | `preToolUse:ask_user` | `blocked <session> --question -` |
 | `postToolUse:ask_user` | a matching `activity` that clears Blocked after the answer |
 | `preToolUse:task` | `agent-started <parent> --agent <task-name> --name <agent-type>` plus a pending correlation record |
-| Child `userPromptSubmitted` | atomically claims the matching pending prompt hash into `call_* -> parent/task` |
+| Child `userPromptSubmitted` | atomically claims the matching pending prompt hash into a child-session → parent/task record |
 | Child `preToolUse` | `activity <parent> --agent <task-name> ...`, which the engine redirects to the child card |
 | Child `agentStop` | `agent-stopped <parent> --agent <task-name>`; `ready <parent>` only when the subagent was a background worker |
 | Sync `postToolUse:task` | `agent-stopped` completion fallback, no `ready` |
@@ -95,7 +95,7 @@ Copilot 1.0.71 exposes two disconnected identities at the command-hook boundary:
 
 ```text
 Parent task event: parent session + task name + exact child prompt
-Child events:      call_* session id + exact child prompt
+Child events:      tool-call-id session + exact child prompt
 ```
 
 The translator joins them without reading Copilot's internal transcript and
@@ -106,7 +106,7 @@ without changing `atv`:
    agent type, and mode.
 2. The child's first `userPromptSubmitted` repeats the exact prompt. Under a
    named mutex, it claims the sole matching pending record and replaces it with
-   an active `call_* -> parent/task` record.
+   an active child-session → parent/task record.
 3. Child tool and stop events use that active mapping.
 4. Child completion deletes the active record.
 
@@ -166,9 +166,12 @@ when everything inside it has failed.
 
 ## Known limitations
 
-- The `call_*` child-session prefix and notification title/message shapes are
-  observed Copilot 1.0.71 behavior, not documented API. Re-capture when the
-  installed version changes significantly.
+- Child-session ids and notification title/message shapes are observed
+  behavior, not documented API. A child (subagent) session id is the parent
+  task's tool-call id, never a session GUID, so the translator treats any
+  non-GUID session id as a child; the id's prefix varies by model family
+  (`call_` for OpenAI-family, `toolu_` for Claude-family, seen through Copilot
+  1.0.74). Re-capture when the installed version changes significantly.
 - Concurrent identical child prompts are not correlated.
 - A genuine `postToolUseFailure` and `errorOccurred` payload were not induced
   during capture; error mapping retains conservative fallbacks.

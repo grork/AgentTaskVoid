@@ -172,8 +172,8 @@ The main interactive session id was
 - Cancellation of a background Copilot subagent was not exercised.
 - The production plugin under `integrations/copilot-cli/` hashes the exact
   task prompt into a short-lived pending record, atomically claims it when
-  the child repeats that prompt under `call_*`, and retains only the
-  resulting `call_* -> parent/task` mapping through child completion. It
+  the child repeats that prompt under its tool-call-id session, and retains
+  only the resulting child → parent/task mapping through child completion. It
   never reads the internal Copilot transcript, never stores raw prompts, and
   refuses ambiguous matches rather than guessing.
 
@@ -206,3 +206,19 @@ child attribution still only clears at `PostToolUse` (tool completion), so
 widening Copilot's synchronous post-tool hooks would not solve a
 long-running build and would add cost to every tool. The plugin does not use
 a timer, read the internal transcript, or optimistically clear the block.
+
+### Subagent session-id prefix is model-family dependent (Copilot 1.0.74-4, 2026-07-23)
+
+Captured with a passive stdin-only hook plugin driving three parallel
+`explore` subagents in a `copilot -p` session. The subagent (child) session id
+is the parent task's tool-call id, and its prefix follows the model backing the
+subagent: the 1.0.71 captures above ran OpenAI-family task ids (`call_...`),
+while the default `explore` agent on 1.0.74 ran claude-haiku and produced
+`toolu_...` ids. The main session stayed a GUID (`ebabeaed-...`), and each
+child's first `userPromptSubmitted` still repeated the exact task prompt, so
+prompt-hash correlation is unaffected by the prefix.
+
+The translator therefore classifies a child by "not a GUID" rather than a fixed
+prefix (`Test-ChildSession` in `translate.ps1`). A `call_`-only gate drops
+`toolu_` children into the main-session path, which emits one spurious
+top-level card per subagent on top of the correct rolled-up sub-cards.
