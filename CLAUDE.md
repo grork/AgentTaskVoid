@@ -112,6 +112,8 @@ Artifacts land under distinct filenames (`artifacts\release\msix\Codevoid.AgentT
 
 Full runbook, the dev-cert-vs-real-cert distinction, and the supervised install/upgrade/uninstall verification steps: [`docs/release.md`](docs/release.md).
 
+To hand an unreleased build to another machine (a VM, a secondary machine, another person), `dotnet build src\Atv\Atv.csproj -t:AtvDogfood` (`build/Atv.Dogfood.targets`) packages a signed bundle, per-host plugin zips, and install/uninstall scripts into `artifacts\dogfood\` — see [`docs/release.md`](docs/release.md) §6.
+
 ### CsWinRT projection
 
 `Windows.UI.Shell.Tasks` is an experimental WinRT namespace (marked `[Experimental]`, requires `AppTaskContract` v2.0). It is present in the SDK's `UnionMetadata\<version>\Windows.winmd` but is not in the system WinMetadata or the default `CsWinRTWindowsMetadata` lookup targets. `src/Atv/Atv.csproj` references the SDK UnionMetadata WinMD via `CsWinRTInputs`:

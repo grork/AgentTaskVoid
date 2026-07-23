@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Atv.Dogfood.targets
+
+  Phase 23 (DIST-13, "Easy-to-use scripts that produce package and plugins for
+  sharing & dogfooding"). One command producing a hand-off folder for giving this
+  unreleased CLI to another person's machine: a dev-signed dual-arch .msixbundle,
+  one plugin zip per integrations/<host>/ directory, install/uninstall scripts, and
+  READMEs: everything a recipient needs, with no clone of this repository.
+
+  Usage (from repo root): `dotnet build src\Atv\Atv.csproj -t:AtvDogfood`
+
+  Chains onto build/Atv.Release.targets' existing per-arch targets
+  (AtvReleaseWinX64/AtvReleaseWinArm64, and the properties they define at
+  file-evaluation time: $(_AtvPublishWinX64/Arm64), $(_AtvManifestWinX64/Arm64),
+  $(_AtvCertPfx), $(_AtvCertPassword)) rather than re-deriving any of the publish,
+  manifest-stamping, or cert-generation work -T:AtvRelease already does. Both
+  files are imported into the same project (src/Atv/Atv.csproj), so these
+  properties/targets are ordinary project-global members; see this file's own
+  execution-time PropertyGroups for why reading them is safe regardless of
+  import order (same rule Atv.Release.targets documents for $(BuildVersion)).
+
+  Produces (repo-root-relative, all gitignored under artifacts\ already):
+    artifacts\dogfood\Codevoid.AgentTaskVoid_<ver>_x64_arm64.msixbundle  (signed,
+                                                                          retail identity)
+    artifacts\dogfood\atv-plugin-<host>.zip     (one per integrations\<host>\ dir)
+    artifacts\dogfood\install.ps1               (stamped from build\dogfood\install.ps1.template)
+    artifacts\dogfood\uninstall.ps1             (stamped from build\dogfood\uninstall.ps1.template)
+    artifacts\dogfood\README.md                 (stamped from build\dogfood\README.template.md)
+
+  No certificate file of any kind ships (DIST-13 amendment, 2026-07-20): the
+  installer extracts its signer from the bundle's own Authenticode signature at
+  run time (see build/dogfood/install.ps1.template), so there is nothing to ship
+  and nothing to leak a private key. This target instead prints the signing
+  thumbprint at build time (build/dogfood/Show-BundleThumbprint.ps1) so the
+  operator can quote it out of band.
+
+  Bundling mechanism (resolved empirically 2026-07-23 against `winapp package`'s
+  own help text and a real experiment, since the phase file left this open):
+  `winapp package` takes N input folders and exactly one manifest option (its
+  arity is 1, not per-folder). Passing both RID publish folders plus a single
+  stamped manifest still produces a correct bundle: winapp derives each
+  embedded package's own Identity/@ProcessorArchitecture from the actual binary
+  in that package's input folder, not from the manifest text, so the one
+  manifest's Identity Name/Publisher/Version (identical between the two
+  RID-qualified stamped
+  manifests except for that attribute) is all that is shared. Verified by
+  unpacking a bundle built this way: both embedded .msix's manifests carry
+  ProcessorArchitecture="x64"/"arm64" respectively, both with the SAME
+  Identity/@Name and AppExecutionAlias/@Alias (retail, "Codevoid.AgentTaskVoid" /
+  "atv") that AtvReleaseWinX64/AtvReleaseWinArm64 already stamped. There is no
+  separate per-input-folder manifest form to reconcile.
+
+  Retail identity only: this target never threads AtvVerifyIdentity through (no
+  reltest bundle: dogfooders get the same identity the plugins' bare `atv`
+  invocations expect, DIST-12), and errors out if the outer build was invoked
+  with AtvVerifyIdentity=true (a caller mistake, not a supported combination).
+
+  Re-running with nothing changed is a no-op repack (MSBuild Inputs/Outputs on
+  every target below), matching Atv.Release.targets' own discipline.
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <_AtvDogfoodRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\artifacts\dogfood'))</_AtvDogfoodRoot>
+    <_AtvDogfoodTemplateDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)dogfood'))</_AtvDogfoodTemplateDir>
+    <_AtvRepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</_AtvRepoRoot>
+
+    <_AtvDogfoodInstallTemplate>$(_AtvDogfoodTemplateDir)\install.ps1.template</_AtvDogfoodInstallTemplate>
+    <_AtvDogfoodUninstallTemplate>$(_AtvDogfoodTemplateDir)\uninstall.ps1.template</_AtvDogfoodUninstallTemplate>
+    <_AtvDogfoodReadmeTemplate>$(_AtvDogfoodTemplateDir)\README.template.md</_AtvDogfoodReadmeTemplate>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Any git-tracked-or-not file under integrations\ can change what the zip
+         step should produce; git ls-files (inside New-PluginZips.ps1) is still
+         what decides actual zip CONTENT. This item only decides when to re-run. -->
+    <AtvDogfoodIntegrationFiles Include="$(_AtvRepoRoot)\integrations\**\*" />
+
+    <!-- One item per integrations\<host>\ directory, evaluation-time (plain
+         directory enumeration, not a build output) - drives the per-host zip
+         Outputs below via %(Filename). A trailing-backslash MSBuild glob
+         (Include="...\integrations\*\") matched nothing when tried here;
+         System.IO.Directory.GetDirectories is the reliable form. -->
+    <AtvDogfoodIntegrationDirs Include="$([System.IO.Directory]::GetDirectories('$(_AtvRepoRoot)\integrations'))" />
+  </ItemGroup>
+
+  <!-- ==================== version-dependent output paths ==================== -->
+  <!-- Same rule as Atv.Release.targets' AtvReleaseComputeVersion: $(BuildVersion)
+       is an execution-time output of GetBuildVersion (via AtvReleaseComputeVersion,
+       which this DependsOnTargets on), never safe to read from a file-body
+       PropertyGroup. -->
+  <Target Name="AtvDogfoodComputeVersion" DependsOnTargets="AtvReleaseComputeVersion">
+    <Error Condition="'$(AtvVerifyIdentity)' == 'true'"
+           Text="[Atv.Dogfood] AtvDogfood always ships the retail identity - do not combine with -p:AtvVerifyIdentity=true." />
+
+    <PropertyGroup>
+      <_AtvDogfoodBundle>$(_AtvDogfoodRoot)\$(AtvBrandName)_$(BuildVersion)_x64_arm64.msixbundle</_AtvDogfoodBundle>
+      <_AtvDogfoodInstallScript>$(_AtvDogfoodRoot)\install.ps1</_AtvDogfoodInstallScript>
+      <_AtvDogfoodUninstallScript>$(_AtvDogfoodRoot)\uninstall.ps1</_AtvDogfoodUninstallScript>
+      <_AtvDogfoodReadme>$(_AtvDogfoodRoot)\README.md</_AtvDogfoodReadme>
+    </PropertyGroup>
+  </Target>
+
+  <!-- ==================== the bundle ==================== -->
+
+  <Target Name="AtvDogfoodBundle"
+          DependsOnTargets="AtvDogfoodComputeVersion;AtvReleaseWinX64;AtvReleaseWinArm64"
+          Inputs="$(_AtvMsixWinX64);$(_AtvMsixWinArm64)"
+          Outputs="$(_AtvDogfoodBundle)">
+
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+
+    <!-- One shared manifest option for both input folders: see this file's
+         header comment for why a single RID-qualified stamped manifest
+         (either one, win-x64's here) is sufficient; winapp derives each
+         embedded package's ProcessorArchitecture from its own input folder's
+         binary. -->
+    <Exec Command="winapp package &quot;$(_AtvPublishWinX64)&quot; &quot;$(_AtvPublishWinArm64)&quot; --manifest &quot;$(_AtvManifestWinX64)&quot; --output &quot;$(_AtvDogfoodBundle)&quot; --cert &quot;$(_AtvCertPfx)&quot; --cert-password &quot;$(_AtvCertPassword)&quot;" />
+
+    <!-- pwsh, not powershell: Windows PowerShell 5.1 under Exec's redirected,
+         non-interactive stdio fails to autoload Microsoft.PowerShell.Security
+         on this box ("member AuditToString is already present" / "module
+         could not be loaded"), even though the identical call succeeds in an
+         interactive console. pwsh does not hit it. Observed 2026-07-23; only
+         affects build-time Exec invocations, not the shipped scripts
+         (recipients run those interactively). -->
+    <Exec Command="pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(_AtvDogfoodTemplateDir)\Show-BundleThumbprint.ps1&quot; -BundlePath &quot;$(_AtvDogfoodBundle)&quot;" />
+
+    <Message Importance="high" Text="[Atv.Dogfood] Bundle ready: $(_AtvDogfoodBundle)" />
+  </Target>
+
+  <!-- ==================== plugin zips ==================== -->
+
+  <Target Name="AtvDogfoodPluginZips"
+          DependsOnTargets="AtvDogfoodComputeVersion"
+          Inputs="@(AtvDogfoodIntegrationFiles);$(MSBuildThisFileFullPath)"
+          Outputs="@(AtvDogfoodIntegrationDirs->'$(_AtvDogfoodRoot)\$(AtvCommandName)-plugin-%(Filename).zip')">
+
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+
+    <!-- -ZipPrefix derives the zip filename from $(AtvCommandName) (never a
+         hand-literaled "atv-plugin-" - standing invariant #2) so a rebrand
+         changes the shipped zip names for free; the Outputs transform above
+         uses the identical "$(AtvCommandName)-plugin-<host>.zip" pattern, so
+         MSBuild's own skip-detection is checking the REAL shipped files (not
+         a side stamp) - deleting just artifacts\dogfood\ without touching
+         obj\ correctly forces a rebuild (a side-stamp version of this target
+         did not: it lived outside artifacts\dogfood\ and survived that
+         deletion, so a `Remove-Item artifacts\dogfood -Recurse` followed by a
+         rebuild silently skipped the zips - caught 2026-07-23). -->
+    <Exec Command="pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(_AtvDogfoodTemplateDir)\New-PluginZips.ps1&quot; -RepoRoot &quot;$(_AtvRepoRoot)&quot; -OutputDir &quot;$(_AtvDogfoodRoot)&quot; -ZipPrefix &quot;$(AtvCommandName)-plugin&quot;" />
+  </Target>
+
+  <!-- ==================== install.ps1 / uninstall.ps1 / README.md ==================== -->
+  <!-- Same token-substitution idiom as build/Atv.Package.targets'
+       AtvStampAppxManifest: read the template, .Replace() the brand/command
+       tokens (never hand-literaled in the checked-in templates), write only
+       when different. $(AtvBrandName)/$(AtvCommandName) come from
+       Directory.Build.props' regex over src/Atv/Branding.cs; never re-derived
+       here (standing invariant #2). -->
+
+  <Target Name="AtvDogfoodInstallScript"
+          DependsOnTargets="AtvDogfoodComputeVersion"
+          Inputs="$(_AtvDogfoodInstallTemplate);$(MSBuildThisFileFullPath)"
+          Outputs="$(_AtvDogfoodInstallScript)">
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+    <PropertyGroup>
+      <_AtvDogfoodInstallTemplateText>$([System.IO.File]::ReadAllText('$(_AtvDogfoodInstallTemplate)'))</_AtvDogfoodInstallTemplateText>
+      <_AtvDogfoodInstallStamped>$(_AtvDogfoodInstallTemplateText.Replace('{IdentityName}', '$(AtvBrandName)').Replace('{Command}', '$(AtvCommandName)'))</_AtvDogfoodInstallStamped>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_AtvDogfoodInstallScript)" Lines="$(_AtvDogfoodInstallStamped)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Message Importance="high" Text="[Atv.Dogfood] Stamped: $(_AtvDogfoodInstallScript)" />
+  </Target>
+
+  <Target Name="AtvDogfoodUninstallScript"
+          DependsOnTargets="AtvDogfoodComputeVersion"
+          Inputs="$(_AtvDogfoodUninstallTemplate);$(MSBuildThisFileFullPath)"
+          Outputs="$(_AtvDogfoodUninstallScript)">
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+    <PropertyGroup>
+      <_AtvDogfoodUninstallTemplateText>$([System.IO.File]::ReadAllText('$(_AtvDogfoodUninstallTemplate)'))</_AtvDogfoodUninstallTemplateText>
+      <_AtvDogfoodUninstallStamped>$(_AtvDogfoodUninstallTemplateText.Replace('{IdentityName}', '$(AtvBrandName)').Replace('{Command}', '$(AtvCommandName)'))</_AtvDogfoodUninstallStamped>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_AtvDogfoodUninstallScript)" Lines="$(_AtvDogfoodUninstallStamped)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Message Importance="high" Text="[Atv.Dogfood] Stamped: $(_AtvDogfoodUninstallScript)" />
+  </Target>
+
+  <Target Name="AtvDogfoodReadme"
+          DependsOnTargets="AtvDogfoodComputeVersion"
+          Inputs="$(_AtvDogfoodReadmeTemplate);$(MSBuildThisFileFullPath)"
+          Outputs="$(_AtvDogfoodReadme)">
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+    <PropertyGroup>
+      <_AtvDogfoodReadmeTemplateText>$([System.IO.File]::ReadAllText('$(_AtvDogfoodReadmeTemplate)'))</_AtvDogfoodReadmeTemplateText>
+      <_AtvDogfoodReadmeStamped>$(_AtvDogfoodReadmeTemplateText.Replace('{IdentityName}', '$(AtvBrandName)').Replace('{Command}', '$(AtvCommandName)'))</_AtvDogfoodReadmeStamped>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_AtvDogfoodReadme)" Lines="$(_AtvDogfoodReadmeStamped)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Message Importance="high" Text="[Atv.Dogfood] Stamped: $(_AtvDogfoodReadme)" />
+  </Target>
+
+  <!-- ==================== both, one command (AC1) ==================== -->
+
+  <Target Name="AtvDogfood" DependsOnTargets="AtvDogfoodBundle;AtvDogfoodPluginZips;AtvDogfoodInstallScript;AtvDogfoodUninstallScript;AtvDogfoodReadme">
+    <Message Importance="high" Text="[Atv.Dogfood] Kit ready: $(_AtvDogfoodRoot)" />
+  </Target>
+
+</Project>

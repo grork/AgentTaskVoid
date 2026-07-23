@@ -1,0 +1,158 @@
+<#
+.SYNOPSIS
+    Installs the {IdentityName} dogfood kit.
+
+.DESCRIPTION
+    Run from inside the expanded kit folder (next to the .msixbundle). Trusts
+    the bundle's own signing certificate (one explained elevation), installs
+    the bundle, then offers to wire each detected, supported host's plugin
+    from this kit's own zips. Run uninstall.ps1 to reverse everything.
+
+.PARAMETER SkipPluginWiring
+    Install the bundle only; skip every host wiring prompt.
+#>
+[CmdletBinding()]
+param(
+    [switch] $SkipPluginWiring
+)
+
+$ErrorActionPreference = 'Stop'
+$kitRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Read-Consent([string] $Prompt) {
+    $answer = Read-Host "$Prompt [y/N]"
+    return $answer -match '^[Yy]'
+}
+
+Write-Host "=== {IdentityName} dogfood installer ==="
+
+$bundle = Get-ChildItem -Path $kitRoot -Filter '*.msixbundle' | Select-Object -First 1
+if (-not $bundle) {
+    throw "No .msixbundle found in $kitRoot. Run this script from inside the expanded kit folder."
+}
+Write-Host "Bundle: $($bundle.Name)"
+
+# --- Step 1: extract the signer, explain, then trust it --------------------
+$sig = Get-AuthenticodeSignature -FilePath $bundle.FullName
+if ($sig.Status -eq 'NotSigned' -or $null -eq $sig.SignerCertificate) {
+    throw "The bundle has no readable signature (Status=$($sig.Status)). Aborting."
+}
+
+$signer = $sig.SignerCertificate
+if ($signer.Subject -ne $signer.Issuer) {
+    throw "The bundle's signer ($($signer.Subject)) is not self-signed. This installer only trusts a self-signed development certificate -- aborting."
+}
+
+Write-Host ""
+Write-Host "Signer subject:  $($signer.Subject)"
+Write-Host "Thumbprint:      $($signer.Thumbprint)"
+Write-Host "Expires:         $($signer.NotAfter)"
+Write-Host ""
+Write-Host "This build is signed with a temporary development certificate, not one"
+Write-Host "your machine already trusts. Trusting it needs one admin action (adding"
+Write-Host "it to this machine's Trusted People store). uninstall.ps1 can remove it"
+Write-Host "again later."
+Write-Host ""
+
+$alreadyTrusted = Get-ChildItem Cert:\LocalMachine\TrustedPeople -ErrorAction SilentlyContinue |
+    Where-Object { $_.Thumbprint -eq $signer.Thumbprint }
+
+if ($alreadyTrusted) {
+    Write-Host "Certificate already trusted -- no elevation needed."
+} else {
+    if (-not (Read-Consent "Trust this certificate now?")) {
+        throw "Certificate trust declined. Cannot continue."
+    }
+
+    $tempCertPath = Join-Path ([System.IO.Path]::GetTempPath()) ("{Command}-dogfood-cert-" + [System.Guid]::NewGuid().ToString('N') + '.cer')
+    Export-Certificate -Cert $signer -FilePath $tempCertPath | Out-Null
+    try {
+        Start-Process powershell -Verb RunAs -Wait -ArgumentList @(
+            '-NoProfile', '-NonInteractive', '-Command',
+            "Import-Certificate -FilePath `"$tempCertPath`" -CertStoreLocation Cert:\LocalMachine\TrustedPeople"
+        )
+    }
+    finally {
+        Remove-Item -LiteralPath $tempCertPath -Force -ErrorAction SilentlyContinue
+    }
+
+    $nowTrusted = Get-ChildItem Cert:\LocalMachine\TrustedPeople -ErrorAction SilentlyContinue |
+        Where-Object { $_.Thumbprint -eq $signer.Thumbprint }
+    if (-not $nowTrusted) {
+        throw "Certificate is still not present in Cert:\LocalMachine\TrustedPeople after the elevated import. Aborting."
+    }
+    Write-Host "Certificate trusted."
+}
+
+# --- Step 2: install the bundle ---------------------------------------------
+Write-Host ""
+Write-Host "Installing the bundle..."
+Add-AppxPackage -Path $bundle.FullName
+
+$pkg = Get-AppxPackage -Name '{IdentityName}'
+if (-not $pkg) {
+    throw "Add-AppxPackage completed but no '{IdentityName}' package is registered. Aborting."
+}
+Write-Host "Installed: $($pkg.PackageFullName)"
+
+Write-Host ""
+$atvCmd = Get-Command {Command} -ErrorAction SilentlyContinue
+if ($atvCmd) {
+    Write-Host "--- {Command} doctor ---"
+    & {Command} doctor
+} else {
+    Write-Host "'{Command}' isn't resolvable in this shell yet. Open a new terminal and run"
+    Write-Host "'{Command} doctor' there to confirm the install."
+}
+
+# --- Step 3: per-host plugin wiring -----------------------------------------
+# Per-host data, not per-host code, so a future verified host recipe is
+# additive here.
+$hostRecipes = @(
+    [pscustomobject]@{
+        HostName     = 'Claude Code'
+        DetectCmd    = 'claude'
+        ZipName      = '{Command}-plugin-claude-code.zip'
+        ManualNote   = 'See {Command}-plugin-claude-code.zip and this README for the manual path.'
+        Wire         = {
+            param($dir)
+            & claude plugin marketplace add $dir
+            & claude plugin install atv-integration@agent-task-void
+        }
+    }
+)
+
+if ($SkipPluginWiring) {
+    Write-Host ""
+    Write-Host "Skipping plugin wiring (-SkipPluginWiring)."
+} else {
+    foreach ($recipe in $hostRecipes) {
+        Write-Host ""
+        Write-Host "--- $($recipe.HostName) ---"
+
+        $detected = Get-Command $recipe.DetectCmd -ErrorAction SilentlyContinue
+        if (-not $detected) {
+            Write-Host "$($recipe.HostName) not detected ('$($recipe.DetectCmd)' not on PATH). $($recipe.ManualNote)"
+            continue
+        }
+
+        $zipPath = Join-Path $kitRoot $recipe.ZipName
+        if (-not (Test-Path $zipPath)) {
+            Write-Host "$($recipe.ZipName) not found next to this script. $($recipe.ManualNote)"
+            continue
+        }
+
+        if (-not (Read-Consent "$($recipe.HostName) detected. Wire the {IdentityName} plugin now?")) {
+            Write-Host "Skipped. $($recipe.ManualNote)"
+            continue
+        }
+
+        $extractDir = Join-Path $kitRoot ([System.IO.Path]::GetFileNameWithoutExtension($recipe.ZipName))
+        Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+        & $recipe.Wire $extractDir
+        Write-Host "Wired $($recipe.HostName) from $extractDir."
+    }
+}
+
+Write-Host ""
+Write-Host "Done. See README.md for the plugins this kit shipped without auto-wiring."

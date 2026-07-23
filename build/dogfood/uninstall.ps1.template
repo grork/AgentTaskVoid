@@ -1,0 +1,118 @@
+<#
+.SYNOPSIS
+    Uninstalls the {IdentityName} dogfood kit: unwires plugins, removes the
+    package, and optionally removes the trusted development certificate.
+
+.PARAMETER Thumbprint
+    Certificate thumbprint to remove, if the .msixbundle this kit installed
+    is no longer sitting next to this script.
+#>
+[CmdletBinding()]
+param(
+    [string] $Thumbprint
+)
+
+$ErrorActionPreference = 'Stop'
+$kitRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Read-Consent([string] $Prompt) {
+    $answer = Read-Host "$Prompt [y/N]"
+    return $answer -match '^[Yy]'
+}
+
+Write-Host "=== {IdentityName} dogfood uninstaller ==="
+
+# --- Step 1: unwire plugins for detected, wired hosts -----------------------
+# Same per-host recipe data as install.ps1, so a future verified host recipe
+# is additive here too.
+$hostRecipes = @(
+    [pscustomobject]@{
+        HostName  = 'Claude Code'
+        DetectCmd = 'claude'
+        Unwire    = {
+            & claude plugin uninstall atv-integration@agent-task-void
+            & claude plugin marketplace remove agent-task-void
+        }
+    }
+)
+
+foreach ($recipe in $hostRecipes) {
+    $detected = Get-Command $recipe.DetectCmd -ErrorAction SilentlyContinue
+    if (-not $detected) {
+        Write-Host "$($recipe.HostName) not detected -- nothing to unwire."
+        continue
+    }
+    Write-Host "Unwiring $($recipe.HostName)..."
+    try {
+        & $recipe.Unwire
+    } catch {
+        Write-Warning "Failed to unwire $($recipe.HostName): $_"
+    }
+}
+
+# --- Step 2: remove the package (exact Name, never a wildcard) -------------
+Write-Host ""
+$pkg = Get-AppxPackage -Name '{IdentityName}'
+if ($pkg) {
+    Write-Host "Removing package $($pkg.PackageFullName)..."
+    $pkg | Remove-AppxPackage
+    Write-Host "Removed. Taskbar cards and app data for this package are gone."
+} else {
+    Write-Host "No '{IdentityName}' package registered -- nothing to remove."
+}
+
+# --- Step 3: optionally remove the trusted development certificate --------
+Write-Host ""
+if (Read-Consent "Also remove the trusted development certificate?") {
+    if (-not $Thumbprint) {
+        $bundle = Get-ChildItem -Path $kitRoot -Filter '*.msixbundle' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($bundle) {
+            $sig = Get-AuthenticodeSignature -FilePath $bundle.FullName
+            if ($sig.SignerCertificate) {
+                $Thumbprint = $sig.SignerCertificate.Thumbprint
+            }
+        }
+    }
+
+    if (-not $Thumbprint) {
+        Write-Warning "No .msixbundle found next to this script and no -Thumbprint given -- cannot identify the certificate. Skipping cert removal."
+    } else {
+        if (Read-Consent "Remove certificate $Thumbprint from LocalMachine\TrustedPeople? This needs an elevated prompt.") {
+            # Enumerate matching certificates to a list BEFORE deleting: removing
+            # from a store cuts its own enumeration short mid-iteration, so a
+            # naive Get-ChildItem | Remove-Item pipeline can silently leave
+            # copies behind. Collect first, delete, then verify the count is
+            # zero. Runs from a standalone temp script (not an inline -Command
+            # string) so the elevated child never has to re-quote PowerShell
+            # inside PowerShell.
+            $elevatedScript = Join-Path ([System.IO.Path]::GetTempPath()) ("{Command}-dogfood-remove-cert-" + [System.Guid]::NewGuid().ToString('N') + '.ps1')
+            $elevatedScriptBody = @'
+param([string] $Thumbprint)
+$targets = @(Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object { $_.Thumbprint -eq $Thumbprint })
+foreach ($t in $targets) {
+    Remove-Item -LiteralPath $t.PSPath -Force
+}
+$remaining = @(Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object { $_.Thumbprint -eq $Thumbprint })
+Write-Host "[Atv.Dogfood] Removed $($targets.Count) match(es); $($remaining.Count) remain."
+'@
+            Set-Content -Path $elevatedScript -Value $elevatedScriptBody
+            try {
+                Start-Process powershell -Verb RunAs -Wait -ArgumentList @(
+                    '-NoProfile', '-NonInteractive', '-File', $elevatedScript, '-Thumbprint', $Thumbprint
+                )
+            }
+            finally {
+                Remove-Item -LiteralPath $elevatedScript -Force -ErrorAction SilentlyContinue
+            }
+        } else {
+            Write-Host "Certificate left trusted."
+        }
+    }
+} else {
+    Write-Host "Leaving the development certificate trusted."
+}
+
+Write-Host ""
+Write-Host "Done. Run this uninstaller before installing a future real-cert release --"
+Write-Host "a new signing certificate changes the package identity, so old and new"
+Write-Host "installs cannot upgrade in place."

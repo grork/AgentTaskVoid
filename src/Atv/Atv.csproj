@@ -81,5 +81,9 @@
        Adds the AtvRelease/AtvReleaseWinX64/AtvReleaseWinArm64 targets; never runs
        automatically (not hooked to Build/BeforeBuild), only via explicit -t:. -->
   <Import Project="..\..\build\Atv.Release.targets" />
+  <!-- Phase 23: dogfood distribution kit (bundle + plugin zips + install/uninstall
+       scripts + READMEs). Adds the AtvDogfood target, chained onto AtvRelease's
+       per-arch targets above; never runs automatically, only via explicit -t:. -->
+  <Import Project="..\..\build\Atv.Dogfood.targets" />
 
 </Project>

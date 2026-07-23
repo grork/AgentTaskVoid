@@ -265,3 +265,33 @@ identity-absent failure reason both print this exact string.
 `build/winget/manifests/.../Codevoid.AgentTaskVoid*.yaml`'s `PackageIdentifier`
 matches it exactly; there is no automated cross-check between the two files,
 since the manifest lives outside the compiled product.
+
+## 6. The dogfood kit: handing this CLI to another machine
+
+```
+dotnet build src\Atv\Atv.csproj -t:AtvDogfood
+```
+
+Produces `artifacts\dogfood\` (gitignored): a signed dual-arch
+`.msixbundle` stamped with the retail identity, one `atv-plugin-<host>.zip`
+per `integrations\<host>\` directory (the working tree's git-tracked files
+only, so a gitignored override like `atv-command.txt` never ships),
+`install.ps1`, `uninstall.ps1`, and a README — everything a recipient needs,
+with no clone of this repository. It chains onto section 1's per-arch
+publish/pack/sign work instead of repeating it, and signs with the same
+throwaway development certificate.
+
+The kit ships no certificate file. `install.ps1` reads the signer from the
+bundle's own Authenticode signature and asks before trusting it — one
+elevation, explained before it happens.
+
+Use this kit to hand the build to someone else's machine — a VM, a
+secondary machine, another person's PC. Use section 2's plain release msix
+for this dev box's own daily driver, and section 3's `-reltest` variant for
+upgrade/uninstall verification here. Installing the kit's bundle on this
+dev box would upgrade the daily driver in place (same PFN as section 2), so
+don't run `install.ps1` on this machine.
+
+Run `uninstall.ps1` before installing a future real-cert release (DIST-2): a
+different signing certificate means a different package identity, so an old
+dogfood install and the eventual real-cert install can't upgrade in place.
