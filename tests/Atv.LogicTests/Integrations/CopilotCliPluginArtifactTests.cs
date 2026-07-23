@@ -14,6 +14,8 @@ public sealed class CopilotCliPluginArtifactTests
         "postToolUse",
         "notification",
         "agentStop",
+        "subagentStart",
+        "subagentStop",
         "preCompact",
         "errorOccurred",
         "sessionEnd",
@@ -70,9 +72,8 @@ public sealed class CopilotCliPluginArtifactTests
         string[] actual = [.. hooks.EnumerateObject().Select(p => p.Name)];
         CollectionAssert.AreEquivalent(ExpectedHookEvents, actual);
         Assert.IsFalse(hooks.TryGetProperty("permissionRequest", out _), "permissionRequest is pre-service and must not be mapped directly to Blocked.");
-        Assert.IsFalse(hooks.TryGetProperty("subagentStart", out _), "Task tool events own uniquely-addressable lifecycle.");
-        Assert.IsFalse(hooks.TryGetProperty("subagentStop", out _), "Raw subagentStop lacks the task instance id.");
         Assert.IsFalse(hooks.TryGetProperty("postToolUseFailure", out _), "No verified mapping requires the extra synchronous hook.");
+        Assert.IsFalse(hooks.TryGetProperty("userPromptTransformed", out _), "The translator never rewrites model-facing prompt content.");
     }
 
     [TestMethod]

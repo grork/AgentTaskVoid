@@ -138,6 +138,7 @@ function New-CorrelationState {
         schemaVersion = $script:StateSchemaVersion
         pending = @()
         active = @()
+        subagentCounts = @()
     }
 }
 
@@ -153,6 +154,7 @@ function Read-CorrelationStateUnsafe {
         schemaVersion = $script:StateSchemaVersion
         pending = @(Get-Prop $parsed "pending")
         active = @(Get-Prop $parsed "active")
+        subagentCounts = @(Get-Prop $parsed "subagentCounts")
     }
 }
 
@@ -370,9 +372,80 @@ function Clear-CorrelationsForParent {
         $state = Read-CorrelationStateUnsafe $root
         $state.pending = @($state.pending | Where-Object { $_.parentSession -ne $ParentSession })
         $state.active = @($state.active | Where-Object { $_.parentSession -ne $ParentSession })
+        $state.subagentCounts = @($state.subagentCounts | Where-Object { $_.parentSession -ne $ParentSession })
         Write-CorrelationStateUnsafe $root $state
     }
 }
+
+function Add-SubagentStart {
+    # Records that one subagent spawned under a parent turn. The running total
+    # ("outstanding") is the number of subagents that have started but not yet
+    # emitted subagentStop; Complete-SubagentStop drives it back down.
+    param([string]$ParentSession)
+    $null = Invoke-CorrelationLocked {
+        param($root)
+        $state = Read-CorrelationStateUnsafe $root
+        Remove-ExpiredStateUnsafe $state ([DateTimeOffset]::UtcNow)
+        $existing = @($state.subagentCounts | Where-Object { $_.parentSession -eq $ParentSession })
+        $current = if ($existing.Count -eq 1) { [int]$existing[0].outstanding } else { 0 }
+        $state.subagentCounts = @($state.subagentCounts | Where-Object { $_.parentSession -ne $ParentSession })
+        $state.subagentCounts += [pscustomobject]@{ parentSession = $ParentSession; outstanding = $current + 1 }
+        Write-CorrelationStateUnsafe $root $state
+    }
+}
+
+function Complete-SubagentStop {
+    # Decrements the parent's outstanding-subagent count by one. When it reaches
+    # zero, EVERY subagent that started under this parent has now stopped, so any
+    # child correlation still tracked here was orphaned by a cancel/interrupt --
+    # Copilot emits no routable per-instance completion for a cancelled subagent
+    # (its subagentStop carries only the agent TYPE, and parallel same-type
+    # instances are indistinguishable), and on cancel the parent's own agentStop
+    # never fires either. Reaching zero is the one unambiguous "nothing is
+    # running under this parent" moment, so it is safe to retire every remaining
+    # child card regardless of type. Returns the retired task names (empty when
+    # the normal per-child agentStop path already cleaned them up, which is the
+    # common no-op case). Observed live on Copilot 1.0.74.
+    param([string]$ParentSession)
+    return Invoke-CorrelationLocked {
+        param($root)
+        $state = Read-CorrelationStateUnsafe $root
+        Remove-ExpiredStateUnsafe $state ([DateTimeOffset]::UtcNow)
+
+        $existing = @($state.subagentCounts | Where-Object { $_.parentSession -eq $ParentSession })
+        $current = if ($existing.Count -eq 1) { [int]$existing[0].outstanding } else { 0 }
+
+        # A stray stop with nothing outstanding (missed start, cleared state) is
+        # anomalous; never let it trigger a sweep on its own.
+        if ($current -le 0) {
+            $state.subagentCounts = @($state.subagentCounts | Where-Object { $_.parentSession -ne $ParentSession })
+            Write-CorrelationStateUnsafe $root $state
+            return @()
+        }
+
+        $remaining = $current - 1
+        $state.subagentCounts = @($state.subagentCounts | Where-Object { $_.parentSession -ne $ParentSession })
+        if ($remaining -gt 0) {
+            $state.subagentCounts += [pscustomobject]@{ parentSession = $ParentSession; outstanding = $remaining }
+            Write-CorrelationStateUnsafe $root $state
+            return @()
+        }
+
+        # Outstanding hit zero: sweep every child still tracked for this parent.
+        $taskNames = @()
+        foreach ($record in @(@($state.pending) + @($state.active))) {
+            if ($record.parentSession -eq $ParentSession `
+                    -and -not [string]::IsNullOrEmpty($record.taskName) -and ($taskNames -notcontains $record.taskName)) {
+                $taskNames += $record.taskName
+            }
+        }
+        $state.pending = @($state.pending | Where-Object { $_.parentSession -ne $ParentSession })
+        $state.active = @($state.active | Where-Object { $_.parentSession -ne $ParentSession })
+        Write-CorrelationStateUnsafe $root $state
+        return , $taskNames
+    }
+}
+
 
 function Convert-ToolArgs {
     param($Raw)
@@ -665,6 +738,37 @@ try {
             }
             else {
                 Invoke-Atv -AtvArgs (@("ready", $sessionId) + (Get-CwdArgs $cwd)) -StdinText $null
+            }
+        }
+
+        "subagentStart" {
+            # subagentStart/subagentStop fire on the PARENT session and carry
+            # only the agent type, not the caller name or child session id -- too
+            # coarse to route a single card. They are used purely to count how
+            # many subagents are outstanding under this parent (Add/Complete-
+            # SubagentStop), which is what lets subagentStop clean up a cancel.
+            if (-not (Test-ChildSession $sessionId)) {
+                Add-SubagentStart $sessionId
+            }
+        }
+
+        "subagentStop" {
+            if (-not (Test-ChildSession $sessionId)) {
+                $orphanTasks = Complete-SubagentStop $sessionId
+                # A non-empty result means outstanding hit zero with children
+                # still tracked: they were orphaned by a cancel/interrupt (the
+                # normal per-child agentStop path would have retired them, and on
+                # cancel neither that nor the parent's own agentStop fires). Retire
+                # each stranded child card, then -- because a cancel has no
+                # resuming turn -- ready the parent. The ready is gated on having
+                # actually swept orphans, so a normal completion (which sweeps
+                # nothing) never flips a resuming sync parent to Completed early.
+                if ($null -ne $orphanTasks -and @($orphanTasks).Count -gt 0) {
+                    foreach ($orphanTask in $orphanTasks) {
+                        Invoke-Atv -AtvArgs (@("agent-stopped", $sessionId, "--agent", $orphanTask) + (Get-CwdArgs $cwd)) -StdinText $null
+                    }
+                    Invoke-Atv -AtvArgs (@("ready", $sessionId) + (Get-CwdArgs $cwd)) -StdinText $null
+                }
             }
         }
 

@@ -37,6 +37,20 @@
         "timeoutSec": 10
       }
     ],
+    "subagentStart": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'subagentStart'",
+        "timeoutSec": 10
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "powershell": "& (Join-Path $env:COPILOT_PLUGIN_ROOT 'translate.ps1') -Event 'subagentStop'",
+        "timeoutSec": 10
+      }
+    ],
     "preCompact": [
       {
         "type": "command",

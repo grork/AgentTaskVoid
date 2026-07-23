@@ -15,6 +15,13 @@
         "timeoutSec": 10
       }
     ],
+    "userPromptTransformed": [
+      {
+        "type": "command",
+        "powershell": "& '__RECORDER_EXE_PATH__' --host copilot-cli --event userPromptTransformed",
+        "timeoutSec": 10
+      }
+    ],
     "preToolUse": [
       {
         "type": "command",

@@ -64,6 +64,8 @@ before any card can render.
 | Child `userPromptSubmitted` | atomically claims the matching pending prompt hash into a child-session → parent/task record |
 | Child `preToolUse` | `activity <parent> --agent <task-name> ...`, which the engine redirects to the child card |
 | Child `agentStop` | `agent-stopped <parent> --agent <task-name>`; `ready <parent>` only when the subagent was a background worker |
+| `subagentStart` | counts one more outstanding subagent under the parent; no card change |
+| `subagentStop` | decrements that count; on reaching zero, retires every child card still tracked for the parent and readies the parent — this is the cancel cleanup |
 | Sync `postToolUse:task` | `agent-stopped` completion fallback, no `ready` |
 | Background `notification:agent_idle`/`agent_completed` | `agent-stopped`, then `ready` |
 | `notification:permission_prompt` | `blocked`; bare `permissionRequest` is not hooked because it fires on auto-approved paths too |
@@ -125,6 +127,26 @@ missing, or multiple identical pending prompts make the match ambiguous,
 Copilot continues normally and the integration falls back to parent/task
 lifecycle reporting rather than guessing.
 
+## Cancel cleanup
+
+Interrupting a turn with Esc emits no per-subagent completion the translator
+can route: no child `agentStop`, no `agent_idle`, and no parent `agentStop`
+either. The only cancel signal is one `subagentStop` per subagent, on the
+parent session, carrying just the agent type — too coarse to name a single
+card.
+
+So the translator counts instead. `subagentStart` increments an
+outstanding-subagent count per parent; `subagentStop` decrements it. Reaching
+zero means every subagent that started has stopped, so any child still tracked
+for that parent was cancelled — the translator retires all of them and readies
+the parent. On a normal turn each child's own `agentStop` already retired its
+card, so the zero-crossing sweep finds nothing and stays silent (it never
+readies a resuming sync parent early). The count is the one unambiguous
+"nothing is running under this parent" moment, so the sweep needs no per-card
+identity. Cancelling one subagent of several only decrements the count, so its
+card lingers until the siblings stop and the count reaches zero — delayed, not
+misattributed.
+
 ## Dev dogfood: the `atv-command.txt` override
 
 `translate.ps1` resolves the `atv` command it invokes in this order: the
@@ -173,6 +195,9 @@ when everything inside it has failed.
   (`call_` for OpenAI-family, `toolu_` for Claude-family, seen through Copilot
   1.0.74). Re-capture when the installed version changes significantly.
 - Concurrent identical child prompts are not correlated.
+- Cancelling one subagent of several (e.g. via the `/tasks` manager) leaves its
+  card Running until the remaining subagents stop and the outstanding count
+  reaches zero, at which point it is swept with them.
 - A genuine `postToolUseFailure` and `errorOccurred` payload were not induced
   during capture; error mapping retains conservative fallbacks.
 - Command hooks are synchronous, so tool event publication adds process-launch

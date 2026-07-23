@@ -10,6 +10,7 @@ public sealed class CopilotCliArtifactTests
     [
         "sessionStart",
         "userPromptSubmitted",
+        "userPromptTransformed",
         "preToolUse",
         "postToolUse",
         "postToolUseFailure",

@@ -28,6 +28,15 @@ public sealed class CopilotCliTranslatorTests
     private static string ChildTool(string toolName, string toolArgs, string child = Child) =>
         $$"""{"sessionId":"{{child}}","timestamp":4,"cwd":"{{Json(Cwd)}}","toolName":"{{toolName}}","toolArgs":"{{Json(toolArgs)}}"}""";
 
+    private static string SubagentStart(string agentType = "explore") =>
+        $$"""{"sessionId":"{{Parent}}","timestamp":2,"cwd":"{{Json(Cwd)}}","agentName":"{{agentType}}","agentDisplayName":"Agent"}""";
+
+    private static string SubagentStop(string agentType = "explore") =>
+        $$"""{"sessionId":"{{Parent}}","timestamp":6,"cwd":"{{Json(Cwd)}}","agentName":"{{agentType}}","stopReason":"end_turn"}""";
+
+    private static string ChildStop(string child) =>
+        $$"""{"sessionId":"{{child}}","timestamp":7,"cwd":"{{Json(Cwd)}}","transcriptPath":"","stopReason":"end_turn"}""";
+
     private static string Json(string value) => JsonSerializer.Serialize(value)[1..^1];
 
     private static JsonDocument ReadState(TempDirectory state)
@@ -293,6 +302,97 @@ public sealed class CopilotCliTranslatorTests
 
         string ask = $$"""{"sessionId":"{{Parent}}","timestamp":8,"cwd":"{{Json(Cwd)}}","toolName":"ask_user","toolArgs":"{{Json("""{"question":"Proceed?","choices":["Yes","No"]}""")}}"}""";
         Assert.AreEqual("blocked", RunTranslator("preToolUse", ask, state.Path).Single().Argv[0]);
+    }
+
+    [TestMethod]
+    public void FullCancel_SubagentStopCountReachesZero_RetiresAllChildrenAndReadies()
+    {
+        // Regression: on Esc-cancel of parallel subagents, Copilot emits one
+        // subagentStop per subagent (on the parent, agent-type only -- no child
+        // id) and no child agentStop and no parent agentStop. The subagentStart/
+        // subagentStop counter reaching zero is the only "nothing is running"
+        // signal; it must sweep every stranded child card and ready the parent.
+        using var state = new TempDirectory();
+        RunTranslator("preToolUse", ParentTask("reader-alpha", "Prompt alpha"), state.Path);
+        RunTranslator("preToolUse", ParentTask("reader-bravo", "Prompt bravo"), state.Path);
+        RunTranslator("preToolUse", ParentTask("reader-charlie", "Prompt charlie"), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        // Two claim an active child session; charlie is cancelled while still pending.
+        RunTranslator("userPromptSubmitted", ChildPrompt("toolu_alpha", "Prompt alpha"), state.Path);
+        RunTranslator("userPromptSubmitted", ChildPrompt("toolu_bravo", "Prompt bravo"), state.Path);
+
+        // The first two stops only decrement the count; nothing is retired yet.
+        Assert.IsEmpty(RunTranslator("subagentStop", SubagentStop(), state.Path));
+        Assert.IsEmpty(RunTranslator("subagentStop", SubagentStop(), state.Path));
+
+        // The third drives outstanding to zero -> sweep every remaining child.
+        var calls = RunTranslator("subagentStop", SubagentStop(), state.Path);
+        string[] verbs = [.. calls.Select(c => c.Argv[0])];
+        Assert.AreEqual(3, verbs.Count(v => v == "agent-stopped"), "Every stranded child must be retired.");
+        Assert.AreEqual("ready", verbs[^1], "ready must be the final claim, after the retirements.");
+        string[] retired = [.. calls.Where(c => c.Argv[0] == "agent-stopped").Select(c => c.Argv[3])];
+        CollectionAssert.AreEquivalent(new[] { "reader-alpha", "reader-bravo", "reader-charlie" }, retired);
+
+        using JsonDocument doc = ReadState(state);
+        Assert.HasCount(0, doc.RootElement.GetProperty("active").EnumerateArray().ToArray());
+        Assert.HasCount(0, doc.RootElement.GetProperty("pending").EnumerateArray().ToArray());
+    }
+
+    [TestMethod]
+    public void NormalCompletion_SubagentStopSweepIsNoOp()
+    {
+        // On normal completion each child fires its own agentStop, which retires
+        // its card precisely. The subagentStop counter still reaches zero, but the
+        // sweep finds nothing left -- so it emits neither agent-stopped nor ready
+        // (a resuming sync parent is never flipped to Completed early).
+        using var state = new TempDirectory();
+        RunTranslator("preToolUse", ParentTask("reader-alpha", "Prompt alpha"), state.Path);
+        RunTranslator("preToolUse", ParentTask("reader-bravo", "Prompt bravo"), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        RunTranslator("userPromptSubmitted", ChildPrompt("toolu_alpha", "Prompt alpha"), state.Path);
+        RunTranslator("userPromptSubmitted", ChildPrompt("toolu_bravo", "Prompt bravo"), state.Path);
+
+        Assert.AreEqual("agent-stopped", RunTranslator("agentStop", ChildStop("toolu_alpha"), state.Path).Single().Argv[0]);
+        Assert.AreEqual("agent-stopped", RunTranslator("agentStop", ChildStop("toolu_bravo"), state.Path).Single().Argv[0]);
+
+        Assert.IsEmpty(RunTranslator("subagentStop", SubagentStop(), state.Path));
+        Assert.IsEmpty(RunTranslator("subagentStop", SubagentStop(), state.Path), "The zero-crossing sweep must be a no-op once children are precisely retired.");
+
+        using JsonDocument doc = ReadState(state);
+        Assert.HasCount(0, doc.RootElement.GetProperty("active").EnumerateArray().ToArray());
+        Assert.HasCount(0, doc.RootElement.GetProperty("pending").EnumerateArray().ToArray());
+    }
+
+    [TestMethod]
+    public void PartialCancel_IsCleanedUpWhenTheLastSubagentStops()
+    {
+        // Cancelling one of two subagents (e.g. via the /tasks manager) only
+        // decrements the count, so the cancelled card lingers -- delayed, not
+        // wrong. When the surviving subagent finishes and its subagentStop drives
+        // the count to zero, the still-stranded child is swept and the parent readied.
+        using var state = new TempDirectory();
+        RunTranslator("preToolUse", ParentTask("reader-alpha", "Prompt alpha"), state.Path);
+        RunTranslator("preToolUse", ParentTask("reader-bravo", "Prompt bravo"), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        RunTranslator("subagentStart", SubagentStart(), state.Path);
+        RunTranslator("userPromptSubmitted", ChildPrompt("toolu_alpha", "Prompt alpha"), state.Path);
+        RunTranslator("userPromptSubmitted", ChildPrompt("toolu_bravo", "Prompt bravo"), state.Path);
+
+        Assert.IsEmpty(RunTranslator("subagentStop", SubagentStop(), state.Path));
+        using (JsonDocument mid = ReadState(state))
+            Assert.HasCount(2, mid.RootElement.GetProperty("active").EnumerateArray().ToArray());
+
+        Assert.AreEqual("agent-stopped", RunTranslator("agentStop", ChildStop("toolu_bravo"), state.Path).Single().Argv[0]);
+
+        var calls = RunTranslator("subagentStop", SubagentStop(), state.Path);
+        CollectionAssert.AreEqual(new[] { "agent-stopped", "ready" }, calls.Select(c => c.Argv[0]).ToArray());
+        Assert.AreEqual("reader-alpha", calls[0].Argv[3], "The stranded child, not the normally-completed one, is swept.");
+
+        using JsonDocument doc = ReadState(state);
+        Assert.HasCount(0, doc.RootElement.GetProperty("active").EnumerateArray().ToArray());
     }
 
     [TestMethod]

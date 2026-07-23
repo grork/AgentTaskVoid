@@ -222,3 +222,27 @@ The translator therefore classifies a child by "not a GUID" rather than a fixed
 prefix (`Test-ChildSession` in `translate.ps1`). A `call_`-only gate drops
 `toolu_` children into the main-session path, which emits one spurious
 top-level card per subagent on top of the correct rolled-up sub-cards.
+
+### Esc-cancel of subagents emits only `subagentStop` (Copilot 1.0.74-4, 2026-07-23)
+
+Captured with the host-event-recorder camping all 14 documented events, driving
+three parallel background subagents interactively and interrupting mid-run with
+Esc (a real operator run plus a node-pty reproduction). On cancel the only hook
+that fires is `subagentStop`, once per subagent, on the parent session. There is
+**no** child `agentStop`, **no** `notification:agent_idle`, and **no** parent
+`agentStop` — the parent goes straight to `subagentStop`×N, then `sessionEnd` on
+exit.
+
+`subagentStop` (like `subagentStart`) carries only the agent type
+(`agentName`), the parent's transcript path, and `stopReason:"end_turn"` — no
+caller-supplied task name and no child session id, so parallel same-type
+instances are indistinguishable. Cancelling three same-type subagents yields
+three identical-shaped `subagentStop` payloads.
+
+The translator therefore treats these events only as a counter:
+`subagentStart` increments a per-parent outstanding count, `subagentStop`
+decrements it, and reaching zero retires every child card still tracked for that
+parent and readies it. Because a normal turn retires each child precisely via
+its own child `agentStop` before the count reaches zero, the zero-crossing sweep
+is a no-op on the normal path and fires only on a cancel. See the integration
+README's "Cancel cleanup".
