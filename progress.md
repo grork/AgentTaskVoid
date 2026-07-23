@@ -30,12 +30,28 @@ Phase 22 is ✅ **fully complete** — code half (AC1–AC11) signed off + commi
 Phase 25 is ✅ **fully complete** (2026-07-21) — code half (AC1–AC4) signed off + committed, and
 **AC5 closed on the operator's own eyeball of a rendered glyph gallery** (details in the phase-25 log).
 
-Phase 23 code half (AC1–AC5, AC7) is ✅ signed off + committed `6021344` (2026-07-23).
-**Next: phase 23's AC6** — LIVE supervised install/uninstall smoke test, which per the phase file
-must run on a **VM or secondary machine, never the operator's primary box** (the bundle installs the
-retail identity in place — same PFN as the operator's real daily-driver install). Needs the operator
-to confirm a VM/secondary machine is available before this can proceed. After AC6 closes, phase 23 is
-fully complete; then phase 24 (Copilot leg, gated on Copilot access).
+Phase 23 code half (AC1–AC5, AC7) is ✅ signed off + committed `6021344` (2026-07-23; progress logged
+in `04f6084`). **Next: phase 23's AC6** — the one remaining item. **PAUSED HERE (2026-07-23) at the
+operator's request**: they confirmed a VM/secondary machine exists but isn't with them right now, and
+asked to resume AC6 in a fresh session once it is. Nothing else is pending on phase 23 — do not re-run
+the executor/reviewer loop on the code half, it's signed off and committed.
+
+**To resume AC6 in a new session:** this is a LIVE, operator-supervised install/uninstall smoke test
+that per the phase file must run on a **VM or secondary machine, never the operator's primary box**
+(the bundle installs the retail identity in place — same PFN as the operator's real daily-driver
+`atv` install on the primary box — so running it there would upgrade that install rather than test a
+clean recipient scenario). Follow phase-25/phase-22's live-phase protocol (documented just below):
+orchestrator drives one concrete step at a time, operator is hands/eyes on the secondary machine.
+Concretely: (1) confirm `artifacts/dogfood/` is current on the primary box (`dotnet build
+src\Atv\Atv.csproj -t:AtvDogfood` — no-op if nothing changed since `6021344`); (2) get the whole
+`artifacts/dogfood/` folder onto the secondary machine (it's gitignored, so copy it directly — zip,
+USB, network share, whatever the operator has); (3) on the secondary machine, run `install.ps1`,
+confirm the one explained elevation, bundle install, fresh-shell `atv doctor` reporting the retail
+identity, Claude Code prompting and wiring, a card rendering; (4) run `uninstall.ps1`, confirm plugin
+unwired, package gone, cards vanish, cert-removal prompt honored; (5) if the secondary machine has its
+own dev/test/reltest pools, confirm those are untouched (no Copilot leg in this smoke — that's phase
+24). Sign off AC6 only on the operator's own observation of each step, not the orchestrator's inference.
+After AC6 closes, phase 23 is fully complete; then phase 24 (Copilot leg, gated on Copilot access).
 
 **Phase 25 in one line:** `GlyphRenderer.Render` centers Segoe glyphs by the DWrite line box
 (`SetParagraphAlignment(CENTER)`) instead of the glyph ink box, so they ride high on the accent
@@ -85,7 +101,7 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
 | 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding → phase 25. |
 | 25 | Glyph ink-box centering on the accent tile (phase-22 AC12 fallout; **executes before 23**) | ✅ | 1 | Code half AC1–AC4 PASS (1st, `377b65b`); AC5 closed on operator's own eyeball of a 30-glyph rendered gallery 2026-07-21. |
-| 23 | Dogfood distribution kit (DIST-13) | 🔄 | 1 | Code half AC1–AC5, AC7 PASS (1st, `6021344`, 2026-07-23). AC6 (LIVE install/uninstall smoke) needs a VM/secondary machine — pending. |
+| 23 | Dogfood distribution kit (DIST-13) | 🔄 | 1 | Code half AC1–AC5, AC7 PASS (1st, `6021344`, 2026-07-23). **PAUSED on AC6** (LIVE install/uninstall smoke) — operator has a VM but not with them; resuming in a fresh session, see RESUME HERE. |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
