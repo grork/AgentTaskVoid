@@ -29,8 +29,13 @@ Phase 22 is ✅ **fully complete** — code half (AC1–AC11) signed off + commi
 
 Phase 25 is ✅ **fully complete** (2026-07-21) — code half (AC1–AC4) signed off + committed, and
 **AC5 closed on the operator's own eyeball of a rendered glyph gallery** (details in the phase-25 log).
-**Next: phase 23** (Dogfood distribution kit, DIST-13), then phase 24 (Copilot leg, gated on Copilot
-access).
+
+Phase 23 code half (AC1–AC5, AC7) is ✅ signed off + committed `6021344` (2026-07-23).
+**Next: phase 23's AC6** — LIVE supervised install/uninstall smoke test, which per the phase file
+must run on a **VM or secondary machine, never the operator's primary box** (the bundle installs the
+retail identity in place — same PFN as the operator's real daily-driver install). Needs the operator
+to confirm a VM/secondary machine is available before this can proceed. After AC6 closes, phase 23 is
+fully complete; then phase 24 (Copilot leg, gated on Copilot access).
 
 **Phase 25 in one line:** `GlyphRenderer.Render` centers Segoe glyphs by the DWrite line box
 (`SetParagraphAlignment(CENTER)`) instead of the glyph ink box, so they ride high on the accent
@@ -80,6 +85,7 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
 | 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding → phase 25. |
 | 25 | Glyph ink-box centering on the accent tile (phase-22 AC12 fallout; **executes before 23**) | ✅ | 1 | Code half AC1–AC4 PASS (1st, `377b65b`); AC5 closed on operator's own eyeball of a 30-glyph rendered gallery 2026-07-21. |
+| 23 | Dogfood distribution kit (DIST-13) | 🔄 | 1 | Code half AC1–AC5, AC7 PASS (1st, `6021344`, 2026-07-23). AC6 (LIVE install/uninstall smoke) needs a VM/secondary machine — pending. |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -831,5 +837,15 @@ logged against `docs/maintenance/new-build-checklist.md`. Separate doc job.
 - **⚠️ Process miss caught + corrected (recorded so it isn't repeated):** the orchestrator first tried to close AC5 on a gallery it had only `Read` into its OWN context — the operator had not seen it. The operator rejected that ("**I** haven't seen it"). Fixed by copying the PNG to an operator-openable path and waiting for the operator's actual view. **Rule reinforced: an image the orchestrator renders/Reads is NOT operator evidence — a human-eyeball AC requires the human to open and look at it themselves.** See [[host-integration-needs-live-dogfood]].
 
 **Minor observed inaccuracy (non-blocking, later tidy — do NOT bundle into an unrelated commit):** `doctor`'s app-data line says the platform's `tasks.json` lives "under [LocalState]", but the real AppTaskInfo store is at `…\Packages\<PFN>\SystemAppData\AppTasks\tasks.json` — a *sibling* of `LocalState`, not under it (observed directly during AC12). The durable log + sidecar index DO live under LocalState; only the tasks.json clause is off. Candidate one-line `DoctorChecks`/`DoctorVerb` wording fix.
+
+### Phase 23 — Dogfood distribution kit ✅ CODE HALF (AC1–AC5, AC7) signed off 1st attempt; ⏳ AC6 live pending (lean mode)
+- **Files:** new `build/Atv.Dogfood.targets` (`-t:AtvDogfood` producer, chained on `-t:AtvRelease`), `build/dogfood/{install.ps1.template,uninstall.ps1.template,README.template.md,New-PluginZips.ps1,Show-BundleThumbprint.ps1}`. Modified `src/Atv/Atv.csproj` (+Import), `docs/release.md` (+§6), `CLAUDE.md` (+1 pointer line).
+- **Result:** build 0/0; `Atv.LogicTests` **876/876**; plain `dotnet build` and `-t:AtvRelease` NativeAOT publish unaffected. `-t:AtvDogfood` from a clean `artifacts/dogfood/` yields exactly the bundle + 2 plugin zips (`claude-code`, `copilot-cli`) + `install.ps1`/`uninstall.ps1`/`README.md`, no cert file of any kind; re-run is a genuine no-op (verified by hash+mtime compare, not just exit code).
+- **Empirical finding (the plan's own open question):** `winapp package --manifest` takes exactly ONE manifest for the whole bundle invocation, not per-arch — `winapp` derives each embedded package's `ProcessorArchitecture` from the actual binary in that arch's publish folder, not from manifest text. Neither of the phase file's two speculated candidates was quite right.
+- **Bugs found + fixed during executor verification (not left for review to catch):** (1) the zip target's original `Outputs` was a side-stamp file outside `artifacts/dogfood/`, so deleting only that folder (not `obj/`) left the build wrongly reporting up-to-date while silently omitting both zips — fixed by deriving `Outputs` from the real per-host zip paths; (2) `uninstall.ps1.template`'s elevated cert-removal command had an invalid backslash-escape nested in a `-Command` string (PowerShell needs backtick, not `\"`) — caught via `[System.Management.Automation.Language.Parser]::ParseFile`, fixed with a standalone temp elevated script.
+- **AC5's verification-precondition trap, closed empirically, twice independently (executor, then reviewer, each with their own throwaway cert — never the shared devcert):** this dev box already trusts the real `CN=AppTaskInfoCli` dev cert (the one signing the operator's actual daily-driver retail install, since DIST-2's real cert is still deferred), so testing the "read signer from blob, not store" claim against the shared devcert would pass for the wrong reason. Both agents generated a distinctly-named throwaway self-signed cert, confirmed it absent from every store first, signed a scratch file, and confirmed `Get-AuthenticodeSignature` still correctly extracts subject/thumbprint/expiry with `Status=UnknownError` (never `Valid`) and `HasPrivateKey=False` — empirically justifying the install script's `SignerCertificate -ne $null` gate over a `Status -eq 'Valid'` gate. Neither agent touched the real trusted certs or the operator's retail install.
+- **Review:** PASS (independent, 1st). Reviewer re-ran the build/no-op/stale-skip-regression checks itself (deleted only `artifacts/dogfood/`, confirmed the fix holds), independently unpacked the bundle and diffed both zips against `git ls-files`, independently re-derived the AC5 cert proof with its own cert, and re-ran `Atv.LogicTests` (876/876) + a plain `-t:AtvRelease` build itself rather than trusting the executor's report. Judged the `atv-integration@agent-task-void` marketplace-slug literal as a legitimate pre-existing identifier (phase 18's `marketplace.json`/`plugin.json`), not a missed brand-derivation gap. All 4 stated deviations (single combined README, `pwsh` for 2 build-time `Exec` calls only, a `-ZipPrefix` param, a temp-script-file pattern in uninstall.ps1) accepted on their merits.
+- **Scope discipline:** no Copilot auto-wiring logic (phase 24's job) — the plugin zip ships, but `$hostRecipes`/its equivalent in both scripts carries only Claude Code, structured so phase 24 is additive. No PowerShell test harness built (explicitly out of scope); the two new `.ps1` helpers are production build-time tooling invoked by the MSBuild target, not a test framework.
+- **⏳ AC6 (LIVE, operator-supervised) still open.** Per the phase file this must run on a **VM or secondary machine** — installing the bundle on the operator's primary box would upgrade the real daily-driver retail install in place (same PFN, since the kit deliberately stamps the retail identity). Blocked on the operator confirming such a machine is available; not yet scheduled.
 
 _(Further per-phase notes appended below as phases execute.)_
