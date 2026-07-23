@@ -30,28 +30,13 @@ Phase 22 is ✅ **fully complete** — code half (AC1–AC11) signed off + commi
 Phase 25 is ✅ **fully complete** (2026-07-21) — code half (AC1–AC4) signed off + committed, and
 **AC5 closed on the operator's own eyeball of a rendered glyph gallery** (details in the phase-25 log).
 
-Phase 23 code half (AC1–AC5, AC7) is ✅ signed off + committed `6021344` (2026-07-23; progress logged
-in `04f6084`). **Next: phase 23's AC6** — the one remaining item. **PAUSED HERE (2026-07-23) at the
-operator's request**: they confirmed a VM/secondary machine exists but isn't with them right now, and
-asked to resume AC6 in a fresh session once it is. Nothing else is pending on phase 23 — do not re-run
-the executor/reviewer loop on the code half, it's signed off and committed.
-
-**To resume AC6 in a new session:** this is a LIVE, operator-supervised install/uninstall smoke test
-that per the phase file must run on a **VM or secondary machine, never the operator's primary box**
-(the bundle installs the retail identity in place — same PFN as the operator's real daily-driver
-`atv` install on the primary box — so running it there would upgrade that install rather than test a
-clean recipient scenario). Follow phase-25/phase-22's live-phase protocol (documented just below):
-orchestrator drives one concrete step at a time, operator is hands/eyes on the secondary machine.
-Concretely: (1) confirm `artifacts/dogfood/` is current on the primary box (`dotnet build
-src\Atv\Atv.csproj -t:AtvDogfood` — no-op if nothing changed since `6021344`); (2) get the whole
-`artifacts/dogfood/` folder onto the secondary machine (it's gitignored, so copy it directly — zip,
-USB, network share, whatever the operator has); (3) on the secondary machine, run `install.ps1`,
-confirm the one explained elevation, bundle install, fresh-shell `atv doctor` reporting the retail
-identity, Claude Code prompting and wiring, a card rendering; (4) run `uninstall.ps1`, confirm plugin
-unwired, package gone, cards vanish, cert-removal prompt honored; (5) if the secondary machine has its
-own dev/test/reltest pools, confirm those are untouched (no Copilot leg in this smoke — that's phase
-24). Sign off AC6 only on the operator's own observation of each step, not the orchestrator's inference.
-After AC6 closes, phase 23 is fully complete; then phase 24 (Copilot leg, gated on Copilot access).
+Phases 23 and 24 are ✅ **complete**. Phase 23 (dogfood kit) code half committed `6021344`; its AC6
+(LIVE install/uninstall smoke) was operator-verified 2026-07-23. Phase 24 (the Copilot CLI
+auto-wiring leg) is done: the real `copilot` 1.0.74 local-marketplace wiring was verified, the
+installer/uninstaller gained the Copilot recipe, and the AC4 live smoke (install detects Copilot →
+wires → a card renders, completes, and clears from a real Copilot session → clean uninstall) was
+operator-confirmed 2026-07-23 on this Copilot-equipped box (no `atv` pre-installed, so a clean
+recipient). See the phase-24 log below for the verified commands and the live-session gotcha.
 
 **Phase 25 in one line:** `GlyphRenderer.Render` centers Segoe glyphs by the DWrite line box
 (`SetParagraphAlignment(CENTER)`) instead of the glyph ink box, so they ride high on the accent
@@ -101,7 +86,8 @@ drove the operator's real install for real. Judge red-first discipline from test
 | 21 | Dev-run safety rules in the docs (doc-only) | ✅ | 1 | PASS (1st). All 6 ACs met; item-4 stale prose already reconciled by phase 20's commit `269a164` (verified, not re-touched). |
 | 22 | Create-anchored card defaults: per-repo icon + anchor deep-link | ✅ | 1 | Code half AC1–AC11 PASS (1st, `31f1cbe`); AC12 live dogfood PASSED 2026-07-21 (all 4 checks). Surfaced an off-center Segoe-glyph-tile finding → phase 25. |
 | 25 | Glyph ink-box centering on the accent tile (phase-22 AC12 fallout; **executes before 23**) | ✅ | 1 | Code half AC1–AC4 PASS (1st, `377b65b`); AC5 closed on operator's own eyeball of a 30-glyph rendered gallery 2026-07-21. |
-| 23 | Dogfood distribution kit (DIST-13) | 🔄 | 1 | Code half AC1–AC5, AC7 PASS (1st, `6021344`, 2026-07-23). **PAUSED on AC6** (LIVE install/uninstall smoke) — operator has a VM but not with them; resuming in a fresh session, see RESUME HERE. |
+| 23 | Dogfood distribution kit (DIST-13) | ✅ | 1 | Code half AC1–AC5, AC7 PASS (1st, `6021344`, 2026-07-23); AC6 (LIVE install/uninstall smoke) operator-verified 2026-07-23. Complete. |
+| 24 | Dogfood kit — Copilot CLI auto-wiring leg | ✅ | 1 | All ACs met. Verified `copilot` 1.0.74 local-marketplace wiring; installer/uninstaller gained the Copilot recipe; AC4 live smoke (wire → card renders/completes/clears from a real Copilot session → clean uninstall) operator-confirmed 2026-07-23. |
 
 ### Phase 14 sub-tracking (single plan file, strict Part A → Part B ordering)
 
@@ -862,6 +848,13 @@ logged against `docs/maintenance/new-build-checklist.md`. Separate doc job.
 - **AC5's verification-precondition trap, closed empirically, twice independently (executor, then reviewer, each with their own throwaway cert — never the shared devcert):** this dev box already trusts the real `CN=AppTaskInfoCli` dev cert (the one signing the operator's actual daily-driver retail install, since DIST-2's real cert is still deferred), so testing the "read signer from blob, not store" claim against the shared devcert would pass for the wrong reason. Both agents generated a distinctly-named throwaway self-signed cert, confirmed it absent from every store first, signed a scratch file, and confirmed `Get-AuthenticodeSignature` still correctly extracts subject/thumbprint/expiry with `Status=UnknownError` (never `Valid`) and `HasPrivateKey=False` — empirically justifying the install script's `SignerCertificate -ne $null` gate over a `Status -eq 'Valid'` gate. Neither agent touched the real trusted certs or the operator's retail install.
 - **Review:** PASS (independent, 1st). Reviewer re-ran the build/no-op/stale-skip-regression checks itself (deleted only `artifacts/dogfood/`, confirmed the fix holds), independently unpacked the bundle and diffed both zips against `git ls-files`, independently re-derived the AC5 cert proof with its own cert, and re-ran `Atv.LogicTests` (876/876) + a plain `-t:AtvRelease` build itself rather than trusting the executor's report. Judged the `atv-integration@agent-task-void` marketplace-slug literal as a legitimate pre-existing identifier (phase 18's `marketplace.json`/`plugin.json`), not a missed brand-derivation gap. All 4 stated deviations (single combined README, `pwsh` for 2 build-time `Exec` calls only, a `-ZipPrefix` param, a temp-script-file pattern in uninstall.ps1) accepted on their merits.
 - **Scope discipline:** no Copilot auto-wiring logic (phase 24's job) — the plugin zip ships, but `$hostRecipes`/its equivalent in both scripts carries only Claude Code, structured so phase 24 is additive. No PowerShell test harness built (explicitly out of scope); the two new `.ps1` helpers are production build-time tooling invoked by the MSBuild target, not a test framework.
-- **⏳ AC6 (LIVE, operator-supervised) still open.** Per the phase file this must run on a **VM or secondary machine** — installing the bundle on the operator's primary box would upgrade the real daily-driver retail install in place (same PFN, since the kit deliberately stamps the retail identity). Blocked on the operator confirming such a machine is available; not yet scheduled.
+- **AC6 (LIVE, operator-supervised) ✅ CLOSED 2026-07-23.** Operator-verified install/uninstall smoke on a clean recipient machine. Phase 23 is fully complete.
+
+### Phase 24 — Dogfood kit: Copilot CLI auto-wiring leg ✅ COMPLETE (all ACs, operator-confirmed 2026-07-23)
+- **Files:** `build/dogfood/install.ps1.template` (+Copilot entry in `$hostRecipes`), `build/dogfood/uninstall.ps1.template` (+symmetric Copilot removal), `build/dogfood/README.template.md` (Copilot section → verified zip-relative commands, pending note dropped), `integrations/copilot-cli/README.md` (Install section: added the local-marketplace flow, fixed the stale "no local-marketplace flow" gap, added the live-session caveat). No `atv.exe` behavior change (out of scope).
+- **AC1 mechanism verified against real Copilot CLI 1.0.74:** `copilot plugin marketplace add <local dir>` accepts a local path and registers the marketplace by its `marketplace.json` `name` — `agent-task-void-copilot`, NOT the Claude `agent-task-void`; `copilot plugin install atv-integration@agent-task-void-copilot` installs it; `copilot plugin marketplace remove agent-task-void-copilot --force` removes plugin + marketplace in one step. DIST-13's pinned commands proved **correct** → no correction note appended to the DIST-13 record (Work item 1's conditional was not triggered). The integration README's "no local-marketplace flow" was the stale picture; corrected.
+- **Live-session gotcha (observed, Copilot 1.0.74):** running `copilot plugin install/uninstall` while a `copilot` session is live throws `Access is denied (os error 5)` and can leave a deregistered `installed-plugins` dir behind (files are freely deletable at rest; `marketplace remove --force` still deregisters). A clean first install succeeds. So the uninstaller uses the single `marketplace remove --force` (not the noisy, failing `plugin uninstall`), and the kit + integration READMEs say to run wiring from a plain terminal.
+- **AC2/AC5:** the Copilot recipe is additive per-host data in both scripts (no new architecture); no bare-wildcard package ops; brand grep clean (only the legitimate `atv-integration@agent-task-void[-copilot]` marketplace slugs, the phase-23 precedent); `-t:AtvDogfood` re-ran green (bundle up-to-date, zips + scripts restamped); both stamped scripts parse clean.
+- **AC4 LIVE (operator-supervised, this Copilot-equipped box, no `atv` pre-installed):** `install.ps1` → cert trusted (one elevation), retail bundle installed (PFN `Codevoid.AgentTaskVoid_016qghrny08mj`, `IsSupported() -> true`), Claude skipped (absent), **Copilot wired with no Access-denied** (clean first install). A real Copilot session rendered a taskbar card on prompt, completed at turn end, and cleared on session exit. `uninstall.ps1` deregistered the plugin + marketplace and removed the package cleanly (operator-checked); the deregistered residual plugin dir from the concurrent orchestrating session was swept. No other `atv` identity pools existed to disturb.
 
 _(Further per-phase notes appended below as phases execute.)_
