@@ -112,7 +112,7 @@ Artifacts land under distinct filenames (`artifacts\release\msix\Codevoid.AgentT
 
 Full runbook, the dev-cert-vs-real-cert distinction, and the supervised install/upgrade/uninstall verification steps: [`docs/release.md`](docs/release.md).
 
-To hand an unreleased build to another machine (a VM, a secondary machine, another person), `dotnet build src\Atv\Atv.csproj -t:AtvDogfood` (`build/Atv.Dogfood.targets`) packages a signed bundle, per-host plugin zips, and install/uninstall scripts into `artifacts\dogfood\` — see [`docs/release.md`](docs/release.md) §6.
+To hand an unreleased build to another machine (a VM, a secondary machine, another person), `dotnet build src\Atv\Atv.csproj -t:AtvDogfood` (`build/Atv.Dogfood.targets`) packages a signed bundle, per-host plugin zips, and install/uninstall scripts (each with a `.cmd` launcher for file-share/double-click use) into a per-version folder `artifacts\dogfood\<version>\` — see [`docs/release.md`](docs/release.md) §6.
 
 ### CsWinRT projection
 

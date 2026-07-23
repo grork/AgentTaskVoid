@@ -1,0 +1,4 @@
+# Batch launchers must keep CRLF endings so cmd.exe parses them reliably,
+# including the dogfood kit's install.cmd that ships to recipient machines.
+*.cmd text eol=crlf
+*.bat text eol=crlf

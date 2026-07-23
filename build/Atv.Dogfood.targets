@@ -20,12 +20,16 @@
   execution-time PropertyGroups for why reading them is safe regardless of
   import order (same rule Atv.Release.targets documents for $(BuildVersion)).
 
-  Produces (repo-root-relative, all gitignored under artifacts\ already):
-    artifacts\dogfood\Codevoid.AgentTaskVoid_<ver>_x64_arm64.msixbundle  (signed,
-                                                                          retail identity)
-    artifacts\dogfood\atv-plugin-<host>.zip     (one per integrations\<host>\ dir)
-    artifacts\dogfood\install.ps1               (stamped from build\dogfood\install.ps1.template)
-    artifacts\dogfood\uninstall.ps1             (stamped from build\dogfood\uninstall.ps1.template)
+  Produces a per-version subfolder (repo-root-relative, all gitignored under
+  artifacts\ already) so a stale kit from an earlier version can never be
+  mistaken for the current one - the folder name IS the version:
+    artifacts\dogfood\<ver>\Codevoid.AgentTaskVoid_<ver>_x64_arm64.msixbundle  (signed,
+                                                                                retail identity)
+    artifacts\dogfood\<ver>\atv-plugin-<host>.zip     (one per integrations\<host>\ dir)
+    artifacts\dogfood\<ver>\install.cmd               (copied from build\dogfood\install.cmd - bounces to PowerShell for UNC/double-click)
+    artifacts\dogfood\<ver>\install.ps1               (stamped from build\dogfood\install.ps1.template)
+    artifacts\dogfood\<ver>\uninstall.cmd             (copied from build\dogfood\uninstall.cmd - bounces to PowerShell for UNC/double-click)
+    artifacts\dogfood\<ver>\uninstall.ps1             (stamped from build\dogfood\uninstall.ps1.template)
     artifacts\dogfood\README.md                 (stamped from build\dogfood\README.template.md)
 
   No certificate file of any kind ships (DIST-13 amendment, 2026-07-20): the
@@ -62,13 +66,25 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <_AtvDogfoodRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\artifacts\dogfood'))</_AtvDogfoodRoot>
+    <!-- Base dir only; the actual kit lands in a per-version subfolder
+         ($(_AtvDogfoodRoot), computed at execution time in
+         AtvDogfoodComputeVersion once $(BuildVersion) is known) so an older
+         kit can never be confused for the current one. -->
+    <_AtvDogfoodBaseRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\artifacts\dogfood'))</_AtvDogfoodBaseRoot>
     <_AtvDogfoodTemplateDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)dogfood'))</_AtvDogfoodTemplateDir>
     <_AtvRepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</_AtvRepoRoot>
 
     <_AtvDogfoodInstallTemplate>$(_AtvDogfoodTemplateDir)\install.ps1.template</_AtvDogfoodInstallTemplate>
     <_AtvDogfoodUninstallTemplate>$(_AtvDogfoodTemplateDir)\uninstall.ps1.template</_AtvDogfoodUninstallTemplate>
     <_AtvDogfoodReadmeTemplate>$(_AtvDogfoodTemplateDir)\README.template.md</_AtvDogfoodReadmeTemplate>
+
+    <!-- Brand-free launchers: reference only the fixed filenames install.ps1 /
+         uninstall.ps1, so they ship verbatim (Copy, not the Replace-stamp
+         idiom) and stay out of AC4's brand grep. Only the SOURCE paths are
+         version-independent; the destination paths are version-dependent, so
+         they live in AtvDogfoodComputeVersion below. -->
+    <_AtvDogfoodInstallCmdSource>$(_AtvDogfoodTemplateDir)\install.cmd</_AtvDogfoodInstallCmdSource>
+    <_AtvDogfoodUninstallCmdSource>$(_AtvDogfoodTemplateDir)\uninstall.cmd</_AtvDogfoodUninstallCmdSource>
   </PropertyGroup>
 
   <ItemGroup>
@@ -95,8 +111,11 @@
            Text="[Atv.Dogfood] AtvDogfood always ships the retail identity - do not combine with -p:AtvVerifyIdentity=true." />
 
     <PropertyGroup>
+      <_AtvDogfoodRoot>$(_AtvDogfoodBaseRoot)\$(BuildVersion)</_AtvDogfoodRoot>
       <_AtvDogfoodBundle>$(_AtvDogfoodRoot)\$(AtvBrandName)_$(BuildVersion)_x64_arm64.msixbundle</_AtvDogfoodBundle>
+      <_AtvDogfoodInstallCmd>$(_AtvDogfoodRoot)\install.cmd</_AtvDogfoodInstallCmd>
       <_AtvDogfoodInstallScript>$(_AtvDogfoodRoot)\install.ps1</_AtvDogfoodInstallScript>
+      <_AtvDogfoodUninstallCmd>$(_AtvDogfoodRoot)\uninstall.cmd</_AtvDogfoodUninstallCmd>
       <_AtvDogfoodUninstallScript>$(_AtvDogfoodRoot)\uninstall.ps1</_AtvDogfoodUninstallScript>
       <_AtvDogfoodReadme>$(_AtvDogfoodRoot)\README.md</_AtvDogfoodReadme>
     </PropertyGroup>
@@ -199,9 +218,36 @@
     <Message Importance="high" Text="[Atv.Dogfood] Stamped: $(_AtvDogfoodReadme)" />
   </Target>
 
+  <!-- ==================== install.cmd / uninstall.cmd (verbatim copies) ==================== -->
+  <!-- Not the Replace-stamp idiom: the launchers carry no brand/command token
+       (they launch the fixed filenames install.ps1 / uninstall.ps1), so a byte
+       Copy preserves their CRLF endings - cmd.exe parses batch files reliably
+       only with CRLF, pinned by .gitattributes. Inputs is the source file alone
+       (not this targets file, unlike the stamping targets): the artifact is a
+       pure byte copy, and Copy preserves the source's timestamp, so listing the
+       always-newer targets file would keep the target perpetually out of date. -->
+
+  <Target Name="AtvDogfoodInstallCmd"
+          DependsOnTargets="AtvDogfoodComputeVersion"
+          Inputs="$(_AtvDogfoodInstallCmdSource)"
+          Outputs="$(_AtvDogfoodInstallCmd)">
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+    <Copy SourceFiles="$(_AtvDogfoodInstallCmdSource)" DestinationFiles="$(_AtvDogfoodInstallCmd)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="[Atv.Dogfood] Copied: $(_AtvDogfoodInstallCmd)" />
+  </Target>
+
+  <Target Name="AtvDogfoodUninstallCmd"
+          DependsOnTargets="AtvDogfoodComputeVersion"
+          Inputs="$(_AtvDogfoodUninstallCmdSource)"
+          Outputs="$(_AtvDogfoodUninstallCmd)">
+    <MakeDir Directories="$(_AtvDogfoodRoot)" Condition="!Exists('$(_AtvDogfoodRoot)')" />
+    <Copy SourceFiles="$(_AtvDogfoodUninstallCmdSource)" DestinationFiles="$(_AtvDogfoodUninstallCmd)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="[Atv.Dogfood] Copied: $(_AtvDogfoodUninstallCmd)" />
+  </Target>
+
   <!-- ==================== both, one command (AC1) ==================== -->
 
-  <Target Name="AtvDogfood" DependsOnTargets="AtvDogfoodBundle;AtvDogfoodPluginZips;AtvDogfoodInstallScript;AtvDogfoodUninstallScript;AtvDogfoodReadme">
+  <Target Name="AtvDogfood" DependsOnTargets="AtvDogfoodBundle;AtvDogfoodPluginZips;AtvDogfoodInstallCmd;AtvDogfoodUninstallCmd;AtvDogfoodInstallScript;AtvDogfoodUninstallScript;AtvDogfoodReadme">
     <Message Importance="high" Text="[Atv.Dogfood] Kit ready: $(_AtvDogfoodRoot)" />
   </Target>
 

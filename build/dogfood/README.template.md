@@ -9,7 +9,9 @@ to another machine. Nothing here needs a clone of the source repository.
 {IdentityName}_<version>_x64_arm64.msixbundle   — the signed app, both architectures
 {Command}-plugin-claude-code.zip                — Claude Code plugin
 {Command}-plugin-copilot-cli.zip                — Copilot CLI plugin
+install.cmd                                     — launcher for install.ps1 (file share / double-click)
 install.ps1
+uninstall.cmd                                   — launcher for uninstall.ps1 (file share / double-click)
 uninstall.ps1
 README.md                                       — this file
 ```
@@ -22,6 +24,11 @@ from the bundle's own signature and asks before trusting it.
 ```powershell
 .\install.ps1
 ```
+
+To run from a file share or by double-click, use `install.cmd` instead — it
+launches PowerShell with the execution policy set for this one script, so you
+don't have to change the machine's policy or unblock the file. It passes any
+arguments through to `install.ps1`.
 
 Trusts the bundle's signing certificate (one admin prompt, explained before
 it happens), installs the bundle with `Add-AppxPackage`, then prompts to wire
@@ -62,6 +69,10 @@ copilot --plugin-dir <path to the expanded folder>\plugins\atv-integration
 ```powershell
 .\uninstall.ps1
 ```
+
+As with install, use `uninstall.cmd` to run from a file share or by
+double-click; it passes any arguments (such as `-Thumbprint`) through to
+`uninstall.ps1`.
 
 Unwires any plugin `install.ps1` wired, removes the `{IdentityName}` package
 (taskbar cards and app data go with it), and offers to remove the trusted

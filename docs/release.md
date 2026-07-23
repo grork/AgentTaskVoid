@@ -272,18 +272,25 @@ since the manifest lives outside the compiled product.
 dotnet build src\Atv\Atv.csproj -t:AtvDogfood
 ```
 
-Produces `artifacts\dogfood\` (gitignored): a signed dual-arch
-`.msixbundle` stamped with the retail identity, one `atv-plugin-<host>.zip`
-per `integrations\<host>\` directory (the working tree's git-tracked files
-only, so a gitignored override like `atv-command.txt` never ships),
-`install.ps1`, `uninstall.ps1`, and a README — everything a recipient needs,
-with no clone of this repository. It chains onto section 1's per-arch
-publish/pack/sign work instead of repeating it, and signs with the same
-throwaway development certificate.
+Produces a per-version kit folder `artifacts\dogfood\<version>\` (gitignored):
+a signed dual-arch `.msixbundle` stamped with the retail identity, one
+`atv-plugin-<host>.zip` per `integrations\<host>\` directory (the working
+tree's git-tracked files only, so a gitignored override like `atv-command.txt`
+never ships), `install.cmd`, `install.ps1`, `uninstall.cmd`, `uninstall.ps1`,
+and a README — everything a recipient needs, with no clone of this repository.
+It chains onto section 1's per-arch publish/pack/sign work instead of repeating
+it, and signs with the same throwaway development certificate.
+
+The version is in the folder name, so a kit from an earlier build is never
+mistaken for the current one; hand off the folder whose version matches the
+build you just ran, and delete old version folders when you no longer need
+them.
 
 The kit ships no certificate file. `install.ps1` reads the signer from the
 bundle's own Authenticode signature and asks before trusting it — one
-elevation, explained before it happens.
+elevation, explained before it happens. A recipient runs `install.ps1` /
+`uninstall.ps1` directly, or the matching `.cmd` to launch it with the right
+execution policy when running from a file share or by double-click.
 
 Use this kit to hand the build to someone else's machine — a VM, a
 secondary machine, another person's PC. Use section 2's plain release msix
