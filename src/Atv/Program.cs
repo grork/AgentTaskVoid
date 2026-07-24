@@ -62,10 +62,9 @@ static void PrintUsage()
 {
     Console.WriteLine($"Usage: {Branding.Command} <verb> <handle> [options]");
     Console.WriteLine();
-    Console.WriteLine("Semantic verbs (ERGO-31 v2 -- every verb below except session-ended accepts");
-    Console.WriteLine("[--title T] [--subtitle S] [--icon TOKEN | --icon-file PATH] [--deep-link URI] and upserts");
-    Console.WriteLine("the card (--icon and --icon-file are mutually exclusive); a flag value of exactly \"-\"");
-    Console.WriteLine("reads that field from stdin, UTF-8, to EOF):");
+    Console.WriteLine("Card verbs. The first verb called on a new <handle> creates its card. Every verb below");
+    Console.WriteLine("except session-ended also accepts [--title T] [--subtitle S] [--icon TOKEN | --icon-file PATH]");
+    Console.WriteLine("[--deep-link URI]. A flag value of exactly \"-\" reads that field from stdin (UTF-8, to EOF):");
     Console.WriteLine($"  {Branding.Command} working <handle> [--goal -]");
     Console.WriteLine($"  {Branding.Command} activity <handle> --kind read|edit|write|search|shell|fetch|web-search|plan|compacting|tool [--label -] [--agent ID] [--name N]");
     Console.WriteLine($"  {Branding.Command} blocked <handle> --question - [--agent ID]");
@@ -83,7 +82,7 @@ static void PrintUsage()
     Console.WriteLine($"  {Branding.Command} doctor [--json] [--verbose]");
     Console.WriteLine();
     Console.WriteLine("Global options (accepted anywhere): --json --strict --verbose --watchdog-mode spawn|inproc|off --unsafe --wait-for-debugger");
-    Console.WriteLine("  --cwd <path>  Anchor for repo-scoped .atv.json defaults (ERGO-30); absent -> this process's own working directory.");
+    Console.WriteLine("  --cwd <path>  Anchor directory for repo-scoped .atv.json defaults; absent -> this process's own working directory.");
     Console.WriteLine();
     Console.WriteLine($"{Branding.Command} --version    Print the tool's version.");
     Console.WriteLine($"{Branding.Command} --help       Print this usage text.");
