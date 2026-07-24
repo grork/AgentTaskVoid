@@ -3,12 +3,12 @@ PackageIdentifier: Codevoid.AgentTaskVoid
 PackageVersion: 0.1.13.21419
 PackageLocale: en-US
 Publisher: Codevoid
-PublisherUrl: https://github.com/grork/AppTaskInfoCli
-PublisherSupportUrl: https://github.com/grork/AppTaskInfoCli/issues
+PublisherUrl: https://github.com/grork/AgentTaskVoid
+PublisherSupportUrl: https://github.com/grork/AgentTaskVoid/issues
 PackageName: Agent Task Void
-PackageUrl: https://github.com/grork/AppTaskInfoCli
+PackageUrl: https://github.com/grork/AgentTaskVoid
 License: MIT
-LicenseUrl: https://github.com/grork/AppTaskInfoCli/blob/main/LICENSE
+LicenseUrl: https://github.com/grork/AgentTaskVoid/blob/main/LICENSE
 ShortDescription: Agent task presence on the Windows 11 taskbar
 Description: >-
   Agent Task Void (atv) wraps the experimental Windows.UI.Shell.Tasks.AppTaskInfo

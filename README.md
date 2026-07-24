@@ -65,7 +65,7 @@ alternative:
 ### GitHub Copilot CLI
 
 ```
-copilot plugin install grork/AppTaskInfoCli:integrations/copilot-cli/plugins/atv-integration
+copilot plugin install grork/AgentTaskVoid:integrations/copilot-cli/plugins/atv-integration
 ```
 
 Confirm with `copilot plugin list`. Full details:

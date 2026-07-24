@@ -245,7 +245,7 @@ the current snapshot.
 
 `InstallerSha256` values are real hashes of the dev-cert-signed `.msix`
 files. `InstallerUrl` points at this repo's GitHub Releases URL convention
-(`github.com/grork/AppTaskInfoCli/releases/download/v<version>/...`) for a
+(`github.com/grork/AgentTaskVoid/releases/download/v<version>/...`) for a
 tag that does not exist yet — a snapshot manifest, not a submission.
 Regenerate the three files under a new version folder for each real release
 rather than hand-editing an old snapshot back into currency.

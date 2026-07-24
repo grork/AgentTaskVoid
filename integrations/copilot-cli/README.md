@@ -33,21 +33,21 @@ Install persistently from a local checkout of this repository: register the
 integration directory as a marketplace, then install the plugin from it.
 
 ```powershell
-copilot plugin marketplace add D:\path\to\AppTaskInfoCli\integrations\copilot-cli
+copilot plugin marketplace add D:\path\to\AgentTaskVoid\integrations\copilot-cli
 copilot plugin install atv-integration@agent-task-void-copilot
 ```
 
 Or install straight from GitHub:
 
 ```powershell
-copilot plugin install grork/AppTaskInfoCli:integrations/copilot-cli/plugins/atv-integration
+copilot plugin install grork/AgentTaskVoid:integrations/copilot-cli/plugins/atv-integration
 ```
 
 While iterating on the plugin, load the working tree for a single session
 without installing — `--plugin-dir` bypasses the installed-plugin cache:
 
 ```powershell
-copilot --plugin-dir D:\path\to\AppTaskInfoCli\integrations\copilot-cli\plugins\atv-integration
+copilot --plugin-dir D:\path\to\AgentTaskVoid\integrations\copilot-cli\plugins\atv-integration
 ```
 
 Confirm it with `copilot plugin list` or `/plugin list`. Uninstall with:

@@ -15,10 +15,10 @@ Commands:
   - atv
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/grork/AppTaskInfoCli/releases/download/v0.1.13.21419/Codevoid.AgentTaskVoid_0.1.13.21419_x64.msix
+    InstallerUrl: https://github.com/grork/AgentTaskVoid/releases/download/v0.1.13.21419/Codevoid.AgentTaskVoid_0.1.13.21419_x64.msix
     InstallerSha256: 9FBB687425015AAAA2062402C5957320BCB46EFADCE7702792F6686754059C8D
   - Architecture: arm64
-    InstallerUrl: https://github.com/grork/AppTaskInfoCli/releases/download/v0.1.13.21419/Codevoid.AgentTaskVoid_0.1.13.21419_arm64.msix
+    InstallerUrl: https://github.com/grork/AgentTaskVoid/releases/download/v0.1.13.21419/Codevoid.AgentTaskVoid_0.1.13.21419_arm64.msix
     InstallerSha256: CD768E828EA0E024AD92E32B8405368BA55F2DDE4E3AB07AE6AC989F58DD8D05
 ManifestType: installer
 ManifestVersion: 1.6.0
